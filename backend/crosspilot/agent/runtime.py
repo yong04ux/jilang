@@ -61,6 +61,7 @@ class AgentRuntime:
         user_id: str,
         tenant_id: str,
         cancel_check: Callable[[], bool] | None = None,
+        resume_from: dict[str, Any] | None = None,
     ) -> None:
         self.db = db
         self.provider = provider
@@ -68,6 +69,8 @@ class AgentRuntime:
         self.user_id = user_id
         self.tenant_id = tenant_id
         self.cancel_check = cancel_check
+        # 断点续跑：{node: 上次成功输出}；命中的节点直接复用，不重跑（含不重调 LLM）
+        self.resume_from = resume_from or {}
         self._graph = self._build_graph()
 
     # -- 图构建 ------------------------------------------------------------
@@ -109,8 +112,19 @@ class AgentRuntime:
         import time
 
         self._checkpoint()
+        if name in self.resume_from:
+            result = self.resume_from[name]
+            step_id = self.task.begin_step(STEP_LABELS[name], "复用上次成功步骤", node=name)
+            self.task.end_step(
+                step_id,
+                status="succeeded",
+                detail="复用上次成功步骤（未重跑）",
+                duration_ms=0,
+                output=result,
+            )
+            return result
         started = time.perf_counter()
-        step_id = self.task.begin_step(STEP_LABELS[name], detail)
+        step_id = self.task.begin_step(STEP_LABELS[name], detail, node=name)
         try:
             result = fn()
         except Exception as exc:  # noqa: BLE001 - 记录失败后继续抛出
@@ -121,7 +135,7 @@ class AgentRuntime:
                 started_perf=started,
             )
             raise
-        self.task.end_step(step_id, started_perf=started)
+        self.task.end_step(step_id, started_perf=started, output=result)
         return result
 
     # -- 节点 --------------------------------------------------------------
@@ -330,6 +344,7 @@ def execute_agent(
     provider,
     payload: dict[str, Any],
     cancel_check: Callable[[], bool] | None = None,
+    resume_from: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """执行一个已创建的任务。异常由 Runtime 记录到任务上。"""
     recorder.mark_running()
@@ -340,6 +355,7 @@ def execute_agent(
         user_id=recorder.user_id,
         tenant_id=recorder.tenant_id or "",
         cancel_check=cancel_check or recorder.is_cancel_requested,
+        resume_from=resume_from,
     )
     return runtime.run(payload)
 

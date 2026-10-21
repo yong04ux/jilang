@@ -1324,19 +1324,27 @@ class Database:
 
     def add_task_step(self, step: dict[str, Any]) -> None:
         fields = (
-            "step_id", "task_id", "user_id", "tenant_id", "seq", "name", "status",
-            "detail", "started_at", "finished_at", "duration_ms",
+            "step_id", "task_id", "user_id", "tenant_id", "seq", "name", "node",
+            "status", "detail", "started_at", "finished_at", "duration_ms", "output",
         )
+        payload = dict(step)
+        if payload.get("output") is not None and not isinstance(payload["output"], str):
+            payload["output"] = json.dumps(payload["output"], ensure_ascii=False)
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO task_steps ({', '.join(fields)}) "
                 f"VALUES ({', '.join('?' for _ in fields)})",
-                tuple(step.get(name) for name in fields),
+                tuple(payload.get(name) for name in fields),
             )
 
     def update_task_step(self, step_id: str, **fields: Any) -> None:
-        allowed = {"status", "detail", "started_at", "finished_at", "duration_ms"}
+        allowed = {"status", "detail", "started_at", "finished_at", "duration_ms", "node", "output"}
         updates = {k: v for k, v in fields.items() if k in allowed}
+        if "output" in updates:
+            if updates["output"] is None:
+                updates.pop("output")
+            elif not isinstance(updates["output"], str):
+                updates["output"] = json.dumps(updates["output"], ensure_ascii=False)
         if not updates:
             return
         assignments = ", ".join(f"{name} = ?" for name in updates)
@@ -1360,7 +1368,39 @@ class Database:
         sql += " ORDER BY seq"
         with self.connect() as connection:
             rows = connection.execute(sql, params).fetchall()
-        return [dict(row) for row in rows]
+        items = []
+        for row in rows:
+            item = dict(row)
+            # 步骤 output 仅供断点续跑内部使用，不进 API 响应，避免响应体膨胀
+            item.pop("output", None)
+            items.append(item)
+        return items
+
+    def step_outputs(
+        self, task_id: str, tenant_id: str | None = None
+    ) -> dict[str, Any]:
+        """断点续跑用：返回已成功步骤的 ``{node: 输出对象}``。"""
+        sql = (
+            "SELECT node, output FROM task_steps "
+            "WHERE task_id = ? AND status = 'succeeded'"
+        )
+        params: list[Any] = [task_id]
+        if tenant_id is not None:
+            sql += " AND tenant_id = ?"
+            params.append(tenant_id)
+        with self.connect() as connection:
+            rows = connection.execute(sql, params).fetchall()
+        result: dict[str, Any] = {}
+        for row in rows:
+            node = row["node"]
+            raw = row["output"]
+            if not node or raw is None:
+                continue
+            try:
+                result[node] = json.loads(raw)
+            except ValueError:
+                continue
+        return result
 
     def task_stats(self, user_id: str, tenant_id: str | None = None) -> dict[str, int]:
         if tenant_id is not None:

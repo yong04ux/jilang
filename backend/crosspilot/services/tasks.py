@@ -165,10 +165,11 @@ class TaskRecorder:
         return bool(task and task["status"] in {STATUS_CANCELLING, STATUS_CANCELLED})
 
     # -- 步骤 --------------------------------------------------------------
-    def begin_step(self, name: str, detail: str | None = None) -> str:
+    def begin_step(self, name: str, detail: str | None = None, node: str | None = None) -> str:
         """显式开一个步骤，返回 step_id。
 
         Agent Runtime 的每个图节点用这个接口记录，便于在图里精确控制起止。
+        ``node`` 是稳定的节点键（如 ``analyze``），失败任务重试时据此复用输出。
         """
         self._seq += 1
         step_id = uuid.uuid4().hex
@@ -180,6 +181,7 @@ class TaskRecorder:
                 "tenant_id": self.tenant_id,
                 "seq": self._seq,
                 "name": name,
+                "node": node,
                 "status": STATUS_RUNNING,
                 "detail": detail,
                 "started_at": _now(),
@@ -196,16 +198,18 @@ class TaskRecorder:
         status: str = STATUS_SUCCEEDED,
         detail: str | None = None,
         started_perf: float | None = None,
+        duration_ms: int | None = None,
+        output: Any = None,
     ) -> None:
-        duration = None
-        if started_perf is not None:
-            duration = int((time.perf_counter() - started_perf) * 1000)
+        if duration_ms is None and started_perf is not None:
+            duration_ms = int((time.perf_counter() - started_perf) * 1000)
         self.db.update_task_step(
             step_id,
             status=status,
             detail=detail,
             finished_at=_now(),
-            duration_ms=duration,
+            duration_ms=duration_ms,
+            output=output,
         )
 
     @contextmanager

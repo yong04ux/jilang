@@ -118,14 +118,16 @@ async def cancel_task_endpoint(
 @router.post("/api/tasks/{task_id}/retry")
 async def retry_task_endpoint(
     task_id: str,
+    resume: bool = True,
     user: dict[str, Any] = Depends(require_user),
     tenant: TenantContext = Depends(require_tenant),
     api: ApiContext = Depends(get_ctx),
 ) -> dict[str, Any]:
-    """重试失败/取消的 Agent 任务：新建任务（``retry_of`` 指向原任务）并异步重跑。
+    """重试失败/取消的 Agent 任务：新建任务（``retry_of`` 指向原任务）并异步执行。
 
-    语义边界（诚实说明）：这是**整任务重跑**，不重用未完成步骤的中间输出——
-    步骤级续跑需要 ``task_steps`` 持久化每步 output，见 ``docs/11-backlog.md`` 的 P2。
+    - ``resume=true``（默认）：复用原任务**已成功步骤**的输出（含 LLM 生成的 Listing），
+      只从失败点继续；命中复用的步骤在时间线上标注「复用上次成功步骤（未重跑）」。
+    - ``resume=false``：整任务从头重跑。
     """
     require_role(tenant, ROLE_WRITE)
     task = api.db.get_task(task_id, user["user_id"], tenant.tenant_id)
@@ -149,6 +151,14 @@ async def retry_task_endpoint(
             detail="原任务缺少重跑所需的 product_name 或 competitors",
         )
 
+    resume_from: dict[str, Any] = {}
+    if resume:
+        resume_from = {
+            node: out
+            for node, out in api.db.step_outputs(task_id, tenant.tenant_id).items()
+            if node != "persist"
+        }
+
     _active, _config, provider = api.build_user_provider(user)
     conversation_id = task.get("conversation_id")
     degraded = bool(task.get("degraded"))
@@ -168,7 +178,13 @@ async def retry_task_endpoint(
 
     def job() -> None:
         try:
-            execute_agent(recorder, db=api.db, provider=provider, payload=payload)
+            execute_agent(
+                recorder,
+                db=api.db,
+                provider=provider,
+                payload=payload,
+                resume_from=resume_from or None,
+            )
         except TaskCancelled:
             pass  # Runtime 已把任务落成 cancelled
         except AgentRunError:
@@ -195,7 +211,11 @@ async def retry_task_endpoint(
         audit.ACTION_TASK_RETRY,
         target_type="task",
         target_id=recorder.task_id,
-        detail={"retry_of": task_id, "previous_status": status},
+        detail={
+            "retry_of": task_id,
+            "previous_status": status,
+            "resumed_steps": sorted(resume_from),
+        },
         trace_id=recorder.trace_id,
     )
     return {
@@ -203,6 +223,7 @@ async def retry_task_endpoint(
         "task_id": recorder.task_id,
         "retry_of": task_id,
         "status": "queued",
+        "resumed_steps": sorted(resume_from),
     }
 
 

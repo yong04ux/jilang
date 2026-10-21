@@ -337,7 +337,7 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 | POST | `/api/agent/runs` | 运行 Agent（支持 `async_run`，需 Key） |
 | GET | `/api/agents` / `/api/skills` / `/api/tools` | 注册表（平台内置 + 本租户自定义） |
 | POST/PUT/DELETE | `/api/agents[...]`、`/api/skills[...]` | 租户自定义 Agent / Skill（`admin+`；软删为 `disabled`；不能改平台内置） |
-| GET | `/api/tasks`、`/api/tasks/{id}`、`POST /api/tasks/{id}/cancel`、`POST /api/tasks/{id}/retry` | 任务中心（重试仅限失败/取消的 Agent 工作流任务，新建任务带 `retry_of` 血缘） |
+| GET | `/api/tasks`、`/api/tasks/{id}`、`POST /api/tasks/{id}/cancel`、`POST /api/tasks/{id}/retry` | 任务中心（重试仅限失败/取消的 Agent 工作流任务，默认断点续跑、`?resume=false` 整任务重跑；新建任务带 `retry_of` 血缘） |
 | GET | `/api/conversations` 及其子路由 | 会话与消息 |
 | GET | `/api/stores` 及其子路由 | 店铺连接（Mock） |
 | GET | `/api/approvals`、`POST /api/approvals`、`POST /{id}/decide` | 发布审批 |
@@ -458,8 +458,9 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
    但真实文案质量需配置 Key 后实测。
 4. **审批不等于发布**。平台发布接口未接入，审批通过只记录结论。
 5. **会话不共享**。聊天记录属于个人；团队共享的是任务、报告与草稿。
-6. **失败任务不能从中间步骤续跑**，重试是整任务重跑（`POST /api/tasks/{id}/retry` 提供入口，
-   仅 Agent 工作流任务，新建任务带 `retry_of` 血缘）。
+6. **重试默认从断点续跑**：`POST /api/tasks/{id}/retry` 复用原任务**已成功步骤**的输出
+   （含 LLM 生成的 Listing），只从失败点继续，被复用的步骤在时间线标注「复用上次成功步骤（未重跑）」；
+   `?resume=false` 则整任务重跑。仅 Agent 工作流任务，新建任务带 `retry_of` 血缘。
 7. **历史 Listing 可能没有商品事实快照**，无法复检；新生成与新版本可以。
 8. **真实平台数据未接入**。`LiveMarketplaceProvider` 只是骨架：构造时校验凭据，
    缺凭据即抛 `ProviderNotConfigured`，调用一律 501。商品/订单/广告/指标目前全部来自 Mock。
