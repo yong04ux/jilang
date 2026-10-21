@@ -1,0 +1,43 @@
+{
+  "competitors": [
+    {
+      "name": "Demo Bottle A",
+      "brand": "DemoBrandA",
+      "asin": "DEMO-0001",
+      "price": 19.99,
+      "currency": "USD",
+      "rating": 4.2,
+      "review_count": 120,
+      "category": "Sports Water Bottles",
+      "key_features": ["Leak-proof lid", "Dishwasher safe"],
+      "specifications": { "容量": "500ml", "材质": "塑料" },
+      "is_demo": true,
+      "source_ref": "examples/competitors_sample.json",
+      "reviews": [
+        { "rating": 2, "text": "The lid leaked in my bag on day three.", "title": "Lid leaked" },
+        { "rating": 5, "text": "Easy to clean and the wide mouth helps.", "title": "Good for daily use" }
+      ]
+    },
+    {
+      "name": "Demo Tumbler B",
+      "brand": "DemoBrandB",
+      "asin": "DEMO-0002",
+      "price": 29.5,
+      "currency": "USD",
+      "rating": 4.5,
+      "review_count": 80,
+      "key_features": ["Double-wall insulation", "Fits cup holders"],
+      "specifications": { "容量": "750ml", "材质": "不锈钢" },
+      "is_demo": true,
+      "source_ref": "examples/competitors_sample.json",
+      "reviews": [
+        { "rating": 4, "text": "Keeps coffee hot for hours but it is heavy." },
+        { "rating": 3, "text": "The color is different from the pictures." }
+      ]
+    }
+  ],
+  "keywords": [
+    { "keyword": "insulated water bottle", "search_volume": null, "rank": null, "source": "demo" },
+    { "keyword": "leak proof bottle", "search_volume": null, "rank": null, "source": "demo" }
+  ]
+}

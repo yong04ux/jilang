@@ -1,0 +1,5 @@
+name,brand,asin,price,currency,rating,review_count,key_features,specifications,review_text,review_rating,review_title,is_demo
+Demo Bottle A,DemoBrandA,DEMO-0001,19.99,USD,4.2,120,Leak-proof lid|Dishwasher safe,容量:500ml|材质:塑料,The lid leaked in my bag on day three.,2,Lid leaked,true
+Demo Bottle A,DemoBrandA,DEMO-0001,19.99,USD,4.2,120,Leak-proof lid|Dishwasher safe,容量:500ml|材质:塑料,Easy to clean and the wide mouth helps.,5,Good for daily use,true
+Demo Tumbler B,DemoBrandB,DEMO-0002,29.50,USD,4.5,80,Double-wall insulation|Fits cup holders,容量:750ml|材质:不锈钢,Keeps coffee hot for hours but it is heavy.,4,Heavy but works,true
+Demo Tumbler B,DemoBrandB,DEMO-0002,29.50,USD,4.5,80,Double-wall insulation|Fits cup holders,容量:750ml|材质:不锈钢,The color is different from the pictures.,3,Color mismatch,true

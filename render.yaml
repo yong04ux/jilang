@@ -1,0 +1,53 @@
+# Render 免费 Web Service 定义（架构 A：API + worker 同进程）
+#
+# 用法：Render Dashboard → New → Blueprint → 选择本仓库。
+# 部署后把本服务的 host 填回 vercel.json 的 rewrites destination。
+services:
+  - type: web
+    name: jilang-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn crosspilot.worker_service:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+      - key: CROSSPILOT_HOST
+        value: 0.0.0.0
+      - key: CROSSPILOT_WORKER_MODE
+        value: inline
+      - key: CROSSPILOT_TASK_QUEUE
+        value: thread
+      # 免费实例内存 512MB：并发跑 LLM 容易 OOM，队列上限由代码控制为 2
+      - key: CROSSPILOT_MAX_JOBS
+        value: "2"
+      # 生产用 HTTPS：Cookie 必须带 Secure
+      - key: CROSSPILOT_COOKIE_SECURE
+        value: "true"
+      # 迁移由部署流程显式执行（见 docs/10-deployment-runbook.md）
+      - key: CROSSPILOT_AUTO_MIGRATE
+        value: "false"
+      - key: CROSSPILOT_REQUIRE_API_KEY
+        value: "true"
+      - key: CROSSPILOT_STORAGE_BACKEND
+        value: supabase
+      - key: CROSSPILOT_ALLOW_OPEN_REGISTRATION
+        value: "false"
+      # 以下从 Dashboard 手工填入（sync: false 表示不在模板中存值）
+      - key: CROSSPILOT_DATABASE_URL
+        sync: false
+      - key: CROSSPILOT_MIGRATION_DATABASE_URL
+        sync: false
+      - key: CROSSPILOT_SECRET_KEY
+        sync: false
+      - key: CROSSPILOT_DEMO_PASSWORD
+        sync: false
+      - key: CROSSPILOT_SUPABASE_URL
+        sync: false
+      - key: CROSSPILOT_SUPABASE_SERVICE_KEY
+        sync: false
+      - key: CROSSPILOT_ALLOWED_ORIGINS
+        sync: false

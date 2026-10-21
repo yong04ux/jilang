@@ -1,0 +1,94 @@
+{
+  "_meta": {
+    "version": "2024-06",
+    "verified": false,
+    "verified_at": null,
+    "disclaimer": "本文件为 CrossPilot 内部可配置规则示例，字符限制与内容要求参考公开的卖家帮助中心常见条目整理，但未经项目方对最新平台政策逐条核验。生成结果只能作为草稿，发布前必须人工对照平台最新政策确认。",
+    "last_reviewed_by": "crosspilot-team"
+  },
+  "defaults": {
+    "title_max_chars": 200,
+    "bullet_max_chars": 500,
+    "description_max_chars": 2000,
+    "search_terms_max_bytes": 250,
+    "bullet_count": 5,
+    "allow_all_caps": false,
+    "allow_emoji": false,
+    "allow_price_in_title": false,
+    "allow_promotional_terms": false,
+    "prohibited_characters": ["~", "!", "*", "$", "?", "_", "{", "}", "^", "¬", "¦"],
+    "max_keyword_repeat_per_100_words": 4,
+    "quote_generic_terms": false
+  },
+  "platforms": {
+    "amazon": {
+      "US": {
+        "title_max_chars": 200,
+        "bullet_max_chars": 500,
+        "description_max_chars": 2000,
+        "search_terms_max_bytes": 250,
+        "bullet_count": 5,
+        "notes": [
+          "标题字符上限历史上曾收紧至 200 字符以内，请在卖家后台确认当前类目限制。",
+          "部分类目禁止在标题中使用促销词、价格、全大写与特殊符号。"
+        ]
+      },
+      "DE": {
+        "title_max_chars": 200,
+        "bullet_max_chars": 500,
+        "description_max_chars": 2000,
+        "search_terms_max_bytes": 250,
+        "bullet_count": 5,
+        "notes": ["德语站点需遵守当地产品标识与合规声明要求。"]
+      },
+      "JP": {
+        "title_max_chars": 200,
+        "bullet_max_chars": 500,
+        "description_max_chars": 2000,
+        "search_terms_max_bytes": 250,
+        "bullet_count": 5,
+        "notes": ["日语站点对成分、尺寸标注有本地化要求。"]
+      }
+    },
+    "ebay": {
+      "US": {
+        "title_max_chars": 80,
+        "bullet_max_chars": 1000,
+        "description_max_chars": 500000,
+        "search_terms_max_bytes": 250,
+        "bullet_count": 4,
+        "notes": ["eBay 标题上限 80 字符。"]
+      }
+    },
+    "walmart": {
+      "US": {
+        "title_max_chars": 200,
+        "bullet_max_chars": 1200,
+        "description_max_chars": 5000,
+        "search_terms_max_bytes": 250,
+        "bullet_count": 5,
+        "notes": ["Walmart 对标题长度要求通常为 50-75 字符，请以卖家后台为准。"]
+      }
+    },
+    "shopee": {
+      "SG": {
+        "title_max_chars": 120,
+        "bullet_max_chars": 300,
+        "description_max_chars": 3000,
+        "search_terms_max_bytes": 250,
+        "bullet_count": 4,
+        "notes": ["Shopee 标题上限约 120 字符。"]
+      }
+    },
+    "mercadolibre": {
+      "MX": {
+        "title_max_chars": 60,
+        "bullet_max_chars": 400,
+        "description_max_chars": 4000,
+        "search_terms_max_bytes": 250,
+        "bullet_count": 4,
+        "notes": ["Mercado Libre 标题上限约 60 字符。"]
+      }
+    }
+  }
+}

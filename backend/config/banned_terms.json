@@ -1,0 +1,60 @@
+{
+  "_meta": {
+    "version": "2024-06",
+    "disclaimer": "示例禁用词表，用于演示可配置规则机制。真实运营应导入平台官方受限词库、品牌方禁用词与法务清单。",
+    "note": "区分大小写标记 case_sensitive，默认不区分大小写。"
+  },
+  "categories": {
+    "promotional": {
+      "label": "促销/诱导性词汇",
+      "severity": "warning",
+      "terms": [
+        "best seller", "bestseller", "free shipping", "buy now", "limited time",
+        "sale", "hot sale", "discount", "cheapest", "lowest price", "money back",
+        "100% satisfaction", "on sale now"
+      ]
+    },
+    "absolute": {
+      "label": "绝对化表述",
+      "severity": "warning",
+      "terms": [
+        "best", "greatest", "perfect", "the only", "number one", "#1", "no.1",
+        "world's", "top rated", "unbeatable", "guaranteed"
+      ]
+    },
+    "medical": {
+      "label": "医疗/功效声称（未获认证时禁止）",
+      "severity": "error",
+      "terms": [
+        "cure", "cures", "treat", "treats", "heal", "heals", "prevent disease",
+        "anti-bacterial", "antibacterial", "sterilize", "sterilizes", "medical grade",
+        "fda approved", "clinically proven", "kills 99.9%", "kills germs", "disinfect"
+      ]
+    },
+    "environmental": {
+      "label": "环保声明（需可验证依据）",
+      "severity": "warning",
+      "terms": [
+        "eco-friendly", "environmentally friendly", "100% recyclable",
+        "biodegradable", "carbon neutral", "sustainable", "non-toxic"
+      ]
+    },
+    "safety": {
+      "label": "安全/认证声称（需证书编号）",
+      "severity": "error",
+      "terms": [
+        "fda", "ce certified", "ul listed", "etl listed", "fcc certified",
+        "rohs compliant", "food grade", "bpa free", "child safe", "hypoallergenic"
+      ]
+    },
+    "platform_restricted": {
+      "label": "平台受限表述",
+      "severity": "warning",
+      "terms": ["warranty", "lifetime warranty", "satisfaction guarantee", "usb powered"]
+    }
+  },
+  "universal_superlatives": [
+    "best", "greatest", "world's best", "perfect", "unbeatable", "finest",
+    "top quality", "superior to all", "the only", "guaranteed", "never fails"
+  ]
+}

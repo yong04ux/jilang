@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crosspilot"
+version = "0.3.0"
+description = "CrossPilot 跨境电商 AI 内容工作台：竞品分析与 Listing 生成"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115,<1.0",
+    "uvicorn>=0.30,<1.0",
+    "pydantic>=2.7,<3.0",
+    "pydantic-settings>=2.3,<3.0",
+    "python-multipart>=0.0.9",
+    "python-dotenv>=1.0",
+    "openpyxl>=3.1,<4.0",
+    "langgraph>=1.0,<2.0",
+    "psycopg[binary]>=3.2",
+    "openai>=1.40",
+]
+
+[project.optional-dependencies]
+queue = ["arq>=0.26,<1.0", "redis>=5.0"]
+dev = ["pytest>=8.0", "httpx>=0.27"]
+
+[project.scripts]
+crosspilot = "crosspilot.cli:main"
+
+[tool.setuptools.packages.find]
+# 包布局：backend/ 是工程根，crosspilot/ 是唯一的顶级包，
+# 其下按业务域分 api / agent / services / engine / llm / market /
+# persistence / ingest / demo 九个子包（职责见 crosspilot/__init__.py）。
+include = ["crosspilot*"]
+
+# tests / scripts / config 不进入 wheel：
+#   config/ 是纯数据目录（无 __init__.py），不能列为包——那会让
+#   `import config` 解析到目录而不是 crosspilot/config.py；
+#   源码部署（Render / 本地）直接读 backend/config/。
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

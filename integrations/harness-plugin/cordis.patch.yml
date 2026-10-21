@@ -1,0 +1,7 @@
+# CrossPilot bundle patch（骨架，未在真实 Harness 中验证字段名）
+# 由 plugin_manager 安装 bundle 时自动合并到 profile；不要手工写入 profile 目录。
+- id: crosspilot-tools
+  name: crosspilot-harness-plugin
+  config:
+    baseUrl: http://127.0.0.1:8123
+    timeoutMs: 120000
