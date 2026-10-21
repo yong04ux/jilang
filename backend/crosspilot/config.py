@@ -117,6 +117,10 @@ class Settings(BaseSettings):
     # 长任务执行器：thread（进程内，默认）| arq（需 Redis + arq）
     task_queue: Literal["thread", "arq"] = "thread"
     redis_url: str = "redis://127.0.0.1:6379/0"
+    # thread 后端**同时执行**的任务数上限（<=0 表示不限制）。
+    # 超出后新任务在各自线程里排队等空位，API 仍然"提交即返回"。
+    # 免费实例内存小（Render 512MB），建议设 2，否则多人同时点分析有 OOM 风险。
+    max_jobs: int = 4
     # 强制同步执行：部署到 Serverless（Vercel 等）时必须打开。
     # 这类平台的实例在响应结束后会被冻结，进程内线程队列的后台任务会就地停摆，
     # 任务永远停在 running。打开后忽略 async_run，在本次请求内跑完再返回。

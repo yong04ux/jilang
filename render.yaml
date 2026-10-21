@@ -1,42 +1,62 @@
-# Render 免费 Web Service 定义（架构 A：API + worker 同进程）
+# Render 免费 Web Service 定义（API + 任务 worker 同进程）
 #
-# 用法：Render Dashboard → New → Blueprint → 选择本仓库。
-# 部署后把本服务的 host 填回 vercel.json 的 rewrites destination。
+# 用法：Render Dashboard → New → Blueprint → 选择本仓库（yong04ux/jilang）。
+# 也可以不用 Blueprint，手动 New → Web Service 按下面各项填。
+#
+# 与 Vercel 方案的关键区别：Render 是**常驻进程**，不是 serverless，所以
+#   - 进程内线程队列能正常工作，**不需要** CROSSPILOT_FORCE_SYNC_TASKS
+#   - 保留「立即返回 + 后台轮询」的完整体验
+# 代价：免费实例 15 分钟无访问会休眠，冷启动约 30–60 秒。
+#   → 用外部定时器（如 cron-job.org）每 10 分钟打一次 /health/deep，
+#     既唤醒 Render，又顺带保住 Supabase 免费项目不因 7 天无活动而暂停。
 services:
   - type: web
     name: jilang-api
     runtime: python
     plan: free
+    # 与 Supabase 项目同区域（ap-southeast-1），数据库往返延迟最低
     region: singapore
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn crosspilot.worker_service:app --host 0.0.0.0 --port $PORT --workers 1
+    # 只查进程存活，不碰数据库 —— 休眠唤醒时能最快通过
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.13.0"
       - key: CROSSPILOT_HOST
         value: 0.0.0.0
+      # 仅用于 /health 响应里的 mode 字段展示，不影响行为
       - key: CROSSPILOT_WORKER_MODE
         value: inline
       - key: CROSSPILOT_TASK_QUEUE
         value: thread
-      # 免费实例内存 512MB：并发跑 LLM 容易 OOM，队列上限由代码控制为 2
+      # 免费实例内存 512MB：同时执行的任务数上限，超出后在各自线程排队。
+      # 注意：这个变量早先**未被读取**（Settings 无此字段），现已接入，真实生效。
       - key: CROSSPILOT_MAX_JOBS
         value: "2"
-      # 生产用 HTTPS：Cookie 必须带 Secure
+      # 常驻进程，保持异步任务 + 轮询；只有 Vercel 这类 serverless 才需要 true
+      - key: CROSSPILOT_FORCE_SYNC_TASKS
+        value: "false"
+      # 生产走 HTTPS：Cookie 必须带 Secure
       - key: CROSSPILOT_COOKIE_SECURE
         value: "true"
-      # 迁移由部署流程显式执行（见 docs/10-deployment-runbook.md）
+      # 表已在 Supabase 上建好（13 个迁移已应用），启动时不要再跑
       - key: CROSSPILOT_AUTO_MIGRATE
         value: "false"
       - key: CROSSPILOT_REQUIRE_API_KEY
         value: "true"
       - key: CROSSPILOT_STORAGE_BACKEND
         value: supabase
+      - key: CROSSPILOT_SUPABASE_BUCKET
+        value: jilang
+      # 公开演示站：不让陌生人注册，统一走「一键体验」临时账号
       - key: CROSSPILOT_ALLOW_OPEN_REGISTRATION
         value: "false"
-      # 以下从 Dashboard 手工填入（sync: false 表示不在模板中存值）
+      # 前端由同一服务的 StaticFiles 提供，前后端同源，不需要 CORS。
+      # 只有当你要从别的域名调用 API 时才需要填 ALLOWED_ORIGINS。
+      #
+      # 以下为敏感值，Blueprint 不存，需在 Dashboard 手工填入
       - key: CROSSPILOT_DATABASE_URL
         sync: false
       - key: CROSSPILOT_MIGRATION_DATABASE_URL
@@ -48,6 +68,4 @@ services:
       - key: CROSSPILOT_SUPABASE_URL
         sync: false
       - key: CROSSPILOT_SUPABASE_SERVICE_KEY
-        sync: false
-      - key: CROSSPILOT_ALLOWED_ORIGINS
         sync: false

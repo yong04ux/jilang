@@ -54,11 +54,21 @@ class _Job:
 
 
 class ThreadTaskQueue:
-    """进程内线程执行器：无外部依赖，测试与单机部署的默认后端。"""
+    """进程内线程执行器：无外部依赖，测试与单机部署的默认后端。
+
+    ``max_jobs`` 限制**同时执行**的任务数（<=0 表示不限制）。超出上限的任务
+    不会阻塞 ``submit`` 调用方，而是在各自线程里排队等待空位 —— 这样 API 层
+    仍然是「提交即返回」，但后端资源（内存）不会被无限并发撑爆。
+    免费实例（Render 512MB）必须限制，否则几个用户同时点分析就有 OOM 风险。
+    """
 
     name = "thread"
 
-    def __init__(self) -> None:
+    def __init__(self, max_jobs: int = 4) -> None:
+        self.max_jobs = int(max_jobs or 0)
+        self._slots = (
+            threading.BoundedSemaphore(self.max_jobs) if self.max_jobs > 0 else None
+        )
         self._jobs: dict[str, _Job] = {}
         self._lock = threading.Lock()
 
@@ -75,13 +85,23 @@ class ThreadTaskQueue:
             thread.start()
 
     def _run(self, task_id: str, record: _Job, job: Callable[[], None]) -> None:
+        acquired = False
         try:
+            if self._slots is not None:
+                self._slots.acquire()
+                acquired = True
+            # 排队期间可能已被取消，不必再执行
+            if record.event.is_set():
+                logger.info("任务在排队期间被取消：%s", task_id)
+                return
             job()
         except TaskCancelled:
             logger.info("任务在检查点取消：%s", task_id)
         except Exception:  # noqa: BLE001 - 任务本身的失败由 TaskRecorder 记录
             logger.exception("任务执行线程异常：%s", task_id)
         finally:
+            if acquired and self._slots is not None:
+                self._slots.release()
             with self._lock:
                 self._jobs.pop(task_id, None)
 
@@ -214,7 +234,7 @@ def build_task_queue(settings) -> TaskQueue:
     """按配置构造队列；``arq`` 缺依赖时给出可操作错误，不静默降级。"""
     backend = (getattr(settings, "task_queue", "thread") or "thread").lower()
     if backend == "thread":
-        return ThreadTaskQueue()
+        return ThreadTaskQueue(max_jobs=getattr(settings, "max_jobs", 4))
     if backend == "arq":
         return ArqTaskQueue(getattr(settings, "redis_url", "redis://127.0.0.1:6379/0"))
     raise QueueBackendError(f"未知的 CROSSPILOT_TASK_QUEUE={backend!r}，可选：thread / arq")
