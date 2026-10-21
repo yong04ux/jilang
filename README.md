@@ -55,6 +55,7 @@
 | **多厂商 LLM** | 只做 OpenAI 兼容协议，9 个预置（DeepSeek / OpenAI / Moonshot / 智谱 / 通义 / 硅基流动 / OpenRouter / Ollama / 自定义）；多套配置、单一激活、连通性测试、`base_url` 白名单 |
 | **数据导入** | CSV / JSON / Excel 逐行校验，列识别 + 字段映射 + 预览，错误可定位到单元格并可下载 CSV |
 | **Agent 工作流** | 目标解析（LLM）→ 确定性计划 → LangGraph 7 节点执行 → 完整性检查 → 市场机会总结 → Listing → 质检 → 落库 |
+| **注册表与自定义** | 平台内置 3 Agent / 6 Skill / 4 Tool；租户可增改停用自己的 Agent / Skill（`admin+`，软删为 `disabled`，**不能覆盖平台内置**；自定义定义为元数据，运行仍走固定工作流图） |
 | **市场数据 Provider** | `MockMarketplaceProvider`（确定性种子，全 `is_mock`）与 `LiveMarketplaceProvider` 骨架；商品/订单/广告/指标四类只读接口 |
 | **多租户与角色** | 个人空间自动创建、`X-Tenant-Id` 校验成员关系、viewer / editor / admin / owner |
 | **任务与执行** | 任务状态机、真实步骤与耗时、线程执行器（默认）与 arq 执行器（可选）、检查点取消、失败可追踪 |
@@ -334,7 +335,8 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 | GET/PUT/DELETE | `/api/settings/model`、`POST /test` | 旧的单套模型配置（保留兼容） |
 | GET | `/api/agent/resolve` | 自然语言目标 → 结构化参数（需 Key） |
 | POST | `/api/agent/runs` | 运行 Agent（支持 `async_run`，需 Key） |
-| GET | `/api/agents` / `/api/skills` / `/api/tools` | 注册表 |
+| GET | `/api/agents` / `/api/skills` / `/api/tools` | 注册表（平台内置 + 本租户自定义） |
+| POST/PUT/DELETE | `/api/agents[...]`、`/api/skills[...]` | 租户自定义 Agent / Skill（`admin+`；软删为 `disabled`；不能改平台内置） |
 | GET | `/api/tasks`、`/api/tasks/{id}`、`POST /api/tasks/{id}/cancel`、`POST /api/tasks/{id}/retry` | 任务中心（重试仅限失败/取消的 Agent 工作流任务，新建任务带 `retry_of` 血缘） |
 | GET | `/api/conversations` 及其子路由 | 会话与消息 |
 | GET | `/api/stores` 及其子路由 | 店铺连接（Mock） |

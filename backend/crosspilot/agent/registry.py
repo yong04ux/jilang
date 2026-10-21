@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -241,16 +242,317 @@ def list_tools(db: Database, tenant_id: str = BUILTIN) -> list[dict[str, Any]]:
     return db.list_tool_definitions(tenant_id)
 
 
+# ---------------------------------------------------------------------------
+# 租户自定义 Agent / Skill（写入）
+#
+# 边界（诚实说明）：
+# - 只允许写当前租户空间（tenant_id=当前租户），**不能改/停用平台内置**（tenant_id=""）；
+# - 自定义定义是**元数据**：列表/详情可见、可管理；但 Agent 运行仍走固定的
+#   7 节点 LangGraph（skill_keys/tool_keys 目前是展示信息，不是自定义执行图）。
+# - 删除采用软删（status="disabled"），保留审计与历史引用。
+# ---------------------------------------------------------------------------
+
+_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
+_DEF_STATUSES = {"available", "beta", "dev", "disabled"}
+
+
+class RegistryError(RuntimeError):
+    """注册表写入错误；``status_code`` 可直接交给 HTTP 层。"""
+
+    def __init__(self, message: str, status_code: int = 400) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def _bump_version(version: str) -> str:
+    parts = (version or "1.0.0").split(".")
+    if parts and parts[-1].isdigit():
+        parts[-1] = str(int(parts[-1]) + 1)
+        return ".".join(parts)
+    return f"{version}.1"
+
+
+def _pick(data: dict[str, Any], key: str, default: Any) -> Any:
+    value = data.get(key)
+    return default if value is None else value
+
+
+def _validate_common(
+    key: str,
+    name: Any,
+    summary: Any,
+    status: Any,
+    input_schema: Any,
+    output_schema: Any,
+) -> None:
+    if not _KEY_RE.match(str(key or "")):
+        raise RegistryError("key 必须以小写字母开头，只含小写字母/数字/下划线（2–64 位）")
+    if not str(name or "").strip():
+        raise RegistryError("name 不能为空")
+    if not str(summary or "").strip():
+        raise RegistryError("summary 不能为空")
+    if status not in _DEF_STATUSES:
+        raise RegistryError(f"status 只能是 {sorted(_DEF_STATUSES)} 之一")
+    if not isinstance(input_schema, dict) or not isinstance(output_schema, dict):
+        raise RegistryError("input_schema / output_schema 必须是 JSON 对象")
+
+
+def _agent_row(
+    *,
+    key: str,
+    tenant_id: str,
+    name: str,
+    summary: str,
+    description: str,
+    input_schema: dict[str, Any],
+    output_schema: dict[str, Any],
+    skill_keys: list[str],
+    tool_keys: list[str],
+    version: str,
+    status: str,
+) -> dict[str, Any]:
+    return {
+        "agent_key": key,
+        "tenant_id": tenant_id,
+        "name": name,
+        "summary": summary,
+        "description": description or "",
+        "input_schema": json.dumps(input_schema or {}, ensure_ascii=False),
+        "output_schema": json.dumps(output_schema or {}, ensure_ascii=False),
+        "skill_keys": json.dumps(list(skill_keys or []), ensure_ascii=False),
+        "tool_keys": json.dumps(list(tool_keys or []), ensure_ascii=False),
+        "version": version,
+        "status": status,
+        "updated_at": _now(),
+    }
+
+
+def _skill_row(
+    *,
+    key: str,
+    tenant_id: str,
+    name: str,
+    summary: str,
+    input_schema: dict[str, Any],
+    output_schema: dict[str, Any],
+    version: str,
+    status: str,
+) -> dict[str, Any]:
+    return {
+        "skill_key": key,
+        "tenant_id": tenant_id,
+        "name": name,
+        "summary": summary,
+        "input_schema": json.dumps(input_schema or {}, ensure_ascii=False),
+        "output_schema": json.dumps(output_schema or {}, ensure_ascii=False),
+        "version": version,
+        "status": status,
+        "updated_at": _now(),
+    }
+
+
+def _require_tenant_space(tenant_id: str) -> None:
+    if not tenant_id or tenant_id == BUILTIN:
+        raise RegistryError("缺少租户上下文，不能写入平台内置空间")
+
+
+def _validate_key_lists(data: dict[str, Any]) -> None:
+    for field in ("skill_keys", "tool_keys"):
+        value = data.get(field)
+        if value is not None and not isinstance(value, list):
+            raise RegistryError(f"{field} 必须是字符串数组")
+
+
+def create_agent(db: Database, tenant_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    _require_tenant_space(tenant_id)
+    key = str(_pick(data, "key", data.get("agent_key")) or "").strip()
+    status = str(_pick(data, "status", "available"))
+    _validate_common(
+        key,
+        data.get("name"),
+        data.get("summary"),
+        status,
+        data.get("input_schema") or {},
+        data.get("output_schema") or {},
+    )
+    _validate_key_lists(data)
+    if db.get_agent_definition(key, BUILTIN) is not None:
+        raise RegistryError(f"不能覆盖平台内置 Agent：{key}", 409)
+    if db.get_agent_definition(key, tenant_id) is not None:
+        raise RegistryError(f"Agent 已存在：{key}（请用 PUT 更新）", 409)
+    db.upsert_agent(
+        _agent_row(
+            key=key,
+            tenant_id=tenant_id,
+            name=str(data["name"]).strip(),
+            summary=str(data["summary"]).strip(),
+            description=str(_pick(data, "description", "") or ""),
+            input_schema=data.get("input_schema") or {},
+            output_schema=data.get("output_schema") or {},
+            skill_keys=data.get("skill_keys") or [],
+            tool_keys=data.get("tool_keys") or [],
+            version=str(_pick(data, "version", "1.0.0")),
+            status=status,
+        )
+    )
+    return db.get_agent_definition(key, tenant_id) or {}
+
+
+def update_agent(db: Database, tenant_id: str, key: str, data: dict[str, Any]) -> dict[str, Any]:
+    _require_tenant_space(tenant_id)
+    existing = db.get_agent_definition(key, tenant_id)
+    if existing is None:
+        if db.get_agent_definition(key, BUILTIN) is not None:
+            raise RegistryError(f"平台内置 Agent 不可修改：{key}", 403)
+        raise RegistryError(f"Agent 不存在：{key}", 404)
+    _validate_key_lists(data)
+    merged = {
+        "name": str(_pick(data, "name", existing.get("name"))).strip(),
+        "summary": str(_pick(data, "summary", existing.get("summary"))).strip(),
+        "description": _pick(data, "description", existing.get("description")) or "",
+        "input_schema": _pick(data, "input_schema", existing.get("input_schema")) or {},
+        "output_schema": _pick(data, "output_schema", existing.get("output_schema")) or {},
+        "skill_keys": _pick(data, "skill_keys", existing.get("skill_keys")) or [],
+        "tool_keys": _pick(data, "tool_keys", existing.get("tool_keys")) or [],
+        "status": _pick(data, "status", existing.get("status")) or "available",
+    }
+    _validate_common(
+        key,
+        merged["name"],
+        merged["summary"],
+        merged["status"],
+        merged["input_schema"],
+        merged["output_schema"],
+    )
+    version = str(_pick(data, "version", _bump_version(existing.get("version") or "1.0.0")))
+    db.upsert_agent(_agent_row(key=key, tenant_id=tenant_id, version=version, **merged))
+    return db.get_agent_definition(key, tenant_id) or {}
+
+
+def disable_agent(db: Database, tenant_id: str, key: str) -> dict[str, Any]:
+    _require_tenant_space(tenant_id)
+    existing = db.get_agent_definition(key, tenant_id)
+    if existing is None:
+        if db.get_agent_definition(key, BUILTIN) is not None:
+            raise RegistryError(f"平台内置 Agent 不可停用：{key}", 403)
+        raise RegistryError(f"Agent 不存在：{key}", 404)
+    db.upsert_agent(
+        _agent_row(
+            key=key,
+            tenant_id=tenant_id,
+            name=existing.get("name") or key,
+            summary=existing.get("summary") or "",
+            description=existing.get("description") or "",
+            input_schema=existing.get("input_schema") or {},
+            output_schema=existing.get("output_schema") or {},
+            skill_keys=existing.get("skill_keys") or [],
+            tool_keys=existing.get("tool_keys") or [],
+            version=existing.get("version") or "1.0.0",
+            status="disabled",
+        )
+    )
+    return db.get_agent_definition(key, tenant_id) or {}
+
+
+def create_skill(db: Database, tenant_id: str, data: dict[str, Any]) -> dict[str, Any]:
+    _require_tenant_space(tenant_id)
+    key = str(_pick(data, "key", data.get("skill_key")) or "").strip()
+    status = str(_pick(data, "status", "available"))
+    _validate_common(
+        key,
+        data.get("name"),
+        data.get("summary"),
+        status,
+        data.get("input_schema") or {},
+        data.get("output_schema") or {},
+    )
+    if db.get_skill_definition(key, BUILTIN) is not None:
+        raise RegistryError(f"不能覆盖平台内置技能：{key}", 409)
+    if db.get_skill_definition(key, tenant_id) is not None:
+        raise RegistryError(f"技能已存在：{key}（请用 PUT 更新）", 409)
+    db.upsert_skill(
+        _skill_row(
+            key=key,
+            tenant_id=tenant_id,
+            name=str(data["name"]).strip(),
+            summary=str(data["summary"]).strip(),
+            input_schema=data.get("input_schema") or {},
+            output_schema=data.get("output_schema") or {},
+            version=str(_pick(data, "version", "1.0.0")),
+            status=status,
+        )
+    )
+    return db.get_skill_definition(key, tenant_id) or {}
+
+
+def update_skill(db: Database, tenant_id: str, key: str, data: dict[str, Any]) -> dict[str, Any]:
+    _require_tenant_space(tenant_id)
+    existing = db.get_skill_definition(key, tenant_id)
+    if existing is None:
+        if db.get_skill_definition(key, BUILTIN) is not None:
+            raise RegistryError(f"平台内置技能不可修改：{key}", 403)
+        raise RegistryError(f"技能不存在：{key}", 404)
+    merged = {
+        "name": str(_pick(data, "name", existing.get("name"))).strip(),
+        "summary": str(_pick(data, "summary", existing.get("summary"))).strip(),
+        "input_schema": _pick(data, "input_schema", existing.get("input_schema")) or {},
+        "output_schema": _pick(data, "output_schema", existing.get("output_schema")) or {},
+        "status": _pick(data, "status", existing.get("status")) or "available",
+    }
+    _validate_common(
+        key,
+        merged["name"],
+        merged["summary"],
+        merged["status"],
+        merged["input_schema"],
+        merged["output_schema"],
+    )
+    version = str(_pick(data, "version", _bump_version(existing.get("version") or "1.0.0")))
+    db.upsert_skill(
+        _skill_row(key=key, tenant_id=tenant_id, version=version, **merged)
+    )
+    return db.get_skill_definition(key, tenant_id) or {}
+
+
+def disable_skill(db: Database, tenant_id: str, key: str) -> dict[str, Any]:
+    _require_tenant_space(tenant_id)
+    existing = db.get_skill_definition(key, tenant_id)
+    if existing is None:
+        if db.get_skill_definition(key, BUILTIN) is not None:
+            raise RegistryError(f"平台内置技能不可停用：{key}", 403)
+        raise RegistryError(f"技能不存在：{key}", 404)
+    db.upsert_skill(
+        _skill_row(
+            key=key,
+            tenant_id=tenant_id,
+            name=existing.get("name") or key,
+            summary=existing.get("summary") or "",
+            input_schema=existing.get("input_schema") or {},
+            output_schema=existing.get("output_schema") or {},
+            version=existing.get("version") or "1.0.0",
+            status="disabled",
+        )
+    )
+    return db.get_skill_definition(key, tenant_id) or {}
+
+
 __all__ = [
     "AGENTS",
     "BUILTIN",
     "SKILLS",
     "TOOLS",
     "VERSION",
+    "RegistryError",
+    "create_agent",
+    "create_skill",
+    "disable_agent",
+    "disable_skill",
     "get_agent",
     "get_skill",
     "list_agents",
     "list_skills",
     "list_tools",
     "seed_registry",
+    "update_agent",
+    "update_skill",
 ]

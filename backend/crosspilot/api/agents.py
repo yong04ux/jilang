@@ -258,6 +258,145 @@ async def list_tools(
 
 
 # ---------------------------------------------------------------------------
+# 注册表写入：租户自定义 Agent / Skill
+#
+# 只允许 admin+ 写；只能写当前租户空间，不能改/停用平台内置定义。
+# 自定义定义是元数据（列表/详情可见可管理），Agent 运行仍走固定工作流图。
+# ---------------------------------------------------------------------------
+
+
+def _registry_http_error(exc: agent_registry.RegistryError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=str(exc))
+
+
+@router.post("/api/agents", status_code=201)
+async def create_tenant_agent(
+    payload: dict[str, Any],
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    require_role(tenant, ROLE_MANAGE)
+    try:
+        item = agent_registry.create_agent(api.db, tenant.tenant_id, payload)
+    except agent_registry.RegistryError as exc:
+        raise _registry_http_error(exc) from exc
+    api.audit_context(
+        tenant,
+        audit.ACTION_AGENT_CREATE,
+        target_type="agent",
+        target_id=item["agent_key"],
+        detail={"version": item.get("version")},
+    )
+    return item
+
+
+@router.put("/api/agents/{agent_key}")
+async def update_tenant_agent(
+    agent_key: str,
+    payload: dict[str, Any],
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    require_role(tenant, ROLE_MANAGE)
+    try:
+        item = agent_registry.update_agent(api.db, tenant.tenant_id, agent_key, payload)
+    except agent_registry.RegistryError as exc:
+        raise _registry_http_error(exc) from exc
+    api.audit_context(
+        tenant,
+        audit.ACTION_AGENT_UPDATE,
+        target_type="agent",
+        target_id=agent_key,
+        detail={"version": item.get("version")},
+    )
+    return item
+
+
+@router.delete("/api/agents/{agent_key}")
+async def disable_tenant_agent(
+    agent_key: str,
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    """软删：置为 disabled，不移除历史引用。"""
+    require_role(tenant, ROLE_MANAGE)
+    try:
+        item = agent_registry.disable_agent(api.db, tenant.tenant_id, agent_key)
+    except agent_registry.RegistryError as exc:
+        raise _registry_http_error(exc) from exc
+    api.audit_context(
+        tenant,
+        audit.ACTION_AGENT_DISABLE,
+        target_type="agent",
+        target_id=agent_key,
+    )
+    return {"ok": True, "agent": item}
+
+
+@router.post("/api/skills", status_code=201)
+async def create_tenant_skill(
+    payload: dict[str, Any],
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    require_role(tenant, ROLE_MANAGE)
+    try:
+        item = agent_registry.create_skill(api.db, tenant.tenant_id, payload)
+    except agent_registry.RegistryError as exc:
+        raise _registry_http_error(exc) from exc
+    api.audit_context(
+        tenant,
+        audit.ACTION_SKILL_CREATE,
+        target_type="skill",
+        target_id=item["skill_key"],
+        detail={"version": item.get("version")},
+    )
+    return item
+
+
+@router.put("/api/skills/{skill_key}")
+async def update_tenant_skill(
+    skill_key: str,
+    payload: dict[str, Any],
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    require_role(tenant, ROLE_MANAGE)
+    try:
+        item = agent_registry.update_skill(api.db, tenant.tenant_id, skill_key, payload)
+    except agent_registry.RegistryError as exc:
+        raise _registry_http_error(exc) from exc
+    api.audit_context(
+        tenant,
+        audit.ACTION_SKILL_UPDATE,
+        target_type="skill",
+        target_id=skill_key,
+        detail={"version": item.get("version")},
+    )
+    return item
+
+
+@router.delete("/api/skills/{skill_key}")
+async def disable_tenant_skill(
+    skill_key: str,
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    require_role(tenant, ROLE_MANAGE)
+    try:
+        item = agent_registry.disable_skill(api.db, tenant.tenant_id, skill_key)
+    except agent_registry.RegistryError as exc:
+        raise _registry_http_error(exc) from exc
+    api.audit_context(
+        tenant,
+        audit.ACTION_SKILL_DISABLE,
+        target_type="skill",
+        target_id=skill_key,
+    )
+    return {"ok": True, "skill": item}
+
+
+# ---------------------------------------------------------------------------
 # Agent 运行：目标解析与完整工作流（LangGraph）
 # ---------------------------------------------------------------------------
 
