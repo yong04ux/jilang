@@ -327,8 +327,8 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 | GET | `/api/data-sources` / `{id}`、`/{id}/errors.csv` | 数据源与错误清单 |
 | GET | `/api/marketplace/sources` | 每个数据域的 Provider 模式、是否已接入、最后同步 |
 | GET | `/api/marketplace/overview` / `products` / `orders` / `ads` / `metrics` | 市场数据（默认 Mock，全部 `is_mock`） |
-| GET | `/api/settings/providers` | 预置厂商 + 已保存配置（Key 掩码） |
-| POST | `/api/settings/providers` | 新增/更新一套配置（`base_url` 白名单） |
+| GET | `/api/settings/providers` | 预置厂商 + 已保存配置（Key 掩码；`task_overrides` 以对象返回） |
+| POST | `/api/settings/providers` | 新增/更新一套配置（`base_url` 白名单；可带 `task_overrides` 按步骤分配模型） |
 | DELETE | `/api/settings/providers/{id}` | 删除配置（删掉激活项自动回落） |
 | POST | `/api/settings/providers/{id}/test` | 最小连通性测试（消耗极少额度） |
 | POST | `/api/settings/providers/{id}/activate` | 设为当前使用 |
@@ -493,7 +493,10 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 1. 接入真实 Amazon SP-API（实现 `LiveMarketplaceProvider`，配置 `store_connections.mode = "live"`，
    页面与接口不需要改）；
 2. 其他真实数据源适配器（订单聚合指标、广告 API）；
-3. 按任务分配模型（`user_provider_configs.task_overrides` 已预留字段）；
-4. 工作流可视化编排与租户级自定义 Agent / Skill；
+3. ~~按任务分配模型~~ —— 已实现「按步骤分配模型」：一套配置的 `task_overrides` 可让
+   `analyze` / `listing` 各用不同配置或模型（见第 10 节 API 表与 §7 的能力说明）；
+   剩余是跨厂商端到端验证，需要两把真实 Key；
+4. ~~租户级自定义 Agent / Skill~~ —— 已实现（`POST/PUT/DELETE /api/agents`、`/api/skills`）；
+   自定义定义目前是元数据，自定义执行图未做；
 5. 知识库与向量检索；
 6. Anthropic / Gemini 原生协议适配器（新增一个 `Provider` 实现即可）。

@@ -197,6 +197,8 @@ async def upsert_provider_config(
             "label": saved["label"],
             "base_url": saved["base_url"],
             "model": saved["model"],
+            # 按步骤分配模型：只记改了哪些节点，不记具体模型名以外的信息
+            "task_overrides_nodes": sorted(saved.get("task_overrides") or {}),
         },
     )
     return {"config": saved}

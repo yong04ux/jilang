@@ -62,6 +62,7 @@ class AgentRuntime:
         tenant_id: str,
         cancel_check: Callable[[], bool] | None = None,
         resume_from: dict[str, Any] | None = None,
+        providers: dict[str, tuple[Any, str]] | None = None,
     ) -> None:
         self.db = db
         self.provider = provider
@@ -71,6 +72,8 @@ class AgentRuntime:
         self.cancel_check = cancel_check
         # 断点续跑：{node: 上次成功输出}；命中的节点直接复用，不重跑（含不重调 LLM）
         self.resume_from = resume_from or {}
+        # 按步骤分配模型：{node: (provider, 说明)}；缺省时全部回落到 self.provider
+        self.providers = providers or {}
         self._graph = self._build_graph()
 
     # -- 图构建 ------------------------------------------------------------
@@ -104,6 +107,13 @@ class AgentRuntime:
         return "listing" if state.get("with_listing") else "persist"
 
     # -- 步骤包装 ----------------------------------------------------------
+    def _step_provider(self, node: str) -> tuple[Any, str]:
+        """取该节点该用的 Provider 与说明；没有按步骤配置时回落到默认 Provider。"""
+        entry = self.providers.get(node)
+        if entry is None:
+            return self.provider, ""
+        return entry
+
     def _checkpoint(self) -> None:
         if self.cancel_check is not None and self.cancel_check():
             raise TaskCancelled("用户取消")
@@ -153,6 +163,8 @@ class AgentRuntime:
         return state
 
     def _node_analyze(self, state: dict[str, Any]) -> dict[str, Any]:
+        provider, note = self._step_provider("analyze")
+
         def body() -> dict[str, Any]:
             request = CompetitorAnalysisRequest(
                 product_name=state["product_name"],
@@ -166,14 +178,13 @@ class AgentRuntime:
                 keywords=state.get("keywords") or [],
                 data_source=state.get("data_source") or "manual",
             )
-            report = tools.run_competitor_analysis(self.provider, request)
+            report = tools.run_competitor_analysis(provider, request)
             return report.model_dump(mode="json")
 
-        state["report"] = self._run_step(
-            "analyze",
-            f"{len(state['competitors'])} 个竞品",
-            body,
-        )
+        detail = f"{len(state['competitors'])} 个竞品"
+        if note:
+            detail = f"{detail} · {note}"
+        state["report"] = self._run_step("analyze", detail, body)
         return state
 
     def _node_integrity(self, state: dict[str, Any]) -> dict[str, Any]:
@@ -197,6 +208,8 @@ class AgentRuntime:
         return state
 
     def _node_listing(self, state: dict[str, Any]) -> dict[str, Any]:
+        provider, note = self._step_provider("listing")
+
         def body() -> dict[str, Any]:
             product = OwnProduct(
                 name=state["product_name"],
@@ -217,13 +230,16 @@ class AgentRuntime:
                 analysis_report=state["report"],
                 data_source=state.get("data_source") or "manual",
             )
-            listing = tools.generate_listing(self.provider, request, state["report"])
+            listing = tools.generate_listing(provider, request, state["report"])
             # 保存商品事实快照，供后续版本复检（不参与对外展示）
             payload = listing.model_dump(mode="json")
             payload["product_snapshot"] = request.product.model_dump(mode="json")
             return payload
 
-        state["listing"] = self._run_step("listing", "基于事实台账生成文案", body)
+        detail = "基于事实台账生成文案"
+        if note:
+            detail = f"{detail} · {note}"
+        state["listing"] = self._run_step("listing", detail, body)
         return state
 
     def _node_quality(self, state: dict[str, Any]) -> dict[str, Any]:
@@ -345,8 +361,13 @@ def execute_agent(
     payload: dict[str, Any],
     cancel_check: Callable[[], bool] | None = None,
     resume_from: dict[str, Any] | None = None,
+    providers: dict[str, tuple[Any, str]] | None = None,
 ) -> dict[str, Any]:
-    """执行一个已创建的任务。异常由 Runtime 记录到任务上。"""
+    """执行一个已创建的任务。异常由 Runtime 记录到任务上。
+
+    ``providers`` 用于「按步骤分配模型」：``{node: (provider, 说明)}``，
+    只有 ``analyze`` / ``listing`` 会被查询；缺省时全部用 ``provider``。
+    """
     recorder.mark_running()
     runtime = AgentRuntime(
         db=db,
@@ -356,6 +377,7 @@ def execute_agent(
         tenant_id=recorder.tenant_id or "",
         cancel_check=cancel_check or recorder.is_cancel_requested,
         resume_from=resume_from,
+        providers=providers,
     )
     return runtime.run(payload)
 
@@ -371,6 +393,7 @@ def run_agent(
     title: str | None = None,
     conversation_id: str | None = None,
     degraded: bool = False,
+    providers: dict[str, tuple[Any, str]] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """创建任务并同步执行整张图，返回 (task_id, 结果)。"""
     recorder = create_agent_task(
@@ -383,7 +406,9 @@ def run_agent(
         conversation_id=conversation_id,
         degraded=degraded,
     )
-    final = execute_agent(recorder, db=db, provider=provider, payload=payload)
+    final = execute_agent(
+        recorder, db=db, provider=provider, payload=payload, providers=providers
+    )
     return recorder.task_id, final
 
 

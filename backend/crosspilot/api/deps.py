@@ -109,6 +109,16 @@ class ApiContext:
             config = self.model_service().effective(user["user_id"], active)
         return active, config, build_provider(active, config)
 
+    def build_step_providers(self, user: dict[str, Any]):
+        """按图节点构造 Provider：``{node: (provider, 说明)}``。
+
+        只有 ``analyze`` / ``listing`` 会真正调模型；解析顺序是
+        配置级 ``task_overrides`` > 激活配置 > 旧单套设置 > 进程默认。
+        """
+        from ..llm.step_providers import build_step_providers
+
+        return build_step_providers(self.db, get_settings(), user["user_id"])
+
     def require_llm_provider(self, user: dict[str, Any]):
         """BYOK 强制：没有可用 Key 时 428，不静默降级成规则引擎。"""
         active, config, provider = self.build_user_provider(user)

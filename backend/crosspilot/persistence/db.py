@@ -1340,11 +1340,12 @@ class Database:
     def update_task_step(self, step_id: str, **fields: Any) -> None:
         allowed = {"status", "detail", "started_at", "finished_at", "duration_ms", "node", "output"}
         updates = {k: v for k, v in fields.items() if k in allowed}
-        if "output" in updates:
-            if updates["output"] is None:
-                updates.pop("output")
-            elif not isinstance(updates["output"], str):
-                updates["output"] = json.dumps(updates["output"], ensure_ascii=False)
+        # None 表示"不改这一列"：成功步骤要保留 begin_step 写入的描述
+        for key in ("detail", "output"):
+            if key in updates and updates[key] is None:
+                updates.pop(key)
+        if "output" in updates and not isinstance(updates["output"], str):
+            updates["output"] = json.dumps(updates["output"], ensure_ascii=False)
         if not updates:
             return
         assignments = ", ".join(f"{name} = ?" for name in updates)

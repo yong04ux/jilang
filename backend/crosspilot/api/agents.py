@@ -539,6 +539,8 @@ async def run_agent_endpoint(
     _active, _config, provider = api.build_user_provider(user)
     conversation_id = conversation["conversation_id"]
     plan_preview = plan_for(bool(data.get("with_listing")))
+    # 按步骤分配模型：analyze / listing 可能各用不同配置（配置级 task_overrides）
+    step_providers = api.build_step_providers(user)
 
     def completion_message(task_id: str) -> None:
         """任务结束后把结果摘要写回会话（失败/取消也如实标注）。"""
@@ -570,6 +572,7 @@ async def run_agent_endpoint(
                     db=api.db,
                     provider=provider,
                     payload={**data, "goal": goal},
+                    providers=step_providers,
                 )
             except TaskCancelled:
                 pass  # Runtime 已把任务落成 cancelled
@@ -616,6 +619,7 @@ async def run_agent_endpoint(
             title=title_hint[:120],
             conversation_id=conversation_id,
             degraded=degraded,
+            providers=step_providers,
         )
     except TaskCancelled as exc:
         raise HTTPException(status_code=409, detail="任务已取消") from exc

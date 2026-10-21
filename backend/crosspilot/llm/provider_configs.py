@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -34,6 +35,29 @@ RULE_PROVIDER = "rule"
 
 class ProviderConfigError(ValueError):
     """配置非法（消息可直接展示）。"""
+
+
+#: 图里唯一会调用 LLM 的两个节点。给其他节点配模型不会有任何效果，
+#: 所以校验期就拒绝，避免"配了却静默不生效"。
+OVERRIDE_NODES: tuple[str, ...] = ("analyze", "listing")
+
+_MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
+
+
+def parse_task_overrides(raw: Any) -> dict[str, Any]:
+    """把库里的 TEXT/JSON 解析成对象；坏数据一律当空对象，不抛异常。
+
+    历史行可能是 ``"{}"``、空串或非 JSON 文本，列表/详情接口不该因此 500。
+    """
+    if isinstance(raw, dict):
+        return raw
+    if not raw or not isinstance(raw, str):
+        return {}
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return {}
+    return value if isinstance(value, dict) else {}
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +231,10 @@ class ProviderConfigInput(BaseModel):
     api_key: str | None = Field(default=None, max_length=400)
     enabled: bool | None = None
     allow_custom_base_url: bool = False
+    #: 按步骤分配模型：``{"analyze": {"config_id"?: str, "model"?: str}, ...}``
+    #: 只有 ``analyze`` / ``listing`` 两个节点会调模型，其他键一律 400。
+    #: 传 ``None`` 表示"不修改"，传 ``{}`` 表示"清空"。
+    task_overrides: Any = None
     #: 更新已有配置时传入；新建时留空
     config_id: str | None = Field(default=None, max_length=64)
 
@@ -295,6 +323,8 @@ class ProviderConfigService:
             "last_tested_at": row.get("last_tested_at"),
             "last_test_ok": None if row.get("last_test_ok") is None else bool(row["last_test_ok"]),
             "last_test_detail": row.get("last_test_detail") or "",
+            # 直接给对象，前端不必再 JSON.parse；坏数据回落 {}
+            "task_overrides": parse_task_overrides(row.get("task_overrides")),
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
         }
@@ -376,6 +406,12 @@ class ProviderConfigService:
                     f"已存在同厂商同标签的配置（{provider} / {label}），请换一个标签"
                 )
 
+        # 按步骤分配模型：None = 不改；{} = 清空；其余走严格校验
+        override_text = (existing or {}).get("task_overrides") or "{}"
+        if payload.task_overrides is not None:
+            cleaned = self.validate_task_overrides(user_id, payload.task_overrides)
+            override_text = json.dumps(cleaned, ensure_ascii=False)
+
         record = {
             "config_id": (existing or {}).get("config_id") or uuid.uuid4().hex,
             "user_id": user_id,
@@ -389,7 +425,7 @@ class ProviderConfigService:
             "last_tested_at": (existing or {}).get("last_tested_at"),
             "last_test_ok": (existing or {}).get("last_test_ok"),
             "last_test_detail": (existing or {}).get("last_test_detail"),
-            "task_overrides": (existing or {}).get("task_overrides") or "{}",
+            "task_overrides": override_text,
         }
         self.db.save_provider_config(record)
         row = self.db.find_provider_config(user_id, provider, label) or record
@@ -430,9 +466,20 @@ class ProviderConfigService:
         return self._public_row(fresh, self._active_config_id(user_id))
 
     # -- 生成时解析 -------------------------------------------------------
-    def effective(self, user_id: str, settings) -> EffectiveModelConfig | None:
-        """返回激活配置对应的 EffectiveModelConfig；没有配置时返回 None。"""
-        active_id = self._active_config_id(user_id)
+    def effective(
+        self,
+        user_id: str,
+        settings,
+        *,
+        config_id: str | None = None,
+        model: str | None = None,
+    ) -> EffectiveModelConfig | None:
+        """返回某套配置对应的 EffectiveModelConfig；不可用时返回 None。
+
+        ``config_id`` / ``model`` 让「按步骤分配模型」复用同一套合并逻辑：
+        前者换配置（连带 key / base_url），后者只换模型名。
+        """
+        active_id = config_id or self._active_config_id(user_id)
         if not active_id:
             return None
         row = self.db.get_provider_config(user_id, active_id)
@@ -442,7 +489,7 @@ class ProviderConfigService:
         model_row = self.db.get_model_settings(user_id) or {}
         return EffectiveModelConfig(
             provider=provider,
-            model=row.get("model") or "",
+            model=model or row.get("model") or "",
             base_url=row.get("base_url") or "",
             api_key=self.decrypt_key(row),
             temperature=(
@@ -477,10 +524,113 @@ class ProviderConfigService:
     def active_config_id(self, user_id: str) -> str | None:
         return self._active_config_id(user_id)
 
+    # -- 按步骤分配模型 ----------------------------------------------------
+
+    def validate_task_overrides(
+        self, user_id: str, raw: Any
+    ) -> dict[str, dict[str, str]]:
+        """校验并规范化 ``task_overrides``；非法直接抛 ``ProviderConfigError``。
+
+        返回形如 ``{"listing": {"config_id": "...", "model": "..."}}`` 的干净对象，
+        可直接 ``json.dumps`` 落库。写入期严格，运行时才允许回落（见 ``resolve_node``）。
+        """
+        if raw is None:
+            return {}
+        if isinstance(raw, str):
+            text = raw.strip()
+            if not text:
+                return {}
+            try:
+                raw = json.loads(text)
+            except ValueError as exc:
+                raise ProviderConfigError("task_overrides 不是合法 JSON") from exc
+        if not isinstance(raw, dict):
+            raise ProviderConfigError("task_overrides 必须是对象")
+
+        cleaned: dict[str, dict[str, str]] = {}
+        for node, value in raw.items():
+            if node not in OVERRIDE_NODES:
+                raise ProviderConfigError(
+                    f"不支持为节点 {node} 指定模型；"
+                    f"只有 {', '.join(OVERRIDE_NODES)} 会调用模型"
+                )
+            if not isinstance(value, dict):
+                raise ProviderConfigError(f"{node} 的配置必须是对象")
+            unknown = set(value) - {"config_id", "model"}
+            if unknown:
+                raise ProviderConfigError(
+                    f"{node} 含未知字段：{', '.join(sorted(str(k) for k in unknown))}"
+                )
+
+            item: dict[str, str] = {}
+            config_id = str(value.get("config_id") or "").strip()
+            model = str(value.get("model") or "").strip()
+            if not config_id and not model:
+                raise ProviderConfigError(f"{node} 至少要指定 config_id 或 model")
+            if config_id:
+                row = self.db.get_provider_config(user_id, config_id)
+                if row is None:
+                    raise ProviderConfigError(
+                        f"{node} 指定的配置不存在或不属于当前账号"
+                    )
+                if not row.get("enabled"):
+                    raise ProviderConfigError(f"{node} 指定的配置已被禁用")
+                if row.get("provider") == RULE_PROVIDER:
+                    raise ProviderConfigError(
+                        f"{node} 不能指定规则引擎（rule）配置：它不调用模型"
+                    )
+                item["config_id"] = config_id
+            if model:
+                if not _MODEL_RE.match(model):
+                    raise ProviderConfigError(
+                        f"{node} 的模型名不合法（1–128 位字母数字与 . _ : / -）"
+                    )
+                item["model"] = model
+            cleaned[node] = item
+        return cleaned
+
+    def resolve_node(self, user_id: str, settings, node: str) -> tuple[Any, str]:
+        """按节点解析配置，返回 ``(EffectiveModelConfig | None, 说明)``。
+
+        优先级：配置级 ``task_overrides[node]`` > 激活配置。
+        override 指向的配置被删/禁用时**不报错**，回落激活配置并在说明里标注
+        （已排队的任务不该因为设置变更而失败）。
+        """
+        active_id = self._active_config_id(user_id)
+        active_row = (
+            self.db.get_provider_config(user_id, active_id) if active_id else None
+        )
+        overrides = parse_task_overrides((active_row or {}).get("task_overrides"))
+        spec = overrides.get(node) if isinstance(overrides, dict) else None
+
+        base = self.effective(user_id, settings)
+        if not isinstance(spec, dict):
+            return base, _config_label(base)
+
+        config = self.effective(
+            user_id,
+            settings,
+            config_id=spec.get("config_id") or None,
+            model=spec.get("model") or None,
+        )
+        if config is None:
+            return base, f"{_config_label(base)}（override 失效，已回落）"
+        return config, f"{_config_label(config)}（override）"
+
+
+def _config_label(config: Any) -> str:
+    """时间线里展示的「厂商/模型」。"""
+    if config is None:
+        return "默认配置"
+    model = getattr(config, "model", "") or ""
+    provider = getattr(config, "provider", "") or ""
+    return f"{provider}/{model}" if model else (provider or "默认配置")
+
 
 __all__ = [
     "ALLOWED_PROVIDERS",
     "CLEAR_KEY_SENTINEL",
+    "OVERRIDE_NODES",
     "PRESETS",
     "PRESET_BY_KEY",
     "ProviderConfigError",
@@ -488,6 +638,7 @@ __all__ = [
     "ProviderConfigService",
     "ProviderPreset",
     "RULE_PROVIDER",
+    "parse_task_overrides",
     "provider_presets",
     "validate_base_url",
 ]

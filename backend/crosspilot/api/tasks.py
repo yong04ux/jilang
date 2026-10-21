@@ -160,6 +160,7 @@ async def retry_task_endpoint(
         }
 
     _active, _config, provider = api.build_user_provider(user)
+    step_providers = api.build_step_providers(user)
     conversation_id = task.get("conversation_id")
     degraded = bool(task.get("degraded"))
     title = f"重试：{task.get('title') or 'Agent 任务'}"[:120]
@@ -184,6 +185,7 @@ async def retry_task_endpoint(
                 provider=provider,
                 payload=payload,
                 resume_from=resume_from or None,
+                providers=step_providers,
             )
         except TaskCancelled:
             pass  # Runtime 已把任务落成 cancelled
