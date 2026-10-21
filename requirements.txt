@@ -1,0 +1,3 @@
+# Vercel 的 Python 运行时从项目根读取依赖清单。
+# 真正的内容在 backend/requirements.txt，这里只做转发，避免两份清单漂移。
+-r backend/requirements.txt

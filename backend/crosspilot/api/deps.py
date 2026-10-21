@@ -289,7 +289,13 @@ def make_secret_box(settings: Settings) -> Callable[[], SecretBox]:
         if "box" in cache:
             return cache["box"]
         try:
-            box = SecretBox(settings.resolve_path(settings.data_dir) / ".secret_key")
+            # 显式配置的主密钥优先（.env 与真实环境变量都生效）；
+            # 留空才回退到密钥文件（本地开发）。
+            material = (getattr(settings, "secret_key", "") or "").strip()
+            if material:
+                box = SecretBox(material=material.encode("utf-8"))
+            else:
+                box = SecretBox(settings.resolve_path(settings.data_dir) / ".secret_key")
         except SecretError as exc:
             raise HTTPException(status_code=500, detail=f"加密密钥不可用：{exc}") from exc
         cache["box"] = box

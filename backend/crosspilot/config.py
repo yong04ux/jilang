@@ -122,6 +122,18 @@ class Settings(BaseSettings):
     # 任务永远停在 running。打开后忽略 async_run，在本次请求内跑完再返回。
     force_sync_tasks: bool = False
 
+    # ---- 加密主密钥 ------------------------------------------------------
+    # 用户 API Key 的加密主密钥。留空时回退到 data/.secret_key 文件（本地开发）。
+    # Serverless（Vercel 等）文件系统只读，无法持久化密钥文件，**必须显式设置**，
+    # 否则保存 API Key 会返回 500「加密密钥不可用」。
+    # 一旦设定不要更改：改了已保存的 Key 全部无法解密。
+    #
+    # 为什么要有这个字段：SecretBox 只读进程环境变量，而 .env 文件不会注入
+    # os.environ。没有这个字段时，写在 .env 里的 CROSSPILOT_SECRET_KEY 会被
+    # pydantic 的 extra="ignore" 直接丢弃，本地静默回退到自动生成的密钥文件，
+    # 造成「本地与线上各一套密钥」。有此字段后两处行为一致。
+    secret_key: str = ""
+
     # ---- 部署 ------------------------------------------------------------
     # 启动时自动执行迁移；生产环境建议 false 并由 CLI 显式迁移
     auto_migrate: bool = True
