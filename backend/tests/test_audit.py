@@ -1,4 +1,5 @@
 """审计日志测试（阶段 C7）。"""
+# check_secrets: allow-placeholders — 本文件的 API Key 都是构造的假值
 
 from __future__ import annotations
 

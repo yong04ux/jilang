@@ -2,6 +2,7 @@
 
 不需要真实模型：假客户端覆盖"成功 / 不合规 / 网络失败"三条路径。
 """
+# check_secrets: allow-placeholders — 本文件的 API Key 都是构造的假值
 
 from __future__ import annotations
 

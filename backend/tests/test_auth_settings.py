@@ -1,4 +1,5 @@
 """用户认证、每用户模型配置、加密与数据隔离的测试。"""
+# check_secrets: allow-placeholders — 本文件的 API Key 都是构造的假值
 
 from __future__ import annotations
 

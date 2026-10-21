@@ -1,4 +1,5 @@
 """多厂商 LLM 配置（M4）：白名单、加密、激活、掩码、demo 账号限制。"""
+# check_secrets: allow-placeholders — 本文件的 API Key 都是构造的假值
 
 from __future__ import annotations
 

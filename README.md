@@ -273,6 +273,7 @@ pytest
 ```bash
 cd backend
 python scripts/check_encoding.py   # 源文件 UTF-8 与语法（覆盖 backend + frontend + docs）
+python scripts/check_secrets.py    # 密钥扫描：推送前跑一遍，命中 exit 1（输出只给掩码）
 python scripts/check_frontend.py   # 前端资源契约与 JS 语法
 python scripts/smoke_new.py        # 新接口冒烟（数据源 / 多厂商 / 演示机制 / 异步）
 python scripts/live_check.py       # 对运行中的服务做 HTTP 端到端断言
@@ -283,6 +284,11 @@ node frontend/scripts/ui_flows_v2.mjs http://127.0.0.1:8000   # 交互验收：�
 node frontend/scripts/ui_workbench_v2.mjs http://127.0.0.1:8000  # 工作台运行态：两栏 + 三个结果 Tab
 node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐页截图
 ```
+
+> `check_secrets.py` 扫 `crosspilot/ tests/ scripts/ config/` 与根配置里的高置信度特征
+> （`sk-` 长串、`AKIA`、GitHub/GitLab/Slack token、PEM 私钥、带口令的连接串）；
+> 输出只打印掩码，不会把密钥写进 CI 日志。测试里的构造密钥用文件级标记放行：
+> 在文件前 10 行写 `# check_secrets: allow-placeholders`。
 
 ### 测试覆盖要点
 
