@@ -1,7 +1,6 @@
 """CrossPilot —— 跨境电商 AI 内容工作台（竞品分析 + Listing 生成）。
 
-本包只承载业务逻辑，不依赖 Harness 运行时；Harness 通过 HTTP 工具或未来的
-Cordis 插件（见仓库根 ``integrations/harness-plugin``）调用这里的能力。
+本包只承载业务逻辑，通过 HTTP 接口对外提供能力，不依赖任何特定宿主运行时。
 
 目录职责（扁平工程根为 ``backend/``，前端在仓库根 ``frontend/``）：
 

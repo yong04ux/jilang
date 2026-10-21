@@ -36,8 +36,6 @@ ALLOW_DIRS = (
     (REPO_ROOT, "frontend"),
     (REPO_ROOT, "docs"),
     (REPO_ROOT, "examples"),
-    (REPO_ROOT, "integrations"),
-    (REPO_ROOT, "skills"),
 )
 TEXT_SUFFIXES = {".py", ".md", ".json", ".html", ".css", ".js", ".mjs", ".yml", ".yaml", ".txt"}
 

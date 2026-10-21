@@ -47,7 +47,7 @@ with httpx.Client(base_url=BASE, timeout=float(os.environ.get("CROSSPILOT_LIVE_T
     # 1) 健康检查
     health = client.get("/api/health").json()
     check("health.status", health.get("status") == "ok")
-    check("health.provider", health["provider"]["name"] in {"rule", "deepseek", "openai", "harness"})
+    check("health.provider", health["provider"]["name"] in {"rule", "deepseek", "openai"})
 
     # 2) 单一前端外壳与深链
     page = client.get("/")

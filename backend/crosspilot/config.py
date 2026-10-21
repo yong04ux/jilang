@@ -71,8 +71,7 @@ class Settings(BaseSettings):
     #   rule     : 纯本地规则引擎（离线、可测，文案为事实直出，需人工改写）
     #   deepseek : DeepSeek 官方 API（推荐，主力生成）
     #   openai   : 任意 OpenAI 兼容服务（兼容旧配置）
-    #   harness  : 预留，未实现
-    provider: Literal["rule", "deepseek", "openai", "harness"] = "rule"
+    provider: Literal["rule", "deepseek", "openai"] = "rule"
 
     # DeepSeek 官方 API（默认走官方 base_url）
     deepseek_api_key: str = ""

@@ -29,15 +29,15 @@ def test_analyze_creates_task_with_real_steps(auth_client):
 
 def test_failed_execution_creates_failed_task(auth_client, monkeypatch):
     """执行期失败必须留下 failed 任务与失败步骤（Pydantic 层 422 进不了端点，另测）。"""
-    from crosspilot.config import get_settings
+    import crosspilot.api.analyses as analyses_mod
+    from crosspilot.llm.providers import ProviderError
 
-    monkeypatch.setenv("CROSSPILOT_PROVIDER", "harness")  # 未实现的 provider -> 503
-    get_settings.cache_clear()
-    try:
-        resp = auth_client.post("/api/analyze", json=DEMO_ANALYSIS_REQUEST)
-        assert resp.status_code == 503
-    finally:
-        get_settings.cache_clear()
+    def boom(*args, **kwargs):
+        raise ProviderError("模型不可用（测试注入）")
+
+    monkeypatch.setattr(analyses_mod, "build_provider", boom)
+    resp = auth_client.post("/api/analyze", json=DEMO_ANALYSIS_REQUEST)
+    assert resp.status_code == 503
 
     items = auth_client.get("/api/tasks").json()["items"]
     failed = [t for t in items if t["status"] == "failed"]

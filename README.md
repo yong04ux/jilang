@@ -124,11 +124,6 @@ CrossPilot/
 │   ├── css/{tokens,base,components,layout,pages}.css
 │   ├── js/{api,auth,catalog,render,router,shell,ui,async-run,icons,app}.js + pages/
 │   └── scripts/                     # 前端侧脚本：vercel-build.mjs（部署搬运）+ ui_*.mjs（诊断）
-├── integrations/
-│   ├── HARNESS_INTEGRATION.md       # 集成方案与已验证事实
-│   └── harness-plugin/              # Cordis 工具插件骨架
-├── skills/
-│   └── crosspilot-listing/SKILL.md
 ├── examples/                        # CSV / JSON 示例文件
 └── docs/                            # 设计文档、改造计划、部署手册
 ```
@@ -450,18 +445,7 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 
 ---
 
-## 12. 与 DeepSeek Harness 集成
-
-详见 [`integrations/HARNESS_INTEGRATION.md`](integrations/HARNESS_INTEGRATION.md)。
-
-- **方式 A（已验证）**：把 `skills/crosspilot-listing/` 放入 Harness 的技能目录，
-  模型即可按 Skill 指引调用 CrossPilot HTTP 接口。
-- **方式 B（骨架）**：`integrations/harness-plugin` 使用真实的 `defineTool` API，
-  已通过 TypeScript 编译与 mock 宿主冒烟测试，但尚未在真实宿主进程中加载验证。
-
----
-
-## 13. 已知限制
+## 12. 已知限制
 
 1. **平台规则未核验**。`config/*.json` 为示例配置，不能作为合规依据，发布前需人工复核。
 2. **评论主题识别基于规则词典**。同义表达可能漏检；样本量小时占比波动大。
@@ -481,7 +465,7 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 
 ---
 
-## 14. 设计文档
+## 13. 设计文档
 
 | 文档 | 内容 |
 |---|---|
@@ -499,7 +483,7 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 
 ---
 
-## 15. 后续路线
+## 14. 后续路线
 
 1. 接入真实 Amazon SP-API（实现 `LiveMarketplaceProvider`，配置 `store_connections.mode = "live"`，
    页面与接口不需要改）；

@@ -1,8 +1,7 @@
 """生成/分析 Provider 抽象。
 
 - ``DeepSeekProvider`` : 主力实现，调用 DeepSeek 官方 API（OpenAI 兼容接口）；
-- ``RuleProvider``     : 无模型降级，事实直出，离线可测；
-- ``HarnessProvider``  : 预留（未实现）。
+- ``RuleProvider``     : 无模型降级，事实直出，离线可测。
 
 关键约定：无论走哪个 Provider，产出都要经过同一套事实对齐质检；
 模型输出**不被信任**，只作为"候选文案"。
@@ -230,25 +229,6 @@ OpenAIProvider = DeepSeekProvider
 
 
 # ---------------------------------------------------------------------------
-# Harness（预留）
-# ---------------------------------------------------------------------------
-
-
-class HarnessProvider(RuleProvider):
-    name = "harness"
-
-    def info(self) -> ProviderInfo:
-        return ProviderInfo(
-            name=self.name,
-            available=False,
-            detail=(
-                "Harness Provider 尚未实现：需要在 Cordis 插件内经 ctx.agents 调用宿主模型，"
-                "再回传 CrossPilot。当前请使用 deepseek 或 rule。"
-            ),
-        )
-
-
-# ---------------------------------------------------------------------------
 # 工厂
 # ---------------------------------------------------------------------------
 
@@ -314,11 +294,7 @@ def build_provider(settings, config=None) -> RuleProvider:
             return fallback
         return provider
 
-    if kind == "harness":
-        raise ProviderError(
-            "provider=harness 尚未实现。请改用 deepseek（推荐）或 rule。"
-        )
-    raise ProviderError(f"未知的 provider={kind!r}，可选：deepseek / rule / openai / harness")
+    raise ProviderError(f"未知的 provider={kind!r}，可选：deepseek / rule / openai")
 
 
 def provider_status(settings, config=None) -> dict[str, Any]:
@@ -336,7 +312,6 @@ def provider_status(settings, config=None) -> dict[str, Any]:
 __all__ = [
     "AnalysisProvider",
     "DeepSeekProvider",
-    "HarnessProvider",
     "ListingProvider",
     "OpenAIProvider",
     "ProviderError",

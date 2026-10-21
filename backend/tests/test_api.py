@@ -17,7 +17,7 @@ def test_health_endpoint(client):
     data = response.json()
     assert data["status"] == "ok"
     assert "provider" in data
-    assert data["provider"]["name"] in {"rule", "openai", "harness"}
+    assert data["provider"]["name"] in {"rule", "openai"}
 
 
 def test_index_page_serves_spa_shell(client):
@@ -213,14 +213,19 @@ def test_llm_failure_degrades_and_is_flagged(auth_client, monkeypatch):
         get_settings.cache_clear()
 
 
-def test_harness_provider_returns_503(auth_client, monkeypatch):
-    from crosspilot.config import get_settings
+def test_provider_error_returns_503(auth_client, monkeypatch):
+    """Provider 不可用必须明确 503，不能假装成功返回结果。
 
-    monkeypatch.setenv("CROSSPILOT_PROVIDER", "harness")
-    get_settings.cache_clear()
-    try:
-        response = auth_client.post("/api/analyze", json=DEMO_ANALYSIS_REQUEST)
-        assert response.status_code == 503
-        assert "尚未实现" in response.json()["detail"]
-    finally:
-        get_settings.cache_clear()
+    注入点选在 ``build_provider``，与具体 provider 种类无关：
+    将来增删 provider 不会让这条防护失去覆盖。
+    """
+    import crosspilot.api.analyses as analyses_mod
+    from crosspilot.llm.providers import ProviderError
+
+    def boom(*args, **kwargs):
+        raise ProviderError("模型不可用（测试注入）")
+
+    monkeypatch.setattr(analyses_mod, "build_provider", boom)
+    response = auth_client.post("/api/analyze", json=DEMO_ANALYSIS_REQUEST)
+    assert response.status_code == 503
+    assert "模型不可用" in response.json()["detail"]

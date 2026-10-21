@@ -61,7 +61,7 @@ with httpx.Client(base_url=BASE, timeout=90) as c:
 
     # 6) 健康检查应带上登录用户的配置
     h2 = c.get("/api/health").json()
-    check("health.authenticated", h2["provider"]["name"] in {"rule", "deepseek", "openai", "harness"})
+    check("health.authenticated", h2["provider"]["name"] in {"rule", "deepseek", "openai"})
     check("health.configured-model", "configured_model" in h2)
 
     # 7) 竞品分析
