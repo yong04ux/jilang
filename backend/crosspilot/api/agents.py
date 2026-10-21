@@ -553,7 +553,7 @@ async def run_agent_endpoint(
             degraded=degraded,
         )
 
-    if payload.async_run:
+    if payload.async_run and not api.settings.force_sync_tasks:
         recorder = create_agent_task(
             db=api.db,
             user_id=user["user_id"],

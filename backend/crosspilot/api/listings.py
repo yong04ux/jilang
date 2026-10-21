@@ -100,7 +100,9 @@ async def generate(
     started = time.perf_counter()
 
     # ---- 异步路径（前端使用） ------------------------------------------
-    if async_run:
+    # Serverless 部署（force_sync_tasks）下走同步：实例在响应后被冻结，
+    # 后台线程跑不完，任务会卡在 queued。
+    if async_run and not api.settings.force_sync_tasks:
         _active, config, provider = api.require_llm_provider(user)
         recorder = _recorder(api, user, tenant, request, STATUS_QUEUED).open()
 

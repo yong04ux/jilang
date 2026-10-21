@@ -136,3 +136,35 @@ def test_async_run_requires_write_role(client):
         headers={**viewer, "X-Tenant-Id": tenant_id},
     )
     assert resp.status_code == 403
+
+
+def test_force_sync_tasks_runs_inline_for_serverless(client, monkeypatch):
+    """``CROSSPILOT_FORCE_SYNC_TASKS``：Serverless 部署必须走同步。
+
+    Vercel 这类平台在响应返回后冻结实例，进程内线程队列的后台任务会就地停摆，
+    任务永远停在 queued。打开开关后即使前端传 ``async_run=true``，
+    也要在本次请求内跑完并返回结果。
+    """
+    from crosspilot.config import get_settings
+
+    monkeypatch.setenv("CROSSPILOT_FORCE_SYNC_TASKS", "true")
+    get_settings.cache_clear()
+    try:
+        headers = register(client, "force_sync")
+        resp = client.post(
+            "/api/analyze?async_run=true",
+            json=DEMO_ANALYSIS_REQUEST,
+            headers=headers,
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        # 同步路径：直接带回报告，而不是只给一个 task_id
+        assert "report" in body and body["report"], body
+        assert body.get("async") is not True
+        assert body.get("status") != "queued"
+
+        # 任务照样落库，而且是终态，不是排队的空壳
+        detail = client.get(f"/api/tasks/{body['task_id']}", headers=headers).json()
+        assert detail["task"]["status"] == "succeeded"
+    finally:
+        get_settings.cache_clear()

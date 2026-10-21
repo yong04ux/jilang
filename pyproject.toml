@@ -3,3 +3,14 @@ name = "crosspilot"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = []
+
+# ---------------------------------------------------------------------------
+# Vercel 部署入口
+# ---------------------------------------------------------------------------
+# 仓库是 monorepo（backend/ 是 Python 工程根、frontend/ 是静态站点），
+# Vercel 默认只在项目根找 app.py / main.py 等入口，所以这里显式指过去。
+#
+# backend/ 没有 __init__.py，按命名空间包导入（Python 3.3+ 支持）；
+# crosspilot 包内部全部用相对导入，因此 `backend.crosspilot.*` 前缀不会破坏它。
+[tool.vercel]
+entrypoint = "backend.crosspilot.worker_service:app"

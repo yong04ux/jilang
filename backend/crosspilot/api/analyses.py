@@ -97,7 +97,9 @@ async def analyze(
         }
 
     # ---- 异步路径 ------------------------------------------------------
-    if async_run:
+    # Serverless 部署（force_sync_tasks）下必须同步跑完：实例在响应返回后会被冻结，
+    # 后台线程不会继续，任务会永远停在 queued。
+    if async_run and not api.settings.force_sync_tasks:
         outcome = validate_request(request)
         if not outcome.ok:
             raise invalid_input()

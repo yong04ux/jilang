@@ -117,6 +117,10 @@ class Settings(BaseSettings):
     # 长任务执行器：thread（进程内，默认）| arq（需 Redis + arq）
     task_queue: Literal["thread", "arq"] = "thread"
     redis_url: str = "redis://127.0.0.1:6379/0"
+    # 强制同步执行：部署到 Serverless（Vercel 等）时必须打开。
+    # 这类平台的实例在响应结束后会被冻结，进程内线程队列的后台任务会就地停摆，
+    # 任务永远停在 running。打开后忽略 async_run，在本次请求内跑完再返回。
+    force_sync_tasks: bool = False
 
     # ---- 部署 ------------------------------------------------------------
     # 启动时自动执行迁移；生产环境建议 false 并由 CLI 显式迁移
