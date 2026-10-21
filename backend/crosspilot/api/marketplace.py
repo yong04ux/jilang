@@ -1,6 +1,6 @@
 """市场数据（Provider 协议：默认 Mock，全部带 is_mock）。
 
-设计约束（见 docs/09-refactor-plan.md §5.1）：**数据可以模拟，标记必须真实**。
+设计约束：**数据可以模拟，标记必须真实**。
 应用层只依赖 ``MarketplaceDataProvider`` 协议，不 import 具体实现；Live 未配置时
 明确 501，不降级成 Mock。
 """

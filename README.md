@@ -491,19 +491,17 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 
 ## 13. 设计文档
 
+`docs/` 只保留**仍然有效**的四份文档，历史阶段的计划/审计/阶段记录已归档清理
+（本地备份在 `.workbuddy/backup/`，不入库）。完整索引见 `docs/README.md`。
+
 | 文档 | 内容 |
 |---|---|
-| `docs/00-audit-current-state.md` | 项目现状审计 |
-| `docs/01-information-architecture.md` | 信息架构与页面规格 |
-| `docs/02-roadmap-and-decisions.md` | 目标架构、数据模型、A–G 路线 |
-| `docs/03-prototype-stage-b.md` | 前端改造与真实接入 |
-| `docs/04-tenancy-and-agent.md` | 多租户与 Agent Runtime |
-| `docs/05-stage-cd.md` | 阶段 C/D：迁移、会话、异步、审计、邀请、Planner、审批 |
-| `docs/06-stage-ef.md` | 阶段 E/F：双写、导出、版本、两步导入、Mock 店铺、PostgreSQL |
-| `docs/07-vercel-supabase-deployment.md` | 部署背景（已被 09/10 取代计划部分） |
-| `docs/08-deliverable-spec.md` | 交付规格（背景与细节来源） |
-| **`docs/09-refactor-plan.md`** | **改造总计划（唯一执行依据，M0–M8）** |
-| **`docs/10-deployment-runbook.md`** | **部署手册（Supabase + Render + Vercel + 故障排查）** |
+| `docs/11-backlog.md` | 待办与已知限制清单 |
+| `docs/12-task-overrides.md` | 按步骤分配模型的配置说明 |
+| `docs/13-demo-site-checklist.md` | 演示站上线前的验收清单 |
+| `docs/14-supabase-vercel-from-scratch.md` | 零账号起步的云端部署手册（Supabase + 应用平台） |
+
+> `docs/` 在 `.gitignore` 中，不随仓库分发。阅读时以本机文件为准。
 
 ---
 

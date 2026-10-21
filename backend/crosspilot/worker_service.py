@@ -1,12 +1,12 @@
 """Render / 单实例部署入口：FastAPI + 进程内 worker + ``/health``。
 
-架构 A（见 docs/09-refactor-plan.md 第 9 节）：
+为什么是「同进程」形态：
 
 ```
-Vercel（静态）  ──/api/*──▶  Render Web Service（本文件）
-                               ├── FastAPI (uvicorn)
-                               ├── 线程任务队列（同进程，max 2 并发）
-                               └── GET /health（保活用，不查库）
+浏览器  ──/api/*──▶  Render Web Service（本文件）
+                       ├── FastAPI (uvicorn)
+                       ├── 线程任务队列（同进程，并发数 CROSSPILOT_MAX_JOBS）
+                       └── GET /health（保活用，不查库）
 ```
 
 为什么 worker 与 API 同进程：Render 免费实例只允许一个 Web Service，

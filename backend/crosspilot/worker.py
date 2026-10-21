@@ -17,7 +17,8 @@ worker 不依赖 FastAPI：它从数据库读取 ``tasks.input``（完整运行�
 「线程执行器」与「arq 执行器」跑的是完全相同的业务代码。
 
 注意：本机没有常驻 Redis，``pytest`` **不覆盖**这条路径（会跳过）。
-这条路径的联调记录见 ``docs/05-stage-cd.md``。
+线上默认不用这条路径——Render 单实例场景走 ``worker_service.py`` 的
+进程内线程队列（见 ``CROSSPILOT_TASK_QUEUE``）。
 """
 
 from __future__ import annotations
