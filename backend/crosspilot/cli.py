@@ -106,7 +106,7 @@ def _cmd_migrate(args: argparse.Namespace) -> int:
 
 
 def _cmd_seed_demo(args: argparse.Namespace) -> int:
-    """写入演示种子数据：demo 租户 + 示例报告 + 示例 Listing + 若干任务。
+    """写入演示种子数据：demo 租户 + 示例报告 + 示例 Listing + 若干任务 + 演示店铺。
 
     所有种子记录都带 ``seed_demo=1`` / ``is_demo=1``，页面上显示「示例」徽章。
     """
@@ -231,7 +231,10 @@ def main(argv: list[str] | None = None) -> int:
     migrate = sub.add_parser("migrate", help="应用数据库迁移并显示版本")
     migrate.set_defaults(func=_cmd_migrate)
 
-    seed = sub.add_parser("seed-demo", help="写入演示种子数据（demo 租户 + 示例报告/Listing/任务）")
+    seed = sub.add_parser(
+        "seed-demo",
+        help="写入演示种子数据（demo 租户 + 示例报告/Listing/任务 + 演示店铺）",
+    )
     seed.set_defaults(func=_cmd_seed_demo)
 
     cleanup = sub.add_parser("cleanup-guests", help="删除过期的一键体验临时账号及其数据")

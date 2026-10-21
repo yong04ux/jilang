@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol, runtime_checkable
 
+from ..demo.store_data import demo_catalog, demo_sync_summary, is_demo_shop
+from ..market.platforms import ALL_CAPABILITIES, platform_spec
 from ..persistence.db import Database
 from ..tenancy import ROLE_WRITE, TenantContext, require_role
 
@@ -134,12 +136,19 @@ class MockStoreConnector:
         return rows
 
     def list_products(self) -> list[dict[str, Any]]:
-        return self._products()
+        demo = demo_catalog(self.connection.get("shop_name") or "")
+        return demo[0] if demo is not None else self._products()
 
     def list_orders(self) -> list[dict[str, Any]]:
-        return self._orders()
+        demo = demo_catalog(self.connection.get("shop_name") or "")
+        return demo[1] if demo is not None else self._orders()
 
     def sync(self) -> dict[str, Any]:
+        demo = demo_catalog(self.connection.get("shop_name") or "")
+        if demo is not None:
+            # 演示店铺：返回有品牌感的目录数据，汇总里带转化/客单价等展示指标
+            return demo_sync_summary(*demo)
+
         products = self._products()
         orders = self._orders()
         return {
@@ -203,12 +212,27 @@ def _now() -> str:
 # ---------------------------------------------------------------------------
 
 
+def _decorate(connection: dict[str, Any]) -> dict[str, Any]:
+    """给连接补充对外展示字段：Mock/演示标记、平台标签与能力。
+
+    未知平台不报错（历史数据可能是任意字符串），只标 ``platform_known=False``。
+    """
+    spec = platform_spec(connection.get("platform"))
+    connection["is_mock"] = connection.get("mode") == "mock"
+    connection["is_demo"] = is_demo_shop(connection.get("shop_name") or "")
+    connection["platform_label"] = spec.label if spec else (connection.get("platform") or "")
+    connection["platform_known"] = spec is not None
+    connection["capabilities"] = (
+        [cap for cap in ALL_CAPABILITIES if cap in spec.capabilities] if spec else []
+    )
+    connection["can_sync"] = (
+        connection.get("status") == "connected" and connection.get("mode") == "mock"
+    )
+    return connection
+
+
 def list_connections(db: Database, ctx: TenantContext) -> list[dict[str, Any]]:
-    items = db.list_store_connections(ctx.tenant_id)
-    for item in items:
-        item["is_mock"] = item.get("mode") == "mock"
-        item["can_sync"] = item.get("status") == "connected" and item.get("mode") == "mock"
-    return items
+    return [_decorate(item) for item in db.list_store_connections(ctx.tenant_id)]
 
 
 def get_connection(
@@ -217,8 +241,7 @@ def get_connection(
     connection = db.get_store_connection(connection_id, ctx.tenant_id)
     if connection is None:
         raise StoreNotFound("店铺连接不存在")
-    connection["is_mock"] = connection.get("mode") == "mock"
-    return connection
+    return _decorate(connection)
 
 
 def create_mock_connection(
@@ -272,8 +295,7 @@ def create_mock_connection(
     connector = build_connector(connection)
     connection["status"] = "connected" if connector.status().connected else "error"
     db.update_store_connection(connection["connection_id"], status=connection["status"])
-    connection["is_mock"] = True
-    return connection
+    return _decorate(connection)
 
 
 def test_connection(
@@ -323,6 +345,7 @@ def sync_connection(
         "connection_id": connection_id,
         "mode": "mock",
         "is_mock": True,
+        "is_demo": is_demo_shop(connection.get("shop_name") or ""),
         **summary,
     }
 
@@ -348,7 +371,7 @@ def disconnect(
     connection = get_connection(db, ctx, connection_id)
     db.update_store_connection(connection_id, status="disconnected")
     connection["status"] = "disconnected"
-    return connection
+    return _decorate(connection)
 
 
 def attach_credential(

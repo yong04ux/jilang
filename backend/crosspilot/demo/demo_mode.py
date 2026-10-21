@@ -124,7 +124,16 @@ def create_guest_account(
         is_admin=False,
     )
     db.mark_guest(user_id, expires.isoformat())
-    create_personal_tenant(db, user_id, username)
+    tenant_id = create_personal_tenant(db, user_id, username)
+
+    # 预置演示店铺：体验账号进来就能在「店铺与渠道」看到带数据的三家店
+    from .store_seed import seed_demo_stores
+
+    try:
+        seed_demo_stores(db, tenant_id, user_id=user_id)
+    except Exception:  # noqa: BLE001 - 店铺预置失败不该挡住登录
+        pass
+
     user = db.get_user(user_id) or {"user_id": user_id, "username": username}
     return user, username, password
 

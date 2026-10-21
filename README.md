@@ -61,7 +61,8 @@
 | **任务与执行** | 任务状态机、真实步骤与耗时、线程执行器（默认）与 arq 执行器（可选）、检查点取消、失败可追踪 |
 | **演示站机制** | 固定 `demo` 账号（只读示例、禁止存 Key）、一键体验 24h 临时账号、按账号限流、`seed-demo` / `cleanup-guests` 命令 |
 | **审批与审计** | 发布审批（只记录结论，不接平台发布）、审计日志（敏感字段已脱敏） |
-| **店铺连接** | Mock 连接器（确定性数据，全部 `is_mock`）；真实 SP-API 未接入 |
+| **店铺连接** | Mock 连接器（确定性数据，全部 `is_mock`）；演示账号进站即预置 3 家有品牌感的店铺（含商品/订单/同步汇总，带 `is_demo`）；真实 SP-API 未接入 |
+| **平台接入目录** | `/api/platforms` 开放 9 个跨境平台（Amazon / Temu / TikTok Shop / Shopee / eBay / Walmart / AliExpress / Shopify / 自定义）的能力声明、站点、`live_status` 与 OAuth 端点，另提供 `build_authorize_url()` 骨架；**授权换取环节显式抛错，不伪造 token** |
 | **导出与版本** | 报告导出 md / json / csv，Listing 导出 md / json / txt、版本链与差异、编辑后复检 |
 
 ### 开发中（导航可见，界面上明确标注）
@@ -71,6 +72,8 @@
 ### 待接入
 
 真实 Amazon SP-API（需卖家自注册应用并通过审核）、平台真实发布接口、关键词搜索量服务。
+
+平台侧的**数据接口已预留**：`market/platforms.py` 声明了各平台的 `product_id_field`、`marketplaces`、`capabilities`、`oauth` 与 `live_status`，授权链接可生成；缺的是真实应用凭据与换取 token 的实现（`exchange_code()` 当前直接抛 `PlatformNotConnected`，接入时只替换这一处）。
 
 ---
 
@@ -112,10 +115,10 @@ CrossPilot/
 │   │   ├── engine/                  # 分析与生成引擎：analysis listing listing_llm facts
 │   │   │                            #   lexicon textutils rules scrubbing
 │   │   ├── llm/                     # LLM 客户端与多厂商配置：llm providers provider_configs model_settings
-│   │   ├── market/                  # 市场数据 Provider：marketplaces marketplace_provider
+│   │   ├── market/                  # 市场数据与平台接入：marketplaces marketplace_provider platforms
 │   │   ├── persistence/             # 持久化：db migrations storage secrets
 │   │   ├── ingest/                  # 数据导入：importers
-│   │   └── demo/                    # 演示机制：seed demo_data demo_mode
+│   │   └── demo/                    # 演示机制：seed demo_data demo_mode store_data store_seed
 │   ├── tests/                       # pytest 套件
 │   └── scripts/                     # 检查与验收脚本（编码/前端契约/冒烟/E2E/PG 专项）
 ├── frontend/                        # 单一前端（无构建，原生 HTML/CSS/JS）
@@ -213,13 +216,18 @@ uvicorn crosspilot.app:app --host 0.0.0.0 --port 8000
 
 ```bash
 cd backend
-# 写入 demo 账号 + 3 份示例报告 + 3 份示例 Listing + 6 个示例任务
+# 写入 demo 账号 + 3 份示例报告 + 3 份示例 Listing + 6 个示例任务 + 3 家演示店铺（含商品/订单）
 export CROSSPILOT_DEMO_PASSWORD="demo-pass-1234"
 python -m crosspilot seed-demo
 
 # 删除过期的一键体验临时账号及其数据
 python -m crosspilot cleanup-guests
 ```
+
+演示店铺（`EcoSip Official Store` / `PeakTrail Outdoors` / `LumiGlow Home`）由
+`demo/store_data.py` 提供目录数据，与示例报告、Listing 的品牌保持一致；`seed-demo` 与
+「一键体验」临时账号都会预置，名字即幂等键。店铺名命中演示目录时 Mock 连接器直接返回该目录，
+自建店铺仍走原来的随机确定性逻辑。
 
 ### 其他 CLI
 
@@ -306,6 +314,7 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 | `test_listing_versions.py` | 版本链、差异、编辑后复检 |
 | `test_import_preview.py` | 列识别、字段映射、预览/提交、错误 CSV |
 | `test_stores.py` | Mock 确定性同步、`is_mock`、凭据加密、live 拒绝 |
+| `test_platforms.py` | 平台目录与能力声明、未知平台不报错、授权链接参数、缺凭据/未授权的显式报错、`/api/platforms` 公开、演示店铺预置与幂等 |
 | `test_marketplace_provider.py` | Mock 确定性、Live 缺凭据报错不降级、工厂拒绝未知模式、数据域状态 |
 | `test_provider_configs.py` | `base_url` 白名单与 SSRF 拦截、加密落库、掩码、激活/删除回落、demo 账号禁止写入 |
 | `test_demo_mode.py` | BYOK 428、一键体验临时账号、过期检测与清理、限流、异步竞品分析真实步骤 |
@@ -321,7 +330,7 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 | POST | `/api/auth/register` / `login` / `logout` | 注册 / 登录 / 退出 |
 | POST | `/api/auth/demo` | 一键体验：创建 24h 临时账号并直接登录 |
 | GET | `/api/auth/status` / `me` | 登录状态与账号（含 `is_guest`） |
-| GET | `/api/health`、`/api/platforms`、`/api/platform-rules/{p}/{m}`、`/api/ban-lists` | 元信息与规则；health 含 `worker` / `requires_api_key` |
+| GET | `/api/health`、`/api/platforms`、`/api/platform-rules/{p}/{m}`、`/api/ban-lists` | 元信息与规则；health 含 `worker` / `requires_api_key`；`/api/platforms` 另含 `catalog`（9 个平台的接入能力/站点/`live_status`/OAuth）、`capabilities`、`default_platform` |
 | GET | `/api/demo/dataset` | 模拟数据集（标记 demo） |
 | POST | `/api/analyze/validate`、`/api/analyze[?async_run=true]` | 竞品分析（异步返回 `task_id` + `plan`） |
 | GET | `/api/reports` / `{id}`、`/api/reports/{id}/export` | 报告查询与导出 |
@@ -345,7 +354,7 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 | POST/PUT/DELETE | `/api/agents[...]`、`/api/skills[...]` | 租户自定义 Agent / Skill（`admin+`；软删为 `disabled`；不能改平台内置） |
 | GET | `/api/tasks`、`/api/tasks/{id}`、`POST /api/tasks/{id}/cancel`、`POST /api/tasks/{id}/retry` | 任务中心（重试仅限失败/取消的 Agent 工作流任务，默认断点续跑、`?resume=false` 整任务重跑；新建任务带 `retry_of` 血缘） |
 | GET | `/api/conversations` 及其子路由 | 会话与消息 |
-| GET | `/api/stores` 及其子路由 | 店铺连接（Mock） |
+| GET | `/api/stores` 及其子路由 | 店铺连接（Mock）；返回体带 `is_mock` / `is_demo` / `platform_label` / `platform_known` / `capabilities` / `can_sync` |
 | GET | `/api/approvals`、`POST /api/approvals`、`POST /{id}/decide` | 发布审批 |
 | GET | `/api/audit` | 审计日志（admin/owner） |
 | GET/POST | `/api/tenants/invites` | 邀请令牌 |

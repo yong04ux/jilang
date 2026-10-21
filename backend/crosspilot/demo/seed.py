@@ -322,6 +322,11 @@ def seed_demo(db: Database, *, demo_username: str = "demo", demo_password: str =
     except Exception:  # noqa: BLE001 - 标记失败不影响已有数据可用性
         pass
 
+    # 演示店铺：让访问者进「店铺与渠道」就有东西可看（幂等，已同步过的不重复同步）
+    from .store_seed import seed_demo_stores
+
+    stores = seed_demo_stores(db, tenant_id, user_id=user_id)
+
     return {
         "user": user.get("username"),
         "user_id": user_id,
@@ -329,6 +334,7 @@ def seed_demo(db: Database, *, demo_username: str = "demo", demo_password: str =
         "reports": reports_created,
         "listings": listings_created,
         "tasks": tasks_created,
+        "stores": stores,
         "seeded_at": _now(),
     }
 

@@ -17,6 +17,7 @@ from ..version import __version__
 from ..auth import extract_token, resolve_session
 from ..llm.llm import KNOWN_MODELS
 from ..market.marketplaces import get_marketplace, supported_marketplaces
+from ..market.platforms import ALL_CAPABILITIES, DEFAULT_PLATFORM, list_platforms
 from ..llm.providers import ProviderError, build_provider, provider_status
 from ..engine.rules import get_rules
 from .deps import ApiContext, get_ctx, require_user
@@ -142,10 +143,22 @@ async def health(request: Request, api: ApiContext = Depends(get_ctx)) -> dict[s
 
 @router.get("/api/platforms")
 async def platforms() -> dict[str, Any]:
+    """平台信息，两个用途分开返回，别混着用：
+
+    - ``platforms`` / ``marketplaces``：**文案规则**支持的平台与站点（字符上限、禁用词）；
+    - ``catalog``：**数据接入**目录（字段名、能力、认证方式、真实接入状态）。
+    """
     return {
         "platforms": get_rules().supported_platforms(),
         "marketplaces": supported_marketplaces(),
+        "catalog": list_platforms(),
+        "capabilities": list(ALL_CAPABILITIES),
+        "default_platform": DEFAULT_PLATFORM,
         "note": "字符限制与禁用词来自可配置规则，未经平台最新政策核验",
+        "catalog_note": (
+            "真实平台接入均未完成（live_status=not_configured）："
+            "需要应用注册、卖家授权与平台审核。当前只有 Mock 连接器可用，不伪造真实数据。"
+        ),
     }
 
 
