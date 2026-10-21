@@ -470,6 +470,11 @@ def _demo_seed_flag(connection) -> None:
     _add_column(connection, "tasks", "seed_demo", "INTEGER NOT NULL DEFAULT 0")
 
 
+def _retry_of_column(connection) -> None:
+    """0012：任务重试血缘（指向被重试的原任务）。"""
+    _add_column(connection, "tasks", "retry_of", "TEXT")
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001", "baseline", _baseline),
     Migration("0002", "conversations_and_messages", _conversations),
@@ -482,6 +487,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("0009", "user_provider_configs", _provider_configs),
     Migration("0010", "guest_accounts_and_rate_limits", _guest_accounts),
     Migration("0011", "seed_demo_flags", _demo_seed_flag),
+    Migration("0012", "tasks_retry_of", _retry_of_column),
 )
 
 

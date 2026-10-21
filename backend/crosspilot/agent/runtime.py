@@ -303,6 +303,7 @@ def create_agent_task(
     conversation_id: str | None = None,
     degraded: bool = False,
     queued: bool = False,
+    retry_of: str | None = None,
 ) -> TaskRecorder:
     """创建任务记录（不执行）。异步模式以 queued 落库，交给执行器。"""
     recorder = TaskRecorder(
@@ -316,6 +317,7 @@ def create_agent_task(
         initial_status="queued" if queued else "running",
         conversation_id=conversation_id,
         degraded=degraded,
+        retry_of=retry_of,
     )
     recorder.open()
     return recorder

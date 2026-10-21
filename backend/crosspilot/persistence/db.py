@@ -1216,6 +1216,7 @@ class Database:
         "error_code",
         "error_message",
         "result_ref",
+        "retry_of",
         "trace_id",
         "created_at",
         "started_at",

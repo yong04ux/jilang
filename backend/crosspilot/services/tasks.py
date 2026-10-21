@@ -70,6 +70,7 @@ class TaskRecorder:
         conversation_id: str | None = None,
         degraded: bool = False,
         task_id: str | None = None,
+        retry_of: str | None = None,
     ) -> None:
         self.db = db
         self.user_id = user_id
@@ -83,6 +84,7 @@ class TaskRecorder:
         self.initial_status = initial_status
         self.conversation_id = conversation_id
         self.degraded = degraded
+        self.retry_of = retry_of
         self._seq = 0
         self._finished = False
         self._opened = False
@@ -107,6 +109,7 @@ class TaskRecorder:
                 "error_code": None,
                 "error_message": None,
                 "result_ref": None,
+                "retry_of": self.retry_of,
                 "trace_id": self.trace_id,
                 "created_at": now,
                 "started_at": now if self.initial_status == STATUS_RUNNING else None,
@@ -297,6 +300,7 @@ class TaskRecorder:
             conversation_id=task.get("conversation_id"),
             degraded=bool(task.get("degraded")),
             task_id=task["task_id"],
+            retry_of=task.get("retry_of"),
         )
         recorder.trace_id = task.get("trace_id") or recorder.trace_id
         recorder._opened = True
