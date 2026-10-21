@@ -257,11 +257,16 @@ pytest
 
 ```bash
 cd backend
-export CROSSPILOT_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/crosspilot"
+# 注意：必须指向独立的测试库，不能是开发库
+export CROSSPILOT_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/crosspilot_test"
 pytest
 ```
 
-> 测试会在独立 schema / 独立数据上运行，不会污染开发库。
+> **⚠️ 必须用独立的测试库（如 `crosspilot_test`）。** 测试启动时会
+> `DROP SCHEMA public CASCADE` 再重建，对开发库 `crosspilot` 执行会**清空业务数据**。
+> 首次使用先建库：`createdb -U postgres crosspilot_test`。
+>
+> 当前套件 346 项，单机约 9 分钟（每个用例重建 schema，慢是正常的）。
 
 ### 检查与验收脚本
 
