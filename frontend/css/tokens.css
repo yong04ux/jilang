@@ -1,0 +1,92 @@
+/* ============================================================================
+   激浪 · Design Tokens
+   冷白底 · 品牌蓝 #1B6EF3 · 克制的中性灰阶
+   唯一允许的间距/圆角/字号来源，页面不得自造数值。
+   ========================================================================== */
+
+:root {
+  /* ---- 底色：冷白 ---- */
+  --bg:             #F4F6FA;
+  --surface:        #FFFFFF;
+  --surface-sunken: #EEF1F7;
+  --surface-hover:  #F7F9FC;
+
+  /* ---- 文字 ---- */
+  --ink:        #101828;
+  --ink-soft:   #344054;
+  --muted:      #667085;
+  --faint:      #98A2B3;
+
+  /* ---- 品牌蓝 ---- */
+  --brand:      #1B6EF3;
+  --brand-dark: #1557C0;
+  --brand-soft: #EAF2FF;
+  --brand-line: #BFD5FB;
+
+  /* ---- 语义色 ---- */
+  --ok:      #067647;  --ok-soft:     #ECFDF3;  --ok-line:     #ABEFC6;
+  --warn:    #B54708;  --warn-soft:   #FFFAEB;  --warn-line:   #FEDF89;
+  --danger:  #B42318;  --danger-soft: #FEF3F2;  --danger-line: #FECDCA;
+  --info:    #175CD3;  --info-soft:   #EFF8FF;  --info-line:   #B2DDFF;
+
+  /* ---- 线 ---- */
+  --line:        #EAECF0;
+  --line-strong: #D0D5DD;
+
+  /* ---- 圆角 ---- */
+  --radius-sm: 8px;
+  --radius:    12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* ---- 阴影 ---- */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, .05);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, .06), 0 1px 2px rgba(16, 24, 40, .04);
+  --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, .08), 0 2px 4px -2px rgba(16, 24, 40, .04);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, .12);
+
+  /* ---- 间距：唯一六档 ---- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+  /* ---- 字号 ---- */
+  --fs-xs: 12px;  --fs-sm: 13px;  --fs-base: 14px;
+  --fs-md: 15px;  --fs-lg: 18px;  --fs-xl: 22px;
+  --fs-2xl: 28px; --fs-hero: 44px;
+
+  /* ---- 布局 ---- */
+  --sidebar-w: 200px;
+  --sidebar-w-collapsed: 64px;
+  --topbar-h: 56px;
+  --content-max: 1440px;
+
+  /* ---- 控件高度 ---- */
+  --h-sm: 32px;
+  --h-md: 38px;
+  --h-lg: 44px;
+
+  /* ---- 字体 ---- */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
+               "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  /* ---- 动效 ---- */
+  --ease: cubic-bezier(.2, .7, .3, 1);
+  --dur: 160ms;
+}
+
+/* 深浅仅做占位：本阶段只交付浅色主题 */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 0ms; }
+}
+
+
+/* ---- 激浪 Liquid Glass layer: restrained, brand blue remains primary ---- */
+:root {
+  --glass-bg: rgba(255, 255, 255, .78);
+  --glass-bg-strong: rgba(255, 255, 255, .9);
+  --glass-line: rgba(255, 255, 255, .88);
+  --glass-blue-line: rgba(27, 110, 243, .18);
+  --glass-shadow: 0 10px 30px rgba(33, 76, 140, .055), 0 1px 2px rgba(28, 55, 95, .04);
+  --glass-shadow-hover: 0 16px 36px rgba(33, 76, 140, .09), 0 3px 8px rgba(28, 55, 95, .05);
+}
