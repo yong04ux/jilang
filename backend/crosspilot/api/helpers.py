@@ -33,4 +33,22 @@ def validation_errors(exc: ValidationError) -> list[dict[str, Any]]:
     ]
 
 
-__all__ = ["attachment_headers", "validation_errors"]
+def client_ip(request: Any) -> str:
+    """取调用方 IP，仅用于限流分桶。
+
+    部署在反向代理后（Render / Vercel）时对端是代理，必须读
+    ``X-Forwarded-For`` 的第一段才是真实访客。注意这个头可以被客户端伪造，
+    所以它只做「成本很低的滥用门槛」，不作为安全边界——真正的隔离靠租户与角色。
+    """
+    headers = getattr(request, "headers", None)
+    if headers is not None:
+        forwarded = headers.get("x-forwarded-for") or headers.get("x-real-ip") or ""
+        first = forwarded.split(",")[0].strip()
+        if first:
+            return first[:64]
+    client = getattr(request, "client", None)
+    host = getattr(client, "host", "") if client else ""
+    return (host or "unknown")[:64]
+
+
+__all__ = ["attachment_headers", "client_ip", "validation_errors"]

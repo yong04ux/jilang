@@ -164,12 +164,16 @@ class ApiContext:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     def rate_limit(self, user: dict[str, Any], scope: str, limit: int) -> dict[str, str]:
+        return self.rate_limit_identity(user["user_id"], scope, limit)
+
+    def rate_limit_identity(self, identity: str, scope: str, limit: int) -> dict[str, str]:
+        """按任意 identity 限流（未登录场景用 IP，已登录场景用 user_id）。"""
         active = get_settings()
         try:
             used, remaining = check_rate_limit(
                 self.db,
                 scope=scope,
-                identity=user["user_id"],
+                identity=identity,
                 limit=limit,
                 enabled=active.rate_limit_enabled,
             )

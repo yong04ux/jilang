@@ -203,25 +203,24 @@ class DeepSeekProvider(RuleProvider):
         return draft
 
     def ping(self) -> tuple[bool, str]:
-        """最小成本连通性测试：只发一个极小请求。"""
-        try:
-            client = DeepSeekClient(
-                api_key=self._api_key,
-                base_url=self.base_url,
-                model=self.model,
-                timeout=min(self.timeout, 20.0),
-                max_retries=0,
-            )
-            result = client.chat(
-                [{"role": "user", "content": "reply with the single word: ok"}],
-                max_tokens=8,
-                temperature=0,
-            )
-            return True, f"模型 {result.model} 响应正常（tokens={result.usage.total_tokens}）"
-        except LLMError as exc:
-            return False, f"{exc.kind}: {exc}"
-        except Exception as exc:  # noqa: BLE001
-            return False, f"{type(exc).__name__}: {exc}"
+        """最小成本连通性测试：只发一个极小请求。
+
+        失败时**抛异常**而不是返回 ``(False, "...")``：文案（中文提示 vs 厂商原文）
+        属于 API 层的事，provider 层只负责把错误如实抛出来。
+        """
+        client = DeepSeekClient(
+            api_key=self._api_key,
+            base_url=self.base_url,
+            model=self.model,
+            timeout=min(self.timeout, 20.0),
+            max_retries=0,
+        )
+        result = client.chat(
+            [{"role": "user", "content": "reply with the single word: ok"}],
+            max_tokens=8,
+            temperature=0,
+        )
+        return True, f"模型 {result.model} 响应正常（tokens={result.usage.total_tokens}）"
 
 
 # 兼容旧名

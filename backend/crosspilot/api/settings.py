@@ -27,6 +27,26 @@ router = APIRouter(tags=["模型与密钥"])
 
 CLEAR_KEY_SENTINEL = "__CLEAR__"
 
+#: 连通性测试失败时的**可展示**提示。访客在演示站里看到的应该是这句，
+#: 而不是厂商返回的英文原文（原文放在响应的 ``raw`` 字段里，供排查用）。
+_TEST_FAILURE_HINTS: dict[str, str] = {
+    "auth": "API Key 无效或没有权限：确认是否复制完整、是否与所选厂商匹配、账户是否还有额度",
+    "rate_limit": "被厂商限流：等一会儿再试，或换一个 Key",
+    "network": "连不上厂商接口：检查 base_url 是否写错，或本机网络是否可达",
+    "bad_request": "厂商拒绝了这次请求：多半是模型名不存在，检查 model 是否拼写正确",
+    "server": "厂商服务端报错：稍后重试",
+    "empty": "厂商返回了空内容：检查模型名是否存在",
+    "invalid_json": "厂商返回的不是预期格式：base_url 可能不是 OpenAI 兼容接口",
+}
+_RAW_DETAIL_LIMIT = 400
+
+
+def _test_failure(exc: Exception) -> tuple[str, str]:
+    """把异常折成 ``(给用户看的中文提示, 原始错误文本)``。"""
+    kind = getattr(exc, "kind", "") or "unknown"
+    hint = _TEST_FAILURE_HINTS.get(kind, "调用失败：请检查 API Key、模型名与 base_url")
+    return hint, str(exc)[:_RAW_DETAIL_LIMIT]
+
 
 # ---------------------------------------------------------------------------
 # 旧的单套配置（回退路径）
@@ -254,6 +274,7 @@ async def test_provider_config(
         }
 
     api_key = service.decrypt_key(row)
+    raw = ""
     if not api_key:
         result = {"ok": False, "detail": "这套配置没有可用的 API Key，请重新填写"}
     else:
@@ -269,9 +290,11 @@ async def test_provider_config(
         try:
             ok, detail = candidate.ping()
         except LLMError as exc:
-            ok, detail = False, f"{exc.kind}: {exc}"
+            ok = False
+            detail, raw = _test_failure(exc)
         except Exception as exc:  # noqa: BLE001 - 把异常转成可读结果
-            ok, detail = False, f"{type(exc).__name__}: {exc}"
+            ok = False
+            detail, raw = _test_failure(exc)
         result = {
             "ok": bool(ok),
             "detail": detail,
@@ -289,7 +312,8 @@ async def test_provider_config(
         target_id=config_id,
         detail={"ok": result["ok"], "provider": provider_key},
     )
-    return {**result, "config": updated}
+    # raw 只给当前请求的调用方看（排查用），不落库、不进列表页
+    return {**result, "raw": raw, "config": updated}
 
 
 @router.post("/api/settings/providers/{config_id}/activate")

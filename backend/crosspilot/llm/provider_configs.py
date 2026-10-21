@@ -428,8 +428,14 @@ class ProviderConfigService:
             "task_overrides": override_text,
         }
         self.db.save_provider_config(record)
+        active_id = self._active_config_id(user_id)
+        # 首套配置自动激活：否则访客保存完 Key 仍然是 428，还得再找一次"激活"按钮。
+        # 只在账号还没有任何激活配置时接管，编辑其余配置不会抢走当前选择。
+        if active_id is None and record["enabled"]:
+            self.db.set_active_provider_config(user_id, record["config_id"])
+            active_id = record["config_id"]
         row = self.db.find_provider_config(user_id, provider, label) or record
-        return self._public_row(row, self._active_config_id(user_id))
+        return self._public_row(row, active_id)
 
     def delete(self, user_id: str, config_id: str) -> None:
         row = self.get_row(user_id, config_id)

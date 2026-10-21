@@ -26,6 +26,7 @@ from ..services import audit
 from ..services import invites as invite_service
 from ..tenancy import ROLE_MANAGE, TenantContext, TenantError, invite_member, require_role
 from .deps import ApiContext, get_ctx, require_admin, require_tenant, require_user
+from .helpers import client_ip
 
 router = APIRouter(tags=["账号"])
 
@@ -69,11 +70,19 @@ async def auth_status(
 
 @router.post("/api/auth/demo")
 async def auth_demo(
+    request: Request,
     response: Response,
     payload: dict[str, Any] | None = None,
     ctx: ApiContext = Depends(get_ctx),
 ) -> dict[str, Any]:
-    """一键体验：创建 24h 临时账号（独立租户，可存自己的 Key）。"""
+    """一键体验：创建 24h 临时账号（独立租户，可存自己的 Key）。
+
+    这个入口不需要任何凭据，公网部署后是最容易被刷的地方：按 IP 限流，
+    避免有人写个循环把账号表灌满（每个账号还会带租户与演示店铺）。
+    """
+    ctx.rate_limit_identity(
+        client_ip(request), "auth.demo", ctx.settings.rate_limit_guest_per_hour
+    )
     ttl = ctx.settings.guest_ttl_hours
     try:
         user, username, password = create_guest_account(ctx.db, ttl_hours=ttl)

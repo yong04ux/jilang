@@ -59,7 +59,7 @@
 | **市场数据 Provider** | `MockMarketplaceProvider`（确定性种子，全 `is_mock`）与 `LiveMarketplaceProvider` 骨架；商品/订单/广告/指标四类只读接口 |
 | **多租户与角色** | 个人空间自动创建、`X-Tenant-Id` 校验成员关系、viewer / editor / admin / owner |
 | **任务与执行** | 任务状态机、真实步骤与耗时、线程执行器（默认）与 arq 执行器（可选）、检查点取消、失败可追踪 |
-| **演示站机制** | 固定 `demo` 账号（只读示例、禁止存 Key）、一键体验 24h 临时账号、按账号限流、`seed-demo` / `cleanup-guests` 命令 |
+| **演示站机制** | 固定 `demo` 账号（只读示例、禁止存 Key）、一键体验 24h 临时账号（**可存自己的 Key**、按 IP 限流）、按账号限流、`seed-demo` / `cleanup-guests` 命令 |
 | **审批与审计** | 发布审批（只记录结论，不接平台发布）、审计日志（敏感字段已脱敏） |
 | **店铺连接** | Mock 连接器（确定性数据，全部 `is_mock`）；演示账号进站即预置 3 家有品牌感的店铺（含商品/订单/同步汇总，带 `is_demo`）；真实 SP-API 未接入 |
 | **平台接入目录** | `/api/platforms` 开放 9 个跨境平台（Amazon / Temu / TikTok Shop / Shopee / eBay / Walmart / AliExpress / Shopify / 自定义）的能力声明、站点、`live_status` 与 OAuth 端点，另提供 `build_authorize_url()` 骨架；**授权换取环节显式抛错，不伪造 token** |
@@ -229,6 +229,16 @@ python -m crosspilot cleanup-guests
 「一键体验」临时账号都会预置，名字即幂等键。店铺名命中演示目录时 Mock 连接器直接返回该目录，
 自建店铺仍走原来的随机确定性逻辑。
 
+### 对外演示上线
+
+要让别人**在线操作**（临时账号 + 自己的 Key + 模拟数据跑一遍），按
+`docs/13-demo-site-checklist.md` 执行。三个最容易漏的点：
+
+1. **必须固定 `CROSSPILOT_SECRET_KEY`** —— 不设就落盘生成，免费实例重启丢文件后，
+   访客已保存的 Key 全部解不开；
+2. `vercel.json` 的 `rewrites.destination` 要回填成 Render 实际域名；
+3. 「一键体验」按 IP 限流由 `CROSSPILOT_RATE_LIMIT_GUEST_PER_HOUR`（默认 5/h）控制。
+
 ### 其他 CLI
 
 ```bash
@@ -328,7 +338,7 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 |---|---|---|
 | GET | `/` 及 SPA 路由 | 前端外壳（`/dashboard` 为默认页） |
 | POST | `/api/auth/register` / `login` / `logout` | 注册 / 登录 / 退出 |
-| POST | `/api/auth/demo` | 一键体验：创建 24h 临时账号并直接登录 |
+| POST | `/api/auth/demo` | 一键体验：创建 24h 临时账号并直接登录（**按 IP 限流**；不受关闭注册影响；可保存自己的 Key） |
 | GET | `/api/auth/status` / `me` | 登录状态与账号（含 `is_guest`） |
 | GET | `/api/health`、`/api/platforms`、`/api/platform-rules/{p}/{m}`、`/api/ban-lists` | 元信息与规则；health 含 `worker` / `requires_api_key`；`/api/platforms` 另含 `catalog`（9 个平台的接入能力/站点/`live_status`/OAuth）、`capabilities`、`default_platform` |
 | GET | `/api/demo/dataset` | 模拟数据集（标记 demo） |
@@ -412,9 +422,10 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 | `CROSSPILOT_PROVIDER` | `rule` | 进程级默认 Provider（无用户配置时兜底） |
 | `CROSSPILOT_DEMO_PASSWORD` | 空 | 固定 `demo` 账号的密码；为空则不创建该账号 |
 | `CROSSPILOT_GUEST_TTL_HOURS` | `24` | 一键体验临时账号有效期 |
-| `CROSSPILOT_RATE_LIMIT_ENABLED` | `true` | 是否启用按账号限流 |
+| `CROSSPILOT_RATE_LIMIT_ENABLED` | `true` | 是否启用限流 |
 | `CROSSPILOT_RATE_LIMIT_TASKS_PER_HOUR` | `10` | 每账号每小时任务数 |
 | `CROSSPILOT_RATE_LIMIT_KEY_TESTS_PER_HOUR` | `5` | 每账号每小时 Key 测试数 |
+| `CROSSPILOT_RATE_LIMIT_GUEST_PER_HOUR` | `5` | **每 IP** 每小时「一键体验」建号数（公网部署必看） |
 | `CROSSPILOT_MARKETPLACE_MODE` | `mock` | 市场数据默认模式；真实接入按连接逐个切换 |
 | `CROSSPILOT_ALLOW_OPEN_REGISTRATION` | `true` | 关闭后除首个用户外必须持邀请令牌 |
 | `CROSSPILOT_TASK_QUEUE` | `thread` | `thread`（进程内）或 `arq`（需 Redis + worker） |
@@ -471,6 +482,10 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 9. **arq 队列需要 Redis**。默认线程执行器不依赖外部服务；线上用 `CROSSPILOT_TASK_QUEUE=thread`。
 10. **只支持 OpenAI 兼容协议**。Anthropic / Gemini 原生协议未适配（非兼容协议，需要独立适配器）。
 11. **单实例假设**。线程队列、取消语义、限流计数都假设只有一个进程；Render 免费也只有单实例。
+12. **免费实例会休眠**。Render free 在无请求约 15 分钟后休眠，首次访问要等 30–60 秒冷启动；
+    要对外演示建议加一个定时 ping `/health` 的保活任务，或换付费实例。
+13. **并发上限 2**。`CROSSPILOT_MAX_JOBS=2`（免费实例 512MB 内存），多人同时跑 LLM 会排队。
+14. **临时账号需要定期清理**。`cleanup-guests` 目前要手动/定时执行，过期账号不会自动消失。
 
 ---
 

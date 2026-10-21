@@ -186,6 +186,23 @@ def test_rate_limit_blocks_after_threshold(client, monkeypatch):
         get_settings.cache_clear()
 
 
+def test_guest_creation_is_rate_limited_per_ip(client, monkeypatch):
+    """一键体验不需要任何凭据，公网部署后必须按 IP 限流。
+
+    否则写个循环就能把 users / tenants / store_connections 全部灌满。
+    """
+    from crosspilot.config import get_settings
+
+    monkeypatch.setenv("CROSSPILOT_RATE_LIMIT_GUEST_PER_HOUR", "2")
+    get_settings.cache_clear()
+    try:
+        statuses = [client.post("/api/auth/demo", json={}).status_code for _ in range(3)]
+        assert statuses[:2] == [200, 200], statuses
+        assert statuses[2] == 429, statuses
+    finally:
+        get_settings.cache_clear()
+
+
 def test_rate_limit_can_be_disabled(client, monkeypatch):
     from crosspilot.config import get_settings
     from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST

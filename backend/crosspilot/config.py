@@ -106,6 +106,8 @@ class Settings(BaseSettings):
     # 限流：每账号/IP 每小时的任务数与 Key 测试数
     rate_limit_tasks_per_hour: int = 10
     rate_limit_key_tests_per_hour: int = 5
+    # 一键体验按 IP 限流：公网演示站最容易被刷的入口（无需凭据）
+    rate_limit_guest_per_hour: int = 5
     rate_limit_enabled: bool = True
 
     # ---- 数据源 ----------------------------------------------------------

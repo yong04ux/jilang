@@ -115,7 +115,46 @@ def test_save_config_masks_key_and_never_leaks_plaintext(client):
     assert config["api_key_masked"] == "sk-****3456"
     assert config["has_api_key"] is True
     assert config["base_url"] == "https://api.deepseek.com"
-    assert config["is_active"] is False
+    # 账号的第一套配置会被自动激活（否则访客保存完仍是 428，见下方 auto_activate 测试）
+    assert config["is_active"] is True
+
+
+def test_first_config_is_activated_automatically(client):
+    """演示站动线：保存第一套 Key 之后应当能直接跑，不用再找「设为当前」。
+
+    否则访客看到「保存成功」却仍然 428，第一次使用就卡在这一步。
+    """
+    headers = register(client, "prov_autoact")
+    first = client.post(
+        "/api/settings/providers",
+        json={
+            "provider": "deepseek",
+            "label": "我的 Key",
+            "api_key": "sk-test-1234567890",
+            "model": "deepseek-flash",
+        },
+        headers=headers,
+    ).json()["config"]
+    assert first["is_active"] is True
+    assert client.get("/api/settings/providers", headers=headers).json()[
+        "active_config_id"
+    ] == first["config_id"]
+
+    # 第二套配置不抢当前选择：多配置场景下用户的显式选择优先
+    second = client.post(
+        "/api/settings/providers",
+        json={
+            "provider": "openai",
+            "label": "备用 Key",
+            "api_key": "sk-test-1234567890",
+            "model": "gpt-4o-mini",
+        },
+        headers=headers,
+    ).json()["config"]
+    assert second["is_active"] is False
+    assert client.get("/api/settings/providers", headers=headers).json()[
+        "active_config_id"
+    ] == first["config_id"]
 
 
 def test_base_url_whitelist_is_enforced_through_api(client):
@@ -273,3 +312,26 @@ def test_demo_account_cannot_save_provider_config(client, monkeypatch):
             assert "共享" in resp.json()["detail"]
     finally:
         get_settings.cache_clear()
+
+
+def test_provider_test_failure_shows_chinese_hint_not_vendor_raw():
+    """连通性测试失败时，给访客看中文提示；厂商原文只放 raw 字段。
+
+    演示站里访客看到 ``Error code: 401 - {'error': {...}}`` 会一头雾水。
+    """
+    from crosspilot.api.settings import _test_failure
+    from crosspilot.llm.llm import LLMError
+
+    hint, raw = _test_failure(
+        LLMError(
+            "API Key 无效或无权限：Error code: 401 - {'error': {'code': 'invalid_api_key'}}",
+            kind="auth",
+        )
+    )
+    assert "Key" in hint
+    assert "401" not in hint and "invalid_api_key" not in hint
+    assert "401" in raw
+
+    # 未知类型也要给一句能看懂的兜底
+    hint2, _ = _test_failure(ValueError("boom"))
+    assert hint2 and "boom" not in hint2
