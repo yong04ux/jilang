@@ -93,7 +93,7 @@ def test_analyze_endpoint_reports_field_level_errors(auth_client):
     response = auth_client.post("/api/analyze", json=payload)
     assert response.status_code == 422
     detail = response.json()["detail"]
-    assert any("product_name" in err["field"] for err in detail["errors"])
+    assert any("商品名称" in err["field"] for err in detail["errors"])
 
 
 def test_validate_endpoint(auth_client):

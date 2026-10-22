@@ -23,8 +23,77 @@
     activeOnly: false,
   };
 
+  function engineLabel(name) {
+    if (!name) return "未配置";
+    return name === "rule" ? "规则生成" : "AI 模型";
+  }
+
   function canManage(tenant) {
     return tenant && (tenant.role === "admin" || tenant.role === "owner");
+  }
+
+  /* 审计记录用中文动作名展示；未收录的动作按模块归类，不暴露内部动作代码 */
+  const AUDIT_LABEL = {
+    "auth.login": "登录",
+    "auth.logout": "退出登录",
+    "auth.register": "注册账号",
+    "auth.demo": "创建临时账号",
+    "auth.password_change": "修改密码",
+    "model.provider_save": "保存模型配置",
+    "model.provider_activate": "切换当前模型",
+    "model.provider_test": "测试模型连接",
+    "model.provider_delete": "删除模型配置",
+    "model.update": "更新模型设置",
+    "model.reset": "重置模型设置",
+    "store.create": "添加店铺",
+    "store.sync": "同步店铺",
+    "store.disconnect": "断开店铺",
+    "listing.generate": "生成 Listing",
+    "listing.recheck": "复检 Listing",
+    "listing.export": "导出 Listing",
+    "listing.version_create": "保存 Listing 版本",
+    "approval.request": "提交发布申请",
+    "approval.decide": "审批发布申请",
+    "invite.create": "生成邀请",
+    "invite.accepted": "接受邀请",
+    "invite.deleted": "撤销邀请",
+    "task.cancel": "取消任务",
+    "task.retry": "重试任务",
+    "task.run": "执行任务",
+    "report.export": "导出报告",
+  };
+
+  const AUDIT_PREFIX = {
+    auth: "账号操作",
+    model: "模型配置变更",
+    store: "店铺操作",
+    listing: "Listing 操作",
+    approval: "审批操作",
+    invite: "成员邀请",
+    task: "任务操作",
+    report: "报告操作",
+  };
+
+  const TARGET_LABEL = {
+    user: "成员",
+    provider_config: "模型配置",
+    store_connection: "店铺",
+    listing: "Listing",
+    report: "报告",
+    task: "任务",
+    invite: "邀请",
+    approval: "审批",
+  };
+
+  function auditLabel(action) {
+    const key = String(action || "");
+    if (AUDIT_LABEL[key]) return AUDIT_LABEL[key];
+    const prefix = key.split(".")[0];
+    return AUDIT_PREFIX[prefix] || "操作记录";
+  }
+
+  function auditTarget(item) {
+    return TARGET_LABEL[item.target_type] || "—";
   }
 
   /* ---------------- 模型与密钥 ---------------- */
@@ -41,7 +110,7 @@
     return (
       `<form id="prov-form" class="card card-pad" style="margin-top:var(--sp-4)">` +
       `<div class="row between"><div><div class="card-title">${editing.config_id ? "编辑配置" : "新增配置"}</div>` +
-      `<div class="card-sub">只支持 OpenAI 兼容协议；用 base_url + model 区分厂商</div></div>` +
+      `<div class="card-sub">只支持 OpenAI 兼容接口；不同厂商用接口地址与模型名区分</div></div>` +
       `<button type="button" class="btn-icon" id="prov-cancel" aria-label="取消">${U.icon("close")}</button></div>` +
 
       `<div class="grid-2 mt-4">` +
@@ -54,15 +123,15 @@
       `<label class="field mt-3"><span class="field-label">API Key ${editing.config_id ? "" : '<span class="t-danger">*</span>'}</span>` +
       `<input name="api_key" type="password" autocomplete="off" ` +
       `placeholder="${editing.config_id ? "留空表示不修改" : "sk-..."}" />` +
-      `<span class="field-help">加密保存，接口只返回掩码；不会进入日志或模型上下文。</span></label>` +
+      `<span class="field-help">加密保存；保存后只显示末四位。生成时只用于调用模型，不会出现在结果里。</span></label>` +
 
-      `<label class="field mt-3"><span class="field-label">base_url</span>` +
+      `<label class="field mt-3"><span class="field-label">接口地址</span>` +
       `<input name="base_url" value="${U.esc(editing.base_url || "")}" placeholder="留空使用厂商默认地址" />` +
       `<span class="field-help" id="prov-url-hint">预置厂商只允许其官方域名；其他地址需选择「自定义」并勾选下方确认。</span></label>` +
 
       `<label class="row gap-2 mt-3" style="cursor:pointer" id="prov-custom-row">` +
       `<input type="checkbox" name="allow_custom" ${customSelected ? "" : "disabled"} />` +
-      `<span class="t-sm">我确认使用自定义 base_url（仅 OpenAI 兼容服务，不能指向内网）</span></label>` +
+      `<span class="t-sm">我确认使用自定义接口地址（仅限 OpenAI 兼容服务，不能指向内网）</span></label>` +
 
       `<label class="field mt-3"><span class="field-label">模型 <span class="t-danger">*</span></span>` +
       `<input name="model" value="${U.esc(editing.model || "")}" placeholder="例如 deepseek-flash" /></label>` +
@@ -81,7 +150,7 @@
       return `<div class="empty" style="padding:var(--sp-5)">` +
         `<span class="empty-icon">${U.icon("settings")}</span>` +
         `<p class="empty-title">还没有配置</p>` +
-        `<p class="empty-desc">激浪不提供模型额度（BYOK）。添加一个厂商配置并激活后，才能运行生成类任务。</p></div>`;
+        `<p class="empty-desc">激浪不提供模型额度。添加一个你自己的模型配置并设为当前使用后，才能运行生成类任务。</p></div>`;
     }
     return items.map(function (c) {
       const active = c.is_active;
@@ -116,25 +185,21 @@
   function sourceRows() {
     const items = state.sources || [];
     if (!items.length) {
-      return `<p class="t-sm t-muted">数据源状态不可用。</p>`;
+      return `<p class="t-sm t-muted">暂时读不到数据来源信息。</p>`;
     }
     return items.map(function (s) {
-      const mock = s.mode === "mock";
-      const upload = s.mode === "upload";
-      const live = s.mode === "live";
       let badge;
-      if (upload) badge = `<span class="badge">用户上传 / 示例</span>`;
-      else if (mock && s.configured) badge = `<span class="badge badge-mock">Mock</span>`;
-      else if (live) badge = `<span class="badge">未接入 · 待审核</span>`;
-      else badge = `<span class="badge">未配置</span>`;
+      if (s.mode === "upload") badge = `<span class="badge">你的文件</span>`;
+      else if (s.configured && s.mode === "live") badge = `<span class="badge badge-ok">已连接</span>`;
+      else if (s.configured) badge = `<span class="badge">示例数据</span>`;
+      else badge = `<span class="badge">未设置</span>`;
       return (
         `<div class="src-row"><span class="grow">` +
         `<span class="src-name">${U.esc(s.label)}</span>` +
         `<span class="src-desc">${U.esc(s.detail)}` +
-        (s.live_target ? ` · 真实接入点：<code>${U.esc(s.live_target)}</code>` : "") +
         (s.last_sync_at ? ` · 最后同步 ${U.esc(U.fmtTime(s.last_sync_at))}` : "") +
         `</span></span>` +
-        `<span class="src-mode">${U.esc(s.mode)}</span>` + badge +
+        `<span class="src-flags">${badge}</span>` +
         `</div>`
       );
     }).join("");
@@ -145,7 +210,7 @@
     state.editing = null;
     root.innerHTML = `<div class="view"><div class="page"><div class="page-inner">` +
       `<div class="page-head"><div><h1 class="page-title">设置</h1>` +
-      `<p class="page-desc">账号、模型与密钥、团队权限、审计与数据源。密钥只加密保存在数据库，不进入日志与模型上下文。</p></div>` +
+      `<p class="page-desc">账号、模型密钥、团队成员与数据来源。</p></div>` +
       `</div><div class="skeleton skeleton-line" style="height:180px"></div></div></div></div>`;
 
     await loadAll();
@@ -178,22 +243,27 @@
     const manage = canManage(state.tenant);
 
     const memberRows = state.members.map(function (m) {
-      return `<tr><td>${U.esc(m.display_name || m.username)}` +
-        `<div class="t-xs t-faint t-mono">${U.esc(String(m.user_id).slice(0, 12))}</div></td>` +
+      return `<tr><td>${U.esc(m.display_name || m.username)}</td>` +
         `<td>${U.esc(m.role)}</td>` +
         `<td class="t-muted">${U.esc(U.fmtTime(m.joined_at))}</td></tr>`;
     }).join("");
 
+    // 操作者优先显示成员名；匹配不到就不显示 ID
+    const memberName = {};
+    state.members.forEach(function (m) {
+      memberName[m.user_id] = m.display_name || m.username;
+    });
+
     const auditRows = state.auditItems.map(function (item) {
-      return `<tr><td class="t-mono t-xs">${U.esc(item.action)}</td>` +
-        `<td class="t-xs">${U.esc(String(item.actor_id).slice(0, 10))}</td>` +
-        `<td class="t-xs">${U.esc(item.target_type || "—")} ${U.esc(String(item.target_id || "").slice(0, 12))}</td>` +
+      return `<tr><td>${U.esc(auditLabel(item.action))}</td>` +
+        `<td class="t-xs">${U.esc(memberName[item.actor_id] || "—")}</td>` +
+        `<td class="t-xs t-muted">${U.esc(auditTarget(item))}</td>` +
         `<td class="t-muted t-xs">${U.esc(U.fmtTime(item.created_at))}</td></tr>`;
     }).join("");
 
     root.innerHTML = `<div class="view"><div class="page"><div class="page-inner">` +
       `<div class="page-head"><div><h1 class="page-title">设置</h1>` +
-      `<p class="page-desc">账号、模型与密钥、团队权限、审计与数据源。密钥只加密保存在数据库，不进入日志与模型上下文。</p></div>` +
+      `<p class="page-desc">账号、模型密钥、团队成员与数据来源。</p></div>` +
       `</div>` +
 
       `<div class="settings-grid">` +
@@ -205,7 +275,7 @@
       `<div class="kv"><span class="kv-k">显示名</span><span class="kv-v">${U.esc(user.display_name || "—")}</span></div>` +
       `<div class="kv"><span class="kv-k">管理员</span><span class="kv-v">${user.is_admin ? "是" : "否"}</span></div>` +
       `<div class="kv"><span class="kv-k">账号类型</span><span class="kv-v">` +
-      `${isDemo ? '<span class="badge badge-mock">共享演示账号</span>'
+      `${isDemo ? '<span class="badge badge-warn">共享体验账号</span>'
         : user.is_guest ? `<span class="badge badge-warn">临时账号（${U.esc(U.fmtTime(user.guest_expires_at))} 过期）</span>`
         : '<span class="badge">普通账号</span>'}</span></div>` +
       `<div class="row gap-2 mt-4"><button type="button" class="btn btn-sm" id="btn-logout">退出登录</button></div>` +
@@ -213,39 +283,35 @@
 
       // ---- 模型与密钥 ----
       `<div class="card" id="section-model"><div class="card-head"><div>` +
-      `<div class="card-title">模型与密钥（BYOK）</div>` +
+      `<div class="card-title">模型与密钥</div>` +
       `<div class="card-sub">平台不提供模型额度：每个账号使用自己的 API Key</div></div>` +
       `<button type="button" class="btn btn-primary btn-sm" id="prov-new" ${isDemo ? "disabled" : ""}>` +
       `${U.icon("plus")}新增配置</button></div><div class="card-body">` +
 
       (isDemo
         ? `<div class="callout callout-warn">${U.icon("alert")}<div>` +
-          `<strong>固定演示账号不能保存 API Key</strong>：这是共享账号。` +
+          `<strong>共享体验账号不能保存 API Key</strong>：它由所有人共用。` +
           `请使用「一键体验」创建自己的临时账号后再配置。` +
           `<div class="mt-2"><a class="btn btn-sm" href="/logout" data-link id="goto-guest" hidden></a></div>` +
           `</div></div>`
         : "") +
 
       `<div class="row between wrap gap-2 mb-2"><span class="t-sm t-bold">已保存的配置</span>` +
-      `<span class="t-xs t-muted">当前生效：${U.esc(provider.name || "未配置")}` +
+      `<span class="t-xs t-muted">当前生效：${U.esc(engineLabel(provider.name))}` +
       (provider.model ? ` · ${U.esc(provider.model)}` : "") + `</span></div>` +
       providerList() +
       (state.editing !== null ? providerForm() : "") +
       `<div class="callout callout-info mt-4">${U.icon("info")}` +
-      `<span>本期只支持 OpenAI 兼容协议（DeepSeek / OpenAI / Moonshot / 智谱 / 通义 / 硅基流动 / OpenRouter / Ollama / 自定义）。` +
-      `Anthropic 与 Gemini 原生协议未实现。</span></div>` +
+      `<span>支持 OpenAI 兼容接口：DeepSeek、OpenAI、Moonshot、智谱、通义、硅基流动、OpenRouter、Ollama，也可以填自定义地址。</span></div>` +
       `</div></div>` +
 
       // ---- 数据源 ----
       `<div class="card" id="section-data"><div class="card-head"><div>` +
       `<div class="card-title">数据源</div>` +
-      `<div class="card-sub">每个数据域当前用哪个 Provider、什么模式、最后同步时间</div></div></div>` +
+      `<div class="card-sub">每个数据域现在用的是哪一份数据、上次什么时候同步</div></div></div>` +
       `<div class="card-body">` +
-      `<div class="callout callout-warn mb-3">${U.icon("alert")}<div>` +
-      `数据可以模拟，标记必须真实。带 <strong>Mock</strong> 的是模拟连接器数据，` +
-      `Live 未配置时显示「未接入」，不会降级成 Mock。</div></div>` +
       sourceRows() +
-      `<div class="row gap-2 mt-4"><a class="btn btn-sm" href="/stores" data-link>管理店铺连接</a></div>` +
+      `<div class="row gap-2 mt-4"><a class="btn btn-sm" href="/stores" data-link>管理店铺与渠道</a></div>` +
       `</div></div>` +
 
       // ---- 团队 ----
@@ -269,7 +335,7 @@
           `<button type="button" class="btn btn-sm" id="btn-invite">生成邀请令牌</button>` +
           `</div>` +
           `<div class="callout callout-info mt-3">${U.icon("info")}` +
-          `<span>项目未接入邮件发送：令牌只显示一次，请自行通过 IM/邮件转交。</span></div>` +
+          `<span>邀请链接只显示一次，复制后发给同事即可。</span></div>` +
           `<div id="invite-result" class="mt-3"></div>`
         : `<div class="callout callout-info mt-3">${U.icon("info")}` +
           `<span>只有 admin / owner 可以邀请成员与查看审计日志。</span></div>`) +
@@ -279,7 +345,7 @@
       (manage
         ? `<div class="card" id="section-audit"><div class="card-head"><div>` +
           `<div class="card-title">审计日志</div>` +
-          `<div class="card-sub">最近 20 条；只追加，写入前已脱敏</div></div></div>` +
+          `<div class="card-sub">最近 20 条；记录写入后不可修改</div></div></div>` +
           `<div class="card-body">` +
           `<div class="table-wrap"><table class="table"><thead><tr>` +
           `<th>动作</th><th>操作者</th><th>对象</th><th>时间</th></tr></thead><tbody>` +

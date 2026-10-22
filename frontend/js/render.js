@@ -48,7 +48,7 @@
     return (
       `<ul class="evidence-list">` +
       refs.slice(0, 3).map(function (ref) {
-        const where = [ref.competitor, ref.field].filter(Boolean).join(" · ");
+        const where = [ref.competitor, ref.field ? window.CPLabel.field(ref.field) : ""].filter(Boolean).join(" · ");
         const quote = ref.quote ? `「${U.esc(ref.quote)}」` : "";
         return `<li><span class="t-faint">${U.esc(where)}</span> ${quote}</li>`;
       }).join("") +
@@ -67,12 +67,16 @@
   }
 
   /* ---------------- 竞品分析报告 ---------------- */
+  function engineLabel(engine) {
+    return engine === "rule" ? "规则生成" : "AI 模型生成";
+  }
+
   function reportMeta(report) {
     const prov = report.data_provenance || {};
     return (
       `<div class="row wrap gap-2">` +
-      (prov.is_demo ? U.mockFlag() : `<span class="badge badge-ok">用户提供数据</span>`) +
-      `<span class="badge">${U.esc(report.engine || "rule")}</span>` +
+      (prov.is_demo ? U.mockFlag() : `<span class="badge badge-ok">你提供的数据</span>`) +
+      `<span class="badge">${U.esc(engineLabel(report.engine))}</span>` +
       `<span class="t-xs t-muted">竞品 ${prov.competitor_count || 0} · 评论样本 ${prov.review_sample_count || 0} · 关键词 ${prov.keyword_count || 0}</span>` +
       `</div>`
     );
@@ -103,7 +107,7 @@
         `<tr>` +
         `<td><strong>${U.esc(c.name)}</strong>${c.is_demo ? " " + U.mockFlag() : ""}` +
         `<div class="t-xs t-faint">${U.esc(c.brand || "")}${c.brand && c.missing_fields ? " · " : ""}` +
-        `${c.missing_fields && c.missing_fields.length ? "缺 " + U.esc(c.missing_fields.join("、")) : ""}</div></td>` +
+        `${c.missing_fields && c.missing_fields.length ? "还缺 " + U.esc(c.missing_fields.map(function (k) { return window.CPLabel.field(k); }).join("、")) : ""}</div></td>` +
         `<td class="num">${money(c.price, c.currency)}</td>` +
         `<td class="num">${c.rating === null || c.rating === undefined ? "—" : Number(c.rating).toFixed(1)}</td>` +
         `<td class="num">${c.review_count === null || c.review_count === undefined ? "—" : c.review_count}</td>` +
@@ -131,7 +135,11 @@
     ];
     const has = groups.some(function (g) { return g[1] && g[1].length; });
     if (!has) {
-      return `<p class="t-sm t-muted">没有评论样本，无法做主题挖掘。` +
+      const total = insights.total_samples || 0;
+      const head = total === 0
+        ? "还没有评论样本，主题分析无法开始。"
+        : `已收到 ${total} 条评论样本，还不足以归纳主题。`;
+      return `<p class="t-sm t-muted">${head}` +
         (insights.limitations || []).map(function (l) { return `<br>${U.esc(l)}`; }).join("") + `</p>`;
     }
     return groups.map(function (g) {
@@ -186,8 +194,8 @@
       return (
         `<div class="pain-item">` +
         `<div class="row between"><strong class="t-sm">${U.esc(d.angle)}</strong>` +
-        `<span class="row gap-1"><span class="badge">${U.esc(d.priority)}</span>` +
-        `<span class="badge">置信 ${U.esc(d.confidence)}</span></span></div>` +
+        `<span class="row gap-1"><span class="badge">机会 ${U.esc(window.CPLabel.level(d.priority))}</span>` +
+        `<span class="badge">置信 ${U.esc(window.CPLabel.level(d.confidence))}</span></span></div>` +
         `<div class="t-xs t-muted">${U.esc(d.rationale)}</div>` +
         (d.requires_confirmation ? `<div class="t-xs t-danger mt-1">需要人工确认后才可使用</div>` : "") +
         `</div>`
@@ -201,7 +209,7 @@
     return items.map(function (r) {
       return (
         `<div class="pain-item">` +
-        `<div class="row gap-2">${kindBadge(r.evidence_kind)}<strong class="t-sm">${U.esc(r.area)}</strong></div>` +
+        `<div class="row gap-2">${kindBadge(r.evidence_kind)}<strong class="t-sm">${U.esc(window.CPLabel.field(r.area))}</strong></div>` +
         `<div class="t-sm">${U.esc(r.recommendation)}</div>` +
         `<div class="t-xs t-muted">${U.esc(r.rationale)}</div>` +
         `</div>`
@@ -232,7 +240,8 @@
       `<div class="report-block">` +
       `<div class="report-head">` +
       `<div><div class="t-section">${U.esc(report.product_name)}</div>` +
-      `<div class="t-xs t-muted">${U.esc(report.platform)} · ${U.esc(report.marketplace)} · ` +
+      `<div class="t-xs t-muted">${U.esc(window.CPLabel.platform(report.platform))} · ` +
+      `${U.esc(window.CPLabel.site(report.marketplace))} · ` +
       `${U.esc(U.fmtTime(report.created_at))}</div></div>` +
       (opts.actions || "") +
       `</div>` +
@@ -255,13 +264,19 @@
   }
 
   /* ---------------- Listing 草稿 ---------------- */
+  /* 质检问题：说清「哪里」「什么问题」「怎么改」，不暴露内部问题编号 */
+  const SEVERITY_LABEL = { error: "必须改", warning: "建议改", info: "提示" };
+
   function issueBlock(issue) {
-    const tone = issue.severity === "error" ? "callout-danger"
+    const isError = issue.severity === "error";
+    const tone = isError ? "callout-danger"
       : issue.severity === "warning" ? "callout-warn" : "callout-info";
+    const level = SEVERITY_LABEL[issue.severity] || "提示";
+    const where = issue.location ? window.CPLabel.field(issue.location) : "";
     return (
-      `<div class="callout ${tone} mb-2">${U.icon(issue.severity === "error" ? "alert" : "info")}` +
-      `<div><strong>${U.esc(issue.code)}</strong>` +
-      (issue.location ? ` · <span class="t-xs">${U.esc(issue.location)}</span>` : "") +
+      `<div class="callout ${tone} mb-2">${U.icon(isError ? "alert" : "info")}` +
+      `<div><strong>${U.esc(level)}</strong>` +
+      (where ? ` · <span class="t-xs">${U.esc(where)}</span>` : "") +
       `<br>${U.esc(issue.message)}` +
       (issue.suggestion ? `<div class="t-xs mt-1" style="opacity:.85">建议：${U.esc(issue.suggestion)}</div>` : "") +
       `</div></div>`
@@ -284,22 +299,24 @@
 
     const lengths = (qc.section_lengths || []).map(function (s) {
       return (
-        `<tr><td>${U.esc(s.section)}</td><td class="num">${s.length}</td>` +
+        `<tr><td>${U.esc(window.CPLabel.field(s.section))}</td><td class="num">${s.length}</td>` +
         `<td class="num">${s.limit === null ? "—" : s.limit}</td>` +
         `<td>${s.within_limit ? '<span class="badge badge-ok">通过</span>' : '<span class="badge badge-danger">超限</span>'}</td></tr>`
       );
     }).join("");
 
     const ledger = (listing.fact_ledger || []).map(function (f) {
-      return `<tr><td>${U.esc(f.statement)}</td><td><code>${U.esc(f.source)}</code></td></tr>`;
+      return `<tr><td>${U.esc(f.statement)}</td><td>${U.esc(window.CPLabel.field(f.source))}</td></tr>`;
     }).join("");
 
     return (
       `<div class="report-block">` +
       `<div class="report-head">` +
       `<div><div class="t-section">${U.esc(listing.product_name)}</div>` +
-      `<div class="t-xs t-muted">${U.esc(listing.platform)} · ${U.esc(listing.marketplace)} · ` +
-      `${U.esc(listing.language)} · ${U.esc(U.fmtTime(listing.created_at))}</div></div>` +
+      `<div class="t-xs t-muted">${U.esc(window.CPLabel.platform(listing.platform))} · ` +
+      `${U.esc(window.CPLabel.site(listing.marketplace))} · ` +
+      `${U.esc(window.CPLabel.language(listing.language))} · ` +
+      `${U.esc(U.fmtTime(listing.created_at))}</div></div>` +
       `<div class="row gap-2">` +
       (prov.is_demo ? U.mockFlag() : "") +
       `<span class="badge ${qc.passed ? "badge-ok" : "badge-warn"}">质检：${qc.passed ? "通过" : "存在问题"}</span>` +

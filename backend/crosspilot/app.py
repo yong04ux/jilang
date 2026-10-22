@@ -30,6 +30,7 @@ from .api import ALL_ROUTERS
 from .api.deps import ApiContext, make_secret_box
 from .api.helpers import validation_errors
 from .config import get_settings
+from .labels import humanize_error
 from .persistence.db import Database
 from .demo.demo_mode import ensure_demo_account
 from .services.queue import QueueBackendError, build_task_queue
@@ -37,6 +38,20 @@ from .persistence.storage import StorageError, build_storage
 from .tenancy import TenantError
 
 logger = logging.getLogger(__name__)
+
+
+class NoCacheStatic(StaticFiles):
+    """静态资源一律带 Cache-Control: no-cache。
+
+    Starlette 的 StaticFiles 只给 ETag / Last-Modified，不给 Cache-Control，
+    浏览器会自己猜一个「启发式」缓存时长。结果是改了前端后普通刷新仍看到旧样式或旧脚本。
+    这里显式要求每次先回源校验：文件没变时仍是 304，几乎零成本；变了就是 200 新内容。
+    """
+
+    async def get_response(self, path: str, scope):  # type: ignore[override]
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def create_app() -> FastAPI:
@@ -123,16 +138,19 @@ def create_app() -> FastAPI:
             status_code=422,
             content={
                 "detail": {
-                    "message": "请求数据校验失败",
+                    "message": "提交的内容有几处需要修正",
                     "errors": [
-                        {
-                            "field": ".".join(
-                                str(p) for p in err.get("loc", ()) if p != "body"
-                            )
-                            or "body",
-                            "message": err.get("msg", ""),
-                            "type": err.get("type", ""),
-                        }
+                        humanize_error(
+                            {
+                                "field": ".".join(
+                                    str(p) for p in err.get("loc", ()) if p != "body"
+                                )
+                                or "body",
+                                "message": err.get("msg", ""),
+                                "type": err.get("type", ""),
+                                "ctx": err.get("ctx") or {},
+                            }
+                        )
                         for err in exc.errors()
                     ],
                 }
@@ -145,7 +163,7 @@ def create_app() -> FastAPI:
             status_code=422,
             content={
                 "detail": {
-                    "message": "请求数据校验失败",
+                    "message": "提交的内容有几处需要修正",
                     "errors": validation_errors(exc),
                 }
             },
@@ -155,9 +173,9 @@ def create_app() -> FastAPI:
     # 静态资源（唯一前端：仓库根/frontend，CROSSPILOT_WEB_DIR 可覆盖）与业务路由
     # ------------------------------------------------------------------
     web_dir = settings.web_dir
-    app.mount("/css", StaticFiles(directory=str(web_dir / "css")), name="css")
-    app.mount("/js", StaticFiles(directory=str(web_dir / "js")), name="js")
-    app.mount("/media", StaticFiles(directory=str(web_dir / "assets")), name="media")
+    app.mount("/css", NoCacheStatic(directory=str(web_dir / "css")), name="css")
+    app.mount("/js", NoCacheStatic(directory=str(web_dir / "js")), name="js")
+    app.mount("/media", NoCacheStatic(directory=str(web_dir / "assets")), name="media")
 
     for router in ALL_ROUTERS:
         app.include_router(router)

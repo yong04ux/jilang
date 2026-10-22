@@ -13,11 +13,43 @@
   const COLLAPSE_KEY = "cp.sidebar.collapsed";
   const BANNER_KEY = "cp.banner.dismissed";
 
+  /* 外壳 UI 状态：走 CPStore，折叠状态与 DOM 单向同步 */
+  const UI = window.CPStore ? window.CPStore.create({ collapsed: false, bannerDismissed: false }) : null;
+
+  if (UI) {
+    try {
+      UI.setState({
+        collapsed: localStorage.getItem(COLLAPSE_KEY) === "1",
+        bannerDismissed: localStorage.getItem(BANNER_KEY) === "1",
+      });
+    } catch (err) { /* 忽略 */ }
+
+    UI.subscribe(
+      function (s) { return s.collapsed; },
+      function (collapsed) {
+        try { localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); } catch (err) { /* 忽略 */ }
+        const app = document.querySelector(".app");
+        if (app) app.classList.toggle("is-collapsed", collapsed);
+      }
+    );
+
+    UI.subscribe(
+      function (s) { return s.bannerDismissed; },
+      function (dismissed) {
+        try { localStorage.setItem(BANNER_KEY, dismissed ? "1" : "0"); } catch (err) { /* 忽略 */ }
+        const bar = document.getElementById("source-banner");
+        if (bar) bar.hidden = dismissed;
+      }
+    );
+  }
+
   function isCollapsed() {
+    if (UI) return UI.getState().collapsed;
     try { return localStorage.getItem(COLLAPSE_KEY) === "1"; } catch (err) { return false; }
   }
 
   function setCollapsed(value) {
+    if (UI) { UI.setState({ collapsed: Boolean(value) }); return; }
     try { localStorage.setItem(COLLAPSE_KEY, value ? "1" : "0"); } catch (err) { /* 忽略 */ }
     const app = document.querySelector(".app");
     if (app) app.classList.toggle("is-collapsed", value);
@@ -32,11 +64,10 @@
     const groups = C.NAV.map(function (group) {
       const items = group.items.map(function (item) {
         return (
-          `<a class="nav-item${item.soon ? " is-soon" : ""}" href="${item.path}" data-link data-nav="${item.key}" ` +
-          `title="${U.esc(item.label)}${item.soon ? "（开发中）" : ""}">` +
+          `<a class="nav-item" href="${item.path}" data-link data-nav="${item.key}" ` +
+          `title="${U.esc(item.label)}">` +
           U.icon(item.icon) +
           `<span class="nav-item-label">${U.esc(item.label)}</span>` +
-          (item.soon ? `<span class="nav-soon">开发中</span>` : "") +
           `</a>`
         );
       }).join("");
@@ -83,25 +114,29 @@
     ].join("");
   }
 
-  /* ---- 数据来源提示条（可关闭，关闭状态记在 localStorage） ---- */
+  /* ---- 数据来源提示条（可关闭，关闭状态记在 store） ---- */
   function mountBanner() {
-    let dismissed = false;
-    try { dismissed = localStorage.getItem(BANNER_KEY) === "1"; } catch (err) { /* 忽略 */ }
     const bar = document.getElementById("source-banner");
     if (!bar) return;
-    if (dismissed) { bar.hidden = true; return; }
+    if (isDismissed()) { bar.hidden = true; return; }
     bar.hidden = false;
     bar.innerHTML =
       U.icon("info") +
-      `<span class="source-banner-text"><strong>演示环境</strong>　当前页面部分内容使用示例数据；连接真实店铺或导入自己的文件后，可查看对应业务数据。</span>` +
+      `<span class="source-banner-text"><strong>示例数据</strong>　当前显示的商品、报告与任务里有示例内容，用来让你走通完整流程。导入你自己的文件或添加店铺后，这里就会换成你的数据。</span>` +
       `<button type="button" class="source-banner-close" id="banner-close" aria-label="关闭提示">${U.icon("close")}</button>`;
     const close = bar.querySelector("#banner-close");
     if (close) {
       close.addEventListener("click", function () {
         bar.hidden = true;
-        try { localStorage.setItem(BANNER_KEY, "1"); } catch (err) { /* 忽略 */ }
+        if (UI) UI.setState({ bannerDismissed: true });
+        else { try { localStorage.setItem(BANNER_KEY, "1"); } catch (err) { /* 忽略 */ } }
       });
     }
+  }
+
+  function isDismissed() {
+    if (UI) return UI.getState().bannerDismissed;
+    try { return localStorage.getItem(BANNER_KEY) === "1"; } catch (err) { return false; }
   }
 
   async function loadProvider() {
@@ -122,7 +157,7 @@
       flag.title = p.detail || "";
       if (worker && worker.alive === false) {
         flag.classList.add("is-warn");
-        flag.title = (p.detail || "") + " · 异步执行器不可用";
+        flag.title = ((p.detail || "") + " · 任务执行服务暂时不可用").trim();
       }
     } catch (err) {
       flag.classList.remove("is-ok");
@@ -181,7 +216,6 @@
           `<a class="nav-item" href="${item.path}" data-link data-nav="${item.key}" data-drawer-link>` +
           U.icon(item.icon) +
           `<span class="nav-item-label">${U.esc(item.label)}</span>` +
-          (item.soon ? `<span class="nav-soon">开发中</span>` : "") +
           `</a>`
         );
       }).join("");

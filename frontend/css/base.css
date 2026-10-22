@@ -1,5 +1,6 @@
 /* ============================================================================
    激浪 · Base
+   体系：shadcn/ui · Nova
    reset · 排版 · 表单 · 表格 · 通用工具类
    ========================================================================== */
 
@@ -15,25 +16,28 @@ body {
   min-height: 100vh;
   font-family: var(--font-sans);
   font-size: var(--fs-base);
-  line-height: 1.6;
-  color: var(--ink);
-  background: var(--bg);
+  line-height: var(--lh-normal);
+  color: var(--foreground);
+  background: var(--background);
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5 {
   margin: 0;
-  line-height: 1.35;
+  line-height: var(--lh-tight);
   font-weight: 600;
-  color: var(--ink);
+  letter-spacing: -.01em;
+  color: var(--foreground);
 }
 
 p { margin: 0; }
 
 a {
-  color: var(--brand);
+  color: var(--primary);
   text-decoration: none;
+  text-underline-offset: 3px;
 }
 a:hover { text-decoration: underline; }
 
@@ -44,8 +48,8 @@ code, kbd, samp, pre {
 
 code {
   padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
+  border-radius: var(--radius-xs);
+  background: var(--muted-surface);
   color: var(--ink-soft);
 }
 
@@ -70,24 +74,24 @@ img, svg { display: block; max-width: 100%; }
 
 [hidden] { display: none !important; }
 
-/* ---- 焦点可见：只用 outline，不用 box-shadow 伪焦点 ---- */
+/* ---- 焦点可见：shadcn 的 ring 语义，用 outline 实现 ---- */
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
 }
 
 /* ---- 滚动条：细、低调 ---- */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-color: var(--border-strong) transparent;
 }
-*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
+  background: var(--border-strong);
   border-radius: var(--radius-pill);
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover { background: var(--faint); background-clip: content-box; }
@@ -174,19 +178,20 @@ textarea,
 select {
   width: 100%;
   height: var(--h-md);
-  padding: 0 var(--sp-3);
-  border: 1px solid var(--line-strong);
+  padding: 0 10px;
+  border: 1px solid var(--input);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: var(--fs-sm);
+  transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
 }
 
 textarea {
   height: auto;
-  min-height: 88px;
-  padding: var(--sp-2) var(--sp-3);
-  line-height: 1.6;
+  min-height: 80px;
+  padding: 8px 10px;
+  line-height: var(--lh-normal);
   resize: vertical;
 }
 
@@ -195,21 +200,37 @@ textarea::placeholder { color: var(--faint); }
 
 input:hover,
 textarea:hover,
-select:hover { border-color: var(--faint); }
+select:hover { border-color: var(--border-strong); }
+
+/* 下拉：去掉原生箭头，换成统一的 chevron（与 Lucide chevron-down 同形） */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 14px 14px;
+}
+select[multiple] {
+  height: auto;
+  padding: 6px 10px;
+  background-image: none;
+}
 
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px var(--brand-soft);
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px rgba(27, 110, 243, .16);
 }
 
 input:disabled,
 textarea:disabled,
 select:disabled {
-  background: var(--surface-sunken);
-  color: var(--muted);
+  background: var(--muted-surface);
+  color: var(--muted-foreground);
   cursor: not-allowed;
 }
 
@@ -217,11 +238,11 @@ select:disabled {
 .field.is-invalid input,
 .field.is-invalid textarea,
 .field.is-invalid select {
-  border-color: var(--danger);
+  border-color: var(--destructive);
 }
 .field.is-invalid input:focus,
 .field.is-invalid textarea:focus {
-  box-shadow: 0 0 0 3px var(--danger-soft);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .16);
 }
 
 /* ============================================================================

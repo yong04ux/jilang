@@ -130,8 +130,8 @@ class DeepSeekClient:
     ):
         if not api_key:
             raise LLMError(
-                "未配置 DeepSeek API Key。请在 .env 中设置 CROSSPILOT_DEEPSEEK_API_KEY，"
-                "或切换 CROSSPILOT_PROVIDER=rule 使用本地规则引擎。",
+                "还没有配置 DeepSeek 的 API Key。到设置里填入你自己的 Key 就能用模型生成，"
+                "不填也可以继续用规则生成。",
                 kind="no_key",
                 retryable=False,
             )

@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .facts import FactKind, FactSheet, allowed_numeric_equivalents, build_fact_sheet
+from ..labels import ENGINE_LABELS, language_label
 from ..llm.llm import DeepSeekClient, LLMError
 from ..market.marketplaces import MarketplaceProfile, aplus_specs_for, get_marketplace
 from ..models import (
@@ -757,7 +758,7 @@ def generate_listing(
     usage: dict[str, int] = {}
     if client is None:
         content = rule_fallback(request, sheet, profile)
-        fallback_reason = "未配置 DeepSeek API Key，已降级为事实直出草案（需人工改写）"
+        fallback_reason = "当前按资料直出文案：没有调用模型，缺润色与完整五点，发布前需要人工改写"
         engine = "rule-fallback"
     else:
         try:
@@ -767,7 +768,7 @@ def generate_listing(
             usage = result.usage.as_dict()
         except LLMError as exc:
             content = rule_fallback(request, sheet, profile)
-            fallback_reason = f"LLM 调用失败（{exc.kind}）：{exc}"
+            fallback_reason = "模型调用没有成功，本次改为按资料直出文案；可稍后重试，或人工改写"
             engine = "rule-fallback"
 
     # 组装
@@ -866,7 +867,7 @@ def generate_listing(
         f"站点：{profile.label}（{profile.language}）",
         f"标题 ≤ {profile.title_max_chars} 字符；五点 ≤ {profile.bullet_max_chars} 字符 × {profile.bullet_count}",
         f"描述 ≤ {profile.description_max_chars} 字符；Search Terms ≤ {profile.search_terms_max_bytes} 字节",
-        f"生成引擎：{engine}",
+        f"生成方式：{ENGINE_LABELS.get(engine, '规则生成')}",
         *[f"站点提示：{note}" for note in profile.compliance_notes],
     ]
     if fallback_reason:
@@ -876,9 +877,9 @@ def generate_listing(
             QualityIssue(
                 code=IssueCode.MISSING_FACT,
                 severity=Severity.WARNING,
-                message="本次为降级生成：未调用大模型，文案为事实直出，缺少润色与完整五点",
+                message="本次没有调用模型：文案按你提供的资料直出，缺润色与完整五点",
                 location="listing",
-                suggestion="配置 CROSSPILOT_DEEPSEEK_API_KEY 后重新生成，或人工改写",
+                suggestion="到设置里填入你自己的 API Key 后重新生成，或直接人工改写",
             )
         )
         # 目标语言不是中文，但正文含中文 -> 必须报错（日语文本会含汉字，单独排除）
@@ -888,7 +889,7 @@ def generate_listing(
                     QualityIssue(
                         code=IssueCode.UNSUPPORTED_CLAIM,
                         severity=Severity.ERROR,
-                        message=f"降级文案包含中文，与目标语言 {profile.language} 不符，不可直接发布",
+                        message=f"这份文案里含中文，和目标语言（{language_label(profile.language)}）不符，不能直接发布",
                         location="bullets",
                         suggestion="配置模型后重新生成，或提供目标语言版本的资料",
                     )

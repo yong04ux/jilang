@@ -37,10 +37,13 @@
     );
     if (window.CPIcon) window.CPIcon.hydrate(node);
     toastHost.appendChild(node);
+    if (window.CPMotion) window.CPMotion.fadeIn(node, { y: 8 });
     window.setTimeout(function () {
-      node.style.opacity = "0";
-      node.style.transition = "opacity 160ms";
-      window.setTimeout(function () { node.remove(); }, 180);
+      if (window.CPMotion) {
+        window.CPMotion.fadeOut(node, { y: 4 });
+        return;
+      }
+      node.remove();
     }, 3200);
   }
 
@@ -114,7 +117,7 @@
 
   /* ---- 示例数据标记 ---- */
   function mockFlag() {
-    return '<span class="mock-flag" title="示例数据，不代表真实业务数据">示例</span>';
+    return '<span class="mock-flag" title="示例数据，不是你店铺的真实经营数据">示例</span>';
   }
 
   window.CPUi = {

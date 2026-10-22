@@ -144,7 +144,6 @@
     const tabs = [
       { key: "steps", label: "步骤" },
       { key: "data", label: "数据" },
-      { key: "raw", label: "原始" },
     ];
     return (
       `<div class="res-tabs" role="tablist">` +

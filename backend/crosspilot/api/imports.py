@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 
 from ..ingest.importers import ImportValidationError, import_competitor_data
+from ..labels import humanize_error
 from ..services import import_service
 from ..services.tasks import TaskRecorder
 from ..tenancy import ROLE_READ, ROLE_WRITE, TenantContext, require_role
@@ -29,9 +30,9 @@ def _parse_mapping(raw: str | None) -> dict[str, str] | None:
     try:
         mapping = json.loads(raw)
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail="field_mapping 不是合法 JSON") from exc
+        raise HTTPException(status_code=422, detail="列对应关系没能识别，请重新选择一遍") from exc
     if not isinstance(mapping, dict):
-        raise HTTPException(status_code=422, detail="field_mapping 必须是对象")
+        raise HTTPException(status_code=422, detail="列对应关系格式不对，请重新选择一遍")
     return mapping
 
 
@@ -76,7 +77,10 @@ async def import_file(
                     status_code=422,
                     detail={
                         "message": str(exc),
-                        "errors": [e.as_dict() for e in getattr(exc, "errors", [])],
+                        "errors": [
+                            humanize_error(e.as_dict())
+                            for e in getattr(exc, "errors", [])
+                        ],
                     },
                 ) from exc
         with task.step("保存导入批次"):
@@ -89,7 +93,7 @@ async def import_file(
                     "source_format": result.source_format,
                     "total_rows": result.total_rows,
                     "valid_rows": len(result.competitors),
-                    "errors": [e.as_dict() for e in result.errors],
+                    "errors": [humanize_error(e.as_dict()) for e in result.errors],
                     "payload": payload,
                 },
                 user_id=user["user_id"],
@@ -105,6 +109,8 @@ async def import_file(
                 "source_format": result.source_format,
             },
         )
+    # 出接口这一份用中文；落库的 payload 仍是原始字段名，便于回溯与重放
+    payload["errors"] = [humanize_error(e) for e in payload.get("errors", [])]
     payload["task_id"] = task.task_id
     return payload
 
@@ -150,10 +156,10 @@ async def remap_import(
     require_role(tenant, ROLE_WRITE)
     data_source_id = str(payload.get("data_source_id") or "").strip()
     if not data_source_id:
-        raise HTTPException(status_code=422, detail="缺少 data_source_id")
+        raise HTTPException(status_code=422, detail="没有指定要提交哪一次导入，请重新上传文件")
     mapping = payload.get("field_mapping")
     if not isinstance(mapping, dict) or not mapping:
-        raise HTTPException(status_code=422, detail="field_mapping 必须是非空对象")
+        raise HTTPException(status_code=422, detail="请先把每一列对应到字段后再提交")
     try:
         return import_service.remap(
             api.db,
@@ -181,10 +187,10 @@ async def commit_import(
     require_role(tenant, ROLE_WRITE)
     data_source_id = str(payload.get("data_source_id") or "").strip()
     if not data_source_id:
-        raise HTTPException(status_code=422, detail="缺少 data_source_id")
+        raise HTTPException(status_code=422, detail="没有指定要提交哪一次导入，请重新上传文件")
     mapping = payload.get("field_mapping")
     if mapping is not None and not isinstance(mapping, dict):
-        raise HTTPException(status_code=422, detail="field_mapping 必须是对象")
+        raise HTTPException(status_code=422, detail="列对应关系格式不对，请重新选择一遍")
     source = api.db.get_data_source(data_source_id, tenant.tenant_id)
     if source is None:
         raise HTTPException(status_code=404, detail="数据源不存在")

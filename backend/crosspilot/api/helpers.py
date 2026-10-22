@@ -10,6 +10,8 @@ from urllib.parse import quote
 
 from pydantic import ValidationError
 
+from ..labels import humanize_error
+
 
 def attachment_headers(filename: str) -> dict[str, str]:
     """同时给出 ASCII 回退名与 RFC 5987 文件名，兼容中文与旧客户端。"""
@@ -23,12 +25,20 @@ def attachment_headers(filename: str) -> dict[str, str]:
 
 
 def validation_errors(exc: ValidationError) -> list[dict[str, Any]]:
+    """校验错误转成中文可读的一条条说明。
+
+    字段名与英文原句都是实现细节，出接口前统一转成业务语言；
+    ``type`` 保留，便于调用方判断是缺字段还是格式错。
+    """
     return [
-        {
-            "field": ".".join(str(p) for p in err.get("loc", ())) or "body",
-            "message": err.get("msg", ""),
-            "type": err.get("type", ""),
-        }
+        humanize_error(
+            {
+                "field": ".".join(str(p) for p in err.get("loc", ())) or "body",
+                "message": err.get("msg", ""),
+                "type": err.get("type", ""),
+                "ctx": err.get("ctx") or {},
+            }
+        )
         for err in exc.errors()
     ]
 

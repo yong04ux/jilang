@@ -86,7 +86,7 @@
     return (
       `<tr>` +
       `<td><a href="/tasks/${U.esc(task.task_id)}" data-link><strong>${U.esc(task.title)}</strong></a></td>` +
-      `<td class="t-muted">${U.esc(task.type)}</td>` +
+      `<td class="t-muted">${U.esc(window.CPLabel.taskType(task.type))}</td>` +
       `<td>${U.statusBadge(task.status)}</td>` +
       `<td class="t-muted num">${U.esc(U.fmtTime(task.created_at))}</td>` +
       `</tr>`
@@ -120,7 +120,7 @@
       return;
     }
 
-    // 演示站动线：进站第一屏就要说清「还差一步：配自己的 Key」，
+    // 进站第一屏就要说清「还差一步：配自己的 Key」，
     // 否则访客看到全空的报告/任务，不知道下一步该做什么。
     const providerInfo = await A.get("/api/settings/providers").catch(function () { return null; });
     const health = await A.get("/api/health").catch(function () { return null; });
@@ -130,10 +130,10 @@
     const keyNotice = needsKey
       ? `<div class="callout callout-warn mt-4">${U.icon("alert")}` +
         `<span><strong>还差一步：配置你自己的 API Key。</strong>` +
-        `本站不提供模型额度（BYOK），竞品分析与 Listing 生成都走你的 Key；` +
-        `Key 加密存储、只用于你的账号，随时可删除。` +
+        `激浪不提供模型额度，竞品分析与 Listing 生成都用你自己的 Key。` +
+        `Key 加密保存，只用于你的账号，随时可以删除。` +
         `<a href="/settings" data-link>去「设置 → 模型与密钥」</a> 配置后回到这里发起第一个任务。` +
-        `想先看效果？<a href="/competitors" data-link>用演示数据跑一次竞品分析</a>。</span></div>`
+        `想先看效果？<a href="/competitors" data-link>用示例数据跑一次竞品分析</a>。</span></div>`
       : "";
 
     const stats = data.stats || {};
@@ -167,7 +167,7 @@
           return (
             `<a class="list-row" href="/competitors?report=${U.esc(r.report_id)}" data-link>` +
             `<span class="grow"><span class="t-sm">${U.esc(r.product_name)}</span>` +
-            `<span class="t-xs">${U.esc(r.platform)} · ${U.esc(r.marketplace)}</span></span>` +
+            `<span class="t-xs">${U.esc(window.CPLabel.platform(r.platform))} · ${U.esc(window.CPLabel.site(r.marketplace))}</span></span>` +
             (r.is_demo ? U.mockFlag() : "") +
             `<span class="t-xs t-faint">${U.esc(U.fmtTime(r.created_at))}</span></a>`
           );
@@ -181,7 +181,7 @@
           return (
             `<a class="list-row" href="/listings?listing=${U.esc(l.listing_id)}" data-link>` +
             `<span class="grow"><span class="t-sm">${U.esc(l.product_name)}</span>` +
-            `<span class="t-xs">${U.esc(l.marketplace)} · ${U.esc(l.language)}</span></span>` +
+            `<span class="t-xs">${U.esc(window.CPLabel.site(l.marketplace))} · ${U.esc(window.CPLabel.language(l.language))}</span></span>` +
             `<span class="t-xs t-faint">${U.esc(U.fmtTime(l.created_at))}</span></a>`
           );
         }).join("")
@@ -192,18 +192,16 @@
 
     const sourceRows = sources.length
       ? sources.map(function (s) {
-          const mock = s.mode === "mock";
-          const live = s.mode === "live";
+          let badge;
+          if (s.mode === "upload") badge = `<span class="badge">你的文件</span>`;
+          else if (s.configured && s.mode === "live") badge = `<span class="badge badge-ok">已连接</span>`;
+          else if (s.configured) badge = `<span class="badge">示例数据</span>`;
+          else badge = `<span class="badge">未设置</span>`;
           return (
             `<div class="src-row"><span class="grow">` +
             `<span class="src-name">${U.esc(s.label)}</span>` +
             `<span class="src-desc">${U.esc(s.detail || "")}</span></span>` +
-            `<span class="src-mode">${U.esc(s.mode)}</span>` +
-            (live && !s.configured
-              ? `<span class="badge">未接入 · 待审核</span>`
-              : mock
-                ? `<span class="badge badge-mock">Mock</span>`
-                : `<span class="badge badge-ok">真实</span>`) +
+            `<span class="src-flags">${badge}</span>` +
             `</div>`
           );
         }).join("")
@@ -211,7 +209,7 @@
 
     root.innerHTML = `<div class="view"><div class="page"><div class="page-inner">` +
       `<div class="page-head"><div><h1 class="page-title">工作台</h1>` +
-      `<p class="page-desc">任务、报告与数据源的真实状态。没有数据时保持空态，不显示推测性指标。</p></div>` +
+      `<p class="page-desc">你的任务、报告与数据生成情况。还没有数据的模块会保持空态。</p></div>` +
       `<div class="page-actions">` +
       `<a class="btn btn-secondary btn-sm" href="/workbench" data-link>${U.icon("sparkles")}去 AI 助手</a>` +
       `</div></div>` +
@@ -222,7 +220,7 @@
 
       `<div class="dash-grid">` +
       `<div class="card"><div class="card-head"><div><div class="card-title">任务趋势</div>` +
-      `<div class="card-sub">近 14 天每日新建任务数（来自真实任务记录）</div></div>` +
+      `<div class="card-sub">近 14 天每天新建的任务数</div></div>` +
       `<a class="btn btn-quiet btn-sm" href="/tasks" data-link>查看全部</a></div>` +
       `<div class="card-body">${trendChart(daily)}</div></div>` +
 
@@ -233,7 +231,7 @@
 
       `<div class="dash-grid mt-4" style="margin-top:var(--sp-5)">` +
       `<div class="card"><div class="card-head"><div><div class="card-title">近期任务</div>` +
-      `<div class="card-sub">全部来自真实执行记录</div></div>` +
+      `<div class="card-sub">最近的执行记录</div></div>` +
       (tasks.length ? `<a class="btn btn-quiet btn-sm" href="/tasks" data-link>查看全部</a>` : "") +
       `</div>${taskTable}</div>` +
 
@@ -245,7 +243,7 @@
       (sourceRows
         ? `<div class="card mt-4" style="margin-top:var(--sp-5)">` +
           `<div class="card-head"><div><div class="card-title">数据源状态</div>` +
-          `<div class="card-sub">真实接入状态；未接入的不会显示为已连接</div></div>` +
+          `<div class="card-sub">每个数据域现在用的是哪一份数据</div></div>` +
           `<a class="btn btn-quiet btn-sm" href="/settings#data" data-link>数据源设置</a></div>` +
           `<div class="card-body">${sourceRows}</div></div>`
         : "") +

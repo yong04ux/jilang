@@ -27,6 +27,11 @@
         });
       }
       window.CPIcon.hydrate(document);
+      /* 页面进场：主区块按序淡入（Motion），reduced-motion 下直接落位 */
+      if (window.CPMotion) {
+        const stage = root.querySelector(".page-inner") || root.querySelector(".view");
+        if (stage) window.CPMotion.stagger(stage, { selector: ":scope > *", step: 22, y: 5 });
+      }
       root.focus({ preventScroll: true });
       // 登录态变化时刷新顶栏的生成方式标识
       if (S.loadProvider) S.loadProvider();
@@ -38,6 +43,7 @@
   R.define("/tasks", mountPage("tasks", window.CPPageTasks.render));
   R.define("/tasks/:id", mountPage("tasks", window.CPPageTasks.detail));
   R.define("/competitors", mountPage("competitors", window.CPPageCompetitors.render));
+  R.define("/profit", mountPage("profit", window.CPPageProfit.render));
   R.define("/listings", mountPage("listings", window.CPPageListings.render));
   R.define("/data", mountPage("data", window.CPPageData.render));
   R.define("/agents", mountPage("agents", P.agents));
@@ -45,36 +51,8 @@
   R.define("/stores", mountPage("stores", P.stores));
   R.define("/settings", mountPage("settings", window.CPPageSettings.render));
 
-  R.define("/research", mountPage("research", function (r) {
-    r.innerHTML = `<div class="view">${P.soonPage("选品与市场研究",
-      "把选品判断、市场规模与竞争格局整理成可复核的结论。",
-      "阶段 E（数据源与导入服务整合之后）",
-      [{ label: "先用竞品分析", path: "/competitors" }, { label: "问 AI", path: "/workbench" }])}</div>`;
-  }));
-  R.define("/assets", mountPage("assets", function (r) {
-    r.innerHTML = `<div class="view">${P.soonPage("商品素材工作室",
-      "生成与管理商品图片、A+ 素材与视频脚本。",
-      "未排期（需先完成对象存储与多模态能力）",
-      [{ label: "查看 Listing 草稿", path: "/listings" }])}</div>`;
-  }));
-  R.define("/operations", mountPage("operations", function (r) {
-    r.innerHTML = `<div class="view">${P.soonPage("运营分析",
-      "广告、流量与转化的运营复盘。",
-      "未排期（依赖真实店铺数据接入；当前只有 Mock 数据源）",
-      [{ label: "查看店铺连接", path: "/stores" }])}</div>`;
-  }));
-  R.define("/workflows", mountPage("workflows", function (r) {
-    r.innerHTML = `<div class="view">${P.soonPage("工作流",
-      "可视化编排 Agent 与 Skills。",
-      "未排期（第一阶段只做固定流水线，不做 DAG 编辑器）",
-      [{ label: "查看 Agent", path: "/agents" }, { label: "查看技能库", path: "/skills" }])}</div>`;
-  }));
-  R.define("/knowledge", mountPage("knowledge", function (r) {
-    r.innerHTML = `<div class="view">${P.soonPage("知识库",
-      "沉淀品牌规范、类目规则与历史结论。",
-      "未排期（需要向量检索与文档解析）",
-      [{ label: "查看数据资产", path: "/data" }])}</div>`;
-  }));
+  /* 未开放的能力不进路由也不进导航：直接落到 404，
+     界面上不解释「为什么还没做」，只给出现在能去哪。 */
 
   function fallback(path) {
     if (path === "/" || path === "" || path === "/index.html") {

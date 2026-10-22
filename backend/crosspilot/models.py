@@ -112,7 +112,7 @@ class ReviewSample(BaseModel):
     def _text_required(cls, value: str) -> str:
         cleaned = normalize_text(value)
         if not cleaned:
-            raise ValueError("评论内容 text 不能为空")
+            raise ValueError("评论内容不能为空")
         return cleaned
 
     @field_validator("title")
@@ -147,7 +147,7 @@ class CompetitorProduct(BaseModel):
     def _name_required(cls, value: str) -> str:
         cleaned = normalize_text(value)
         if not cleaned:
-            raise ValueError("竞品名称 name 不能为空")
+            raise ValueError("竞品名称不能为空")
         return cleaned
 
     @field_validator("key_features", mode="before")
@@ -187,7 +187,7 @@ class KeywordMetric(BaseModel):
     def _keyword_required(cls, value: str) -> str:
         cleaned = normalize_text(value)
         if not cleaned:
-            raise ValueError("关键词 keyword 不能为空")
+            raise ValueError("关键词不能为空")
         return cleaned
 
     @property
@@ -224,7 +224,7 @@ class OwnProduct(BaseModel):
     def _name_required(cls, value: str) -> str:
         cleaned = normalize_text(value)
         if not cleaned:
-            raise ValueError("商品名称 name 不能为空")
+            raise ValueError("商品名称不能为空")
         return cleaned
 
     @field_validator("key_features", "materials", "certifications", "banned_terms", "differentiators", mode="before")
@@ -269,7 +269,7 @@ class CompetitorAnalysisRequest(BaseModel):
     def _product_name_required(cls, value: str) -> str:
         cleaned = normalize_text(value)
         if not cleaned:
-            raise ValueError("商品名称 product_name 不能为空")
+            raise ValueError("商品名称不能为空")
         return cleaned
 
     @field_validator("marketplace")
@@ -337,7 +337,8 @@ class Claim(BaseModel):
     @model_validator(mode="after")
     def _inference_needs_basis(self) -> "Claim":
         if self.evidence_kind in (EvidenceKind.FACT, EvidenceKind.STATISTIC) and not self.evidence:
-            raise ValueError(f"{self.evidence_kind.value} 类型结论必须附 evidence")
+            kind = "事实" if self.evidence_kind is EvidenceKind.FACT else "统计"
+            raise ValueError(f"{kind}类结论需要附上来源依据")
         return self
 
 

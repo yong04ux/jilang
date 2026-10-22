@@ -1,92 +1,162 @@
 /* ============================================================================
    激浪 · Design Tokens
-   冷白底 · 品牌蓝 #1B6EF3 · 克制的中性灰阶
-   唯一允许的间距/圆角/字号来源，页面不得自造数值。
+   体系：shadcn/ui · Nova（紧凑间距 / 边框优先 / 极小阴影 / 中性灰阶）
+   语义命名沿用 shadcn 的 --background / --foreground / --card / --border 模型，
+   同时保留 v1 的旧变量名作为兼容别名，页面与页面样式无需改动。
+   唯一允许的间距 / 圆角 / 字号来源，页面不得自造数值。
    ========================================================================== */
 
 :root {
-  /* ---- 底色：冷白 ---- */
-  --bg:             #F4F6FA;
-  --surface:        #FFFFFF;
-  --surface-sunken: #EEF1F7;
-  --surface-hover:  #F7F9FC;
+  color-scheme: light;
 
-  /* ---- 文字 ---- */
-  --ink:        #101828;
-  --ink-soft:   #344054;
-  --muted:      #667085;
-  --faint:      #98A2B3;
+  /* ---- shadcn 语义层：底层面 ---- */
+  --background:          #FAFAFA;   /* 页面底：中性 50 */
+  --foreground:          #0A0A0A;   /* 主文字：中性 950 */
+  --card:                #FFFFFF;
+  --card-foreground:     #0A0A0A;
+  --popover:             #FFFFFF;
+  --popover-foreground:  #0A0A0A;
 
-  /* ---- 品牌蓝 ---- */
-  --brand:      #1B6EF3;
-  --brand-dark: #1557C0;
-  --brand-soft: #EAF2FF;
-  --brand-line: #BFD5FB;
+  /* ---- 主色：保留激浪品牌蓝，仅用于 CTA / 链接 / 焦点环 ---- */
+  --primary:             #1B6EF3;
+  --primary-foreground:  #FFFFFF;
+  --primary-hover:       #1560DC;
 
-  /* ---- 语义色 ---- */
-  --ok:      #067647;  --ok-soft:     #ECFDF3;  --ok-line:     #ABEFC6;
-  --warn:    #B54708;  --warn-soft:   #FFFAEB;  --warn-line:   #FEDF89;
-  --danger:  #B42318;  --danger-soft: #FEF3F2;  --danger-line: #FECDCA;
-  --info:    #175CD3;  --info-soft:   #EFF8FF;  --info-line:   #B2DDFF;
+  /* ---- 次级 / 静默 / 强调：全部走中性，不再用蓝色大面积铺底 ---- */
+  --secondary:           #F5F5F5;
+  --secondary-foreground:#171717;
+  --muted-surface:       #F5F5F5;   /* 面：禁用、表头、骨架 */
+  --muted-foreground:    #737373;   /* 字：辅助说明 */
+  --accent:              #F5F5F5;   /* hover 底 */
+  --accent-foreground:   #0A0A0A;
 
-  /* ---- 线 ---- */
-  --line:        #EAECF0;
-  --line-strong: #D0D5DD;
+  /* ---- 线与焦点 ---- */
+  --border:              #E5E5E5;   /* 中性 200 */
+  --border-strong:       #D4D4D4;   /* 中性 300 */
+  --input:               #E5E5E5;
+  --ring:                #1B6EF3;
 
-  /* ---- 圆角 ---- */
-  --radius-sm: 8px;
-  --radius:    12px;
-  --radius-lg: 16px;
+  /* ---- 语义色（成功 / 警告 / 危险 / 信息）：不与主色混用 ---- */
+  --success:             #15803D;
+  --success-soft:        #F0FDF4;
+  --success-line:        #BBF7D0;
+  --warning:             #B45309;
+  --warning-soft:        #FFFBEB;
+  --warning-line:        #FDE68A;
+  --destructive:         #DC2626;
+  --destructive-soft:    #FEF2F2;
+  --destructive-line:    #FECACA;
+  --info:                #2563EB;
+  --info-soft:           #EFF6FF;
+  --info-line:           #BFDBFE;
+
+  /* ==========================================================================
+     兼容别名 —— v1 变量名映射到上面的语义层
+     ======================================================================== */
+  --bg:             var(--background);
+  --surface:        var(--card);
+  --surface-sunken: var(--muted-surface);
+  --surface-hover:  #F7F7F7;
+
+  --ink:        var(--foreground);
+  --ink-soft:   #404040;
+  --muted:      var(--muted-foreground);
+  --faint:      #A3A3A3;
+
+  --brand:      var(--primary);
+  --brand-dark: var(--primary-hover);
+  --brand-soft: #EFF6FF;
+  --brand-line: #BFDBFE;
+
+  --ok:     var(--success);      --ok-soft:     var(--success-soft);      --ok-line:     var(--success-line);
+  --warn:   var(--warning);      --warn-soft:   var(--warning-soft);      --warn-line:   var(--warning-line);
+  --danger: var(--destructive);  --danger-soft: var(--destructive-soft);  --danger-line: var(--destructive-line);
+  --info:   var(--info);         --info-soft:   var(--info-soft);         --info-line:   var(--info-line);
+
+  --line:        var(--border);
+  --line-strong: var(--border-strong);
+
+  /* ---- 圆角：Nova 偏小，控件 6px / 卡片 10px ---- */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius:      8px;
+  --radius-lg:   10px;
+  --radius-xl:   12px;
   --radius-pill: 999px;
 
-  /* ---- 阴影 ---- */
-  --shadow-xs: 0 1px 2px rgba(16, 24, 40, .05);
-  --shadow-sm: 0 1px 3px rgba(16, 24, 40, .06), 0 1px 2px rgba(16, 24, 40, .04);
-  --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, .08), 0 2px 4px -2px rgba(16, 24, 40, .04);
-  --shadow-lg: 0 12px 32px rgba(16, 24, 40, .12);
+  /* ---- 阴影：Nova 几乎不用阴影，只留分层所需的最小值 ---- */
+  --shadow-xs: 0 1px 2px rgba(10, 10, 10, .04);
+  --shadow-sm: 0 1px 2px rgba(10, 10, 10, .05);
+  --shadow-md: 0 2px 6px rgba(10, 10, 10, .06), 0 1px 2px rgba(10, 10, 10, .04);
+  --shadow-lg: 0 12px 32px rgba(10, 10, 10, .10), 0 2px 8px rgba(10, 10, 10, .06);
 
-  /* ---- 间距：唯一六档 ---- */
+  /* ---- 间距：四档主用 + 两档结构用 ---- */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
-  --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+  --sp-4: 16px; --sp-5: 20px; --sp-6: 28px;
 
-  /* ---- 字号 ---- */
-  --fs-xs: 12px;  --fs-sm: 13px;  --fs-base: 14px;
-  --fs-md: 15px;  --fs-lg: 18px;  --fs-xl: 22px;
-  --fs-2xl: 28px; --fs-hero: 44px;
+  /* ---- 字号：14px 基准，比 v1 收一档 ---- */
+  --fs-xs: 12px;  --fs-sm: 13px; --fs-base: 14px;
+  --fs-md: 14px;  --fs-lg: 16px; --fs-xl: 20px;
+  --fs-2xl: 24px; --fs-hero: 34px;
+
+  /* ---- 行高 ---- */
+  --lh-tight: 1.25;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.65;
 
   /* ---- 布局 ---- */
-  --sidebar-w: 200px;
-  --sidebar-w-collapsed: 64px;
-  --topbar-h: 56px;
+  --sidebar-w: 208px;
+  --sidebar-w-collapsed: 56px;
+  --topbar-h: 48px;
   --content-max: 1440px;
 
-  /* ---- 控件高度 ---- */
-  --h-sm: 32px;
-  --h-md: 38px;
-  --h-lg: 44px;
+  /* ---- 控件高度：Nova 紧缩 ---- */
+  --h-xs: 24px;
+  --h-sm: 28px;
+  --h-md: 32px;
+  --h-lg: 36px;
 
-  /* ---- 字体 ---- */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
-               "PingFang SC", "Hiragino Sans GB", sans-serif;
-  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  /* ---- 字体：优先本地 Inter / Geist，缺失时回落系统栈，不加载外部字体 ---- */
+  --font-sans: "Inter var", "Inter", "Geist", -apple-system, BlinkMacSystemFont,
+               "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Microsoft YaHei",
+               "Hiragino Sans GB", sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", "SFMono-Regular", Consolas,
+               "Liberation Mono", monospace;
 
-  /* ---- 动效 ---- */
-  --ease: cubic-bezier(.2, .7, .3, 1);
-  --dur: 160ms;
+  /* ---- 动效：对齐 Motion 的默认曲线与时长 ---- */
+  --ease-out:    cubic-bezier(.16, 1, .3, 1);
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);
+  --ease-spring: cubic-bezier(.34, 1.36, .64, 1);
+  --ease:        var(--ease-out);   /* 兼容别名 */
+  --dur-1: 120ms;   /* 颜色 / 边框 */
+  --dur-2: 180ms;   /* 位移 / 出现 */
+  --dur-3: 280ms;   /* 面板 / 抽屉 */
+  --dur:   var(--dur-1);            /* 兼容别名 */
 }
 
-/* 深浅仅做占位：本阶段只交付浅色主题 */
+/* 动效降级：关掉所有时长，布局与层级不受影响 */
 @media (prefers-reduced-motion: reduce) {
-  :root { --dur: 0ms; }
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur: 0ms; }
 }
 
-
-/* ---- 激浪 Liquid Glass layer: restrained, brand blue remains primary ---- */
-:root {
-  --glass-bg: rgba(255, 255, 255, .78);
-  --glass-bg-strong: rgba(255, 255, 255, .9);
-  --glass-line: rgba(255, 255, 255, .88);
-  --glass-blue-line: rgba(27, 110, 243, .18);
-  --glass-shadow: 0 10px 30px rgba(33, 76, 140, .055), 0 1px 2px rgba(28, 55, 95, .04);
-  --glass-shadow-hover: 0 16px 36px rgba(33, 76, 140, .09), 0 3px 8px rgba(28, 55, 95, .05);
+/* 主题扩展位：后续加暗色只需覆写语义层，页面代码不动 */
+.dark {
+  color-scheme: dark;
+  --background: #0A0A0A;
+  --foreground: #FAFAFA;
+  --card: #171717;
+  --card-foreground: #FAFAFA;
+  --popover: #171717;
+  --popover-foreground: #FAFAFA;
+  --secondary: #262626;
+  --secondary-foreground: #FAFAFA;
+  --muted-surface: #262626;
+  --muted-foreground: #A3A3A3;
+  --accent: #262626;
+  --accent-foreground: #FAFAFA;
+  --border: #262626;
+  --border-strong: #404040;
+  --input: #404040;
+  --ink-soft: #D4D4D4;
+  --faint: #737373;
 }

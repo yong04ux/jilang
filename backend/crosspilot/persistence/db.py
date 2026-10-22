@@ -559,6 +559,99 @@ class Database:
         except ValueError:
             return {}
 
+    # -- 经营类结果（选品 / 利润测算 / 广告复盘） --------------------------------
+    def save_business_report(
+        self,
+        *,
+        tenant_id: str,
+        user_id: str,
+        kind: str,
+        title: str,
+        report_input: dict[str, Any],
+        summary: dict[str, Any],
+        payload: dict[str, Any],
+        report_id: str | None = None,
+        is_demo: bool = False,
+    ) -> str:
+        """写入一份经营类结果（选品/利润/复盘），返回报告 ID。
+
+        ``kind`` 只做字符串校验在调用方，这里不加枚举约束——
+        加模块时不需要动数据层。
+        """
+        identifier = report_id or uuid.uuid4().hex[:16]
+        now = datetime.now(timezone.utc).isoformat()
+        with self._lock, self.connect() as connection:
+            connection.execute(
+                """INSERT INTO business_reports
+                   (report_id, tenant_id, user_id, kind, title, input, summary, payload,
+                    is_demo, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(report_id) DO UPDATE SET
+                     title=excluded.title, input=excluded.input, summary=excluded.summary,
+                     payload=excluded.payload, updated_at=excluded.updated_at""",
+                (
+                    identifier,
+                    tenant_id,
+                    user_id,
+                    kind,
+                    title,
+                    json.dumps(report_input, ensure_ascii=False),
+                    json.dumps(summary, ensure_ascii=False),
+                    json.dumps(payload, ensure_ascii=False),
+                    1 if is_demo else 0,
+                    now,
+                    now,
+                ),
+            )
+        return identifier
+
+    def get_business_report(
+        self, report_id: str, tenant_id: str
+    ) -> dict[str, Any] | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                """SELECT report_id, kind, title, input, summary, payload, is_demo,
+                          created_at, updated_at
+                   FROM business_reports WHERE report_id = ? AND tenant_id = ?""",
+                (report_id, tenant_id),
+            ).fetchone()
+        return self._business_row(row) if row else None
+
+    def list_business_reports(
+        self, tenant_id: str, kind: str | None = None, limit: int = 50
+    ) -> list[dict[str, Any]]:
+        """列表只返回摘要，不带 ``payload``（完整结果可能很大）。"""
+        query = """SELECT report_id, kind, title, summary, is_demo, created_at, updated_at
+                   FROM business_reports WHERE tenant_id = ?"""
+        params: list[Any] = [tenant_id]
+        if kind:
+            query += " AND kind = ?"
+            params.append(kind)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(max(1, min(limit, 200)))
+        with self.connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [self._business_row(row) for row in rows]
+
+    def delete_business_report(self, report_id: str, tenant_id: str) -> bool:
+        with self._lock, self.connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM business_reports WHERE report_id = ? AND tenant_id = ?",
+                (report_id, tenant_id),
+            )
+            return bool(cursor.rowcount)
+
+    @staticmethod
+    def _business_row(row: Any) -> dict[str, Any]:
+        item = dict(row)
+        for key in ("input", "summary", "payload"):
+            if key in item and isinstance(item[key], str):
+                try:
+                    item[key] = json.loads(item[key] or "{}")
+                except ValueError:
+                    item[key] = {}
+        return item
+
     # -- Listing ------------------------------------------------------------
     def save_listing(
         self,

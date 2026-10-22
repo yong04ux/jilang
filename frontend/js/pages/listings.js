@@ -10,6 +10,29 @@
     IT: "it-IT", ES: "es-ES", JP: "ja-JP", MX: "es-MX",
   };
 
+  /* 站点与语言代码是内部标识，统一走 CPLabel 展示成人话 */
+  const LANGUAGE_LABEL = window.CPLabel.LANGUAGE;
+
+  function siteLabel(code) {
+    return window.CPLabel.site(code);
+  }
+
+  function languageLabel(code) {
+    return window.CPLabel.language(code);
+  }
+
+  /* 历史草稿可能带列表里没有的语言，补一个选项而不是把值丢掉 */
+  function setFormLanguage(form, code) {
+    const value = code || "en-US";
+    if (!LANGUAGE_LABEL[value] && !form.language.querySelector(`option[value="${value}"]`)) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = languageLabel(value);
+      form.language.appendChild(option);
+    }
+    form.language.value = value;
+  }
+
   function parseSpecs(text) {
     const out = {};
     String(text || "").split(/\r?\n/).forEach(function (line) {
@@ -47,10 +70,13 @@
       `<label class="field"><span class="field-label">站点</span>` +
       `<select name="marketplace">` +
       Object.keys(LANGUAGES).map(function (m) {
-        return `<option value="${m}">${m}</option>`;
+        return `<option value="${m}">${siteLabel(m)}</option>`;
       }).join("") + `</select></label>` +
       `<label class="field"><span class="field-label">目标语言</span>` +
-      `<input name="language" value="en-US" /></label>` +
+      `<select name="language">` +
+      Object.keys(LANGUAGE_LABEL).map(function (code) {
+        return `<option value="${code}">${LANGUAGE_LABEL[code]}</option>`;
+      }).join("") + `</select></label>` +
       `<label class="field"><span class="field-label">价格</span>` +
       `<input name="price" type="number" min="0" step="0.01" /></label>` +
       `<label class="field field-span-2"><span class="field-label">目标用户</span><input name="target_audience" /></label>` +
@@ -116,7 +142,7 @@
     const error = root.querySelector("#lst-error");
 
     form.marketplace.addEventListener("change", function () {
-      form.language.value = LANGUAGES[form.marketplace.value] || "en-US";
+      setFormLanguage(form, LANGUAGES[form.marketplace.value] || "en-US");
     });
 
     if (query && query.report) form.analysis_report_id.value = query.report;
@@ -143,7 +169,7 @@
         form.name.value = product.name || "";
         form.brand.value = product.brand || "";
         form.marketplace.value = product.marketplace || "US";
-        form.language.value = req.language || "en-US";
+        setFormLanguage(form, req.language || "en-US");
         form.price.value = product.price !== undefined && product.price !== null ? product.price : "";
         form.target_audience.value = product.target_audience || "";
         form.specifications.value = Object.keys(product.specifications || {})
@@ -205,8 +231,8 @@
       button.textContent = "生成 Listing";
       if (err.status === 428) {
         result.innerHTML = `<div class="card card-pad"><div class="callout callout-warn">${U.icon("alert")}` +
-          `<div><strong>需要先配置 API Key（BYOK）</strong><br>` +
-          `平台不提供模型额度。请到设置页添加一个厂商配置并激活后再生成。` +
+          `<div><strong>还没有可用的模型</strong><br>` +
+          `激浪不提供模型额度。到设置页填入你自己的 API Key 并设为当前使用，就能生成。` +
           `<div class="mt-2"><a class="btn btn-primary btn-sm" href="/settings" data-link>去配置</a></div>` +
           `</div></div></div>`;
         return;
@@ -226,8 +252,7 @@
     const AR = window.CPAsyncRun;
     container.innerHTML = `<div class="card card-pad">` +
       `<div class="row between wrap gap-2"><div><div class="card-title">正在生成</div>` +
-      `<div class="card-sub">任务 ${U.esc(String(taskId).slice(0, 10))} · 进度来自真实执行步骤；` +
-      `生成通常需要 15–35 秒</div></div>` +
+      `<div class="card-sub">生成通常需要 15–35 秒，进度会随实际执行步骤更新</div></div>` +
       `<button type="button" class="btn btn-sm" id="lst-cancel">取消</button></div>` +
       `<div class="progress is-indeterminate mt-3"><div class="progress-bar"></div></div>` +
       `<div class="mt-3" id="lst-steps"></div></div>`;
@@ -299,7 +324,7 @@
       `<button type="button" class="btn btn-sm" data-recheck="${U.esc(listing.listing_id)}">复检</button>` +
       `<button type="button" class="btn btn-sm" data-export="${U.esc(listing.listing_id)}">导出</button>` +
       `<button type="button" class="btn btn-sm" data-request-approval="${U.esc(listing.listing_id)}" ` +
-      `title="审批只记录结论；平台发布接口尚未接入，不会真实发布">申请发布</button>` +
+      `title="提交后由管理员审批">申请发布</button>` +
       `</div>`;
     container.innerHTML = `<div class="card card-pad">` + R.renderListing(listing, { actions }) +
       `<div id="lst-extra" class="mt-4"></div></div>`;
@@ -327,9 +352,9 @@
             kind: "publish_listing",
             listing_id: btn.getAttribute("data-request-approval"),
           });
-          U.toast("已提交发布审批（仅记录审批结论，不会真实发布）", "ok");
+          U.toast("已提交发布申请，等待管理员审批", "ok");
           btn.outerHTML = `<a class="btn btn-sm" href="/tasks/${U.esc(approval.task_id)}" data-link>` +
-            `查看审批任务（等待审批）</a>`;
+            `查看审批进度</a>`;
         } catch (err) {
           U.toast(err.message, "danger");
           btn.disabled = false;
@@ -396,14 +421,14 @@
             `<div><strong>本次复检：${qc.passed ? "通过" : "存在问题"}</strong>` +
             (qc.issues && qc.issues.length
               ? `<ul class="limit-list mt-2">` + qc.issues.map(function (i) {
-                  return `<li>${U.esc(i.code || "")}：${U.esc(i.message || "")}</li>`;
+                  return `<li>${U.esc(i.message || "")}</li>`;
                 }).join("") + `</ul>`
               : `<br>未发现问题。`) +
             `</div></div>` +
             (differs
               ? `<div class="callout callout-warn mt-2">${U.icon("info")}<div>` +
-                `与已保存草稿的质检结论不同（草稿：${stored.passed ? "通过" : "存在问题"}）。` +
-                `草稿是规则降级生成时必须拒绝标记"通过"，复检按当前规则重新计算，两者都如实展示。` +
+                `这次复检的结论和保存草稿时不一样（当时：${stored.passed ? "通过" : "存在问题"}）。` +
+                `草稿保存时的检查结果会一直保留，复检则按当前内容重新判断，两者都如实列出。` +
                 `</div></div>`
               : "") +
             `<p class="t-xs t-muted mt-2">复检只重新计算质检，不改写草稿内容。</p>`;
@@ -488,7 +513,7 @@
           `<div class="list">` + items.slice(0, 6).map(function (l) {
             return `<a class="list-row" href="/listings?listing=${U.esc(l.listing_id)}" data-link>` +
               `<span class="grow"><span class="t-sm">${U.esc(l.product_name)}</span>` +
-              `<span class="t-xs">${U.esc(l.marketplace)} · ${U.esc(l.language)}` +
+              `<span class="t-xs">${U.esc(siteLabel(l.marketplace))} · ${U.esc(languageLabel(l.language))}` +
               (l.version ? ` · v${U.esc(l.version)}` : "") + `</span></span>` +
               (l.is_demo ? U.mockFlag() : "") +
               `<span class="t-xs t-faint">${U.esc(U.fmtTime(l.created_at))}</span></a>`;

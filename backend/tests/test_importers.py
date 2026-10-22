@@ -52,8 +52,9 @@ def test_csv_row_with_missing_name_reports_row_number():
     assert result.errors
     error = result.errors[0]
     assert error.row == 2
+    # 解析层保留原始字段名与英文契约之外的细节，翻译只发生在接口边界
     assert error.field == "name"
-    assert "缺少必填字段" in error.message
+    assert error.message == "缺少商品名称"
 
 
 def test_csv_invalid_numeric_reports_field():
@@ -106,7 +107,8 @@ def test_json_import_with_keywords():
 def test_json_invalid_reports_line_and_column():
     with pytest.raises(ImportValidationError) as excinfo:
         import_competitor_data("{not json", "x.json")
-    assert "JSON 解析失败" in str(excinfo.value)
+    assert "格式不对" in str(excinfo.value)
+    assert "第 1 行" in str(excinfo.value)
 
 
 def test_json_without_competitors_key_raises():
@@ -209,7 +211,7 @@ def test_api_import_endpoint_returns_structured_errors(auth_client):
     assert response.status_code == 200
     data = response.json()
     assert data["errors"]
-    assert data["errors"][0]["field"] == "name"
+    assert data["errors"][0]["field"] == "商品名称"
 
 
 def test_api_import_missing_column_returns_422(auth_client):
@@ -218,4 +220,4 @@ def test_api_import_missing_column_returns_422(auth_client):
         files={"file": ("bad.csv", b"brand,price\nA,1\n", "text/csv")},
     )
     assert response.status_code == 422
-    assert "name" in json.dumps(response.json(), ensure_ascii=False)
+    assert "商品名称" in json.dumps(response.json(), ensure_ascii=False)

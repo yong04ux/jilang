@@ -20,7 +20,7 @@
     goal: "",
     skill: null,
     productName: "",
-    competitorsJson: "",
+    competitorsText: "",
     withListing: true,
     marketplace: "US",
     listingLanguage: "en-US",
@@ -48,6 +48,44 @@
     needKey: false,           // 上一步因为没配 Key 被 428 拦下 → 给一个可点的入口
   };
 
+  /* 竞品录入：一行一个，字段之间用「|」隔开
+     名称 | 价格 | 评分 | 评论数 | 一条评论
+     只有名称必填，后面可以随时省掉——比让人写 JSON 现实得多 */
+  function parseCompetitors(text) {
+    return String(text || "")
+      .split(/\r?\n/)
+      .map(function (line) { return line.trim(); })
+      .filter(Boolean)
+      .map(function (line) {
+        const parts = line.split("|").map(function (s) { return s.trim(); });
+        const item = { name: parts[0], is_demo: false };
+        if (!item.name) return null;
+        if (parts[1] && !isNaN(Number(parts[1]))) item.price = Number(parts[1]);
+        if (parts[2] && !isNaN(Number(parts[2]))) item.rating = Number(parts[2]);
+        if (parts[3] && !isNaN(Number(parts[3]))) item.review_count = Number(parts[3]);
+        if (parts[4]) {
+          const review = { text: parts[4] };
+          if (item.rating && item.rating >= 1) review.rating = item.rating;
+          item.reviews = [review];
+        }
+        return item;
+      })
+      .filter(Boolean);
+  }
+
+  function competitorsToText(list) {
+    return (list || []).map(function (c) {
+      const parts = [c.name || ""];
+      if (c.price !== undefined && c.price !== null) parts.push(c.price);
+      else if (c.rating !== undefined && c.rating !== null) parts.push("");
+      if (c.rating !== undefined && c.rating !== null) parts.push(c.rating);
+      if (c.review_count !== undefined && c.review_count !== null) parts.push(c.review_count);
+      const review = Array.isArray(c.reviews) && c.reviews[0] ? (c.reviews[0].text || "") : "";
+      if (review) parts.push(review);
+      return parts.join(" | ");
+    }).join("\n");
+  }
+
   /* 缺 Key 时给一个能点的入口：光有一段文字，访客还得自己去找「设置」在哪 */
   function keyHint() {
     if (!state.needKey) return "";
@@ -62,16 +100,12 @@
   /* ================= 空态 ================= */
   function skillCard(skill) {
     const tone = skill.tone === "info" ? "is-info" : skill.tone === "neutral" ? "is-neutral" : "";
-    const flag = skill.status === "available"
-      ? `<span class="skill-flag skill-flag-free">已接入</span>`
-      : `<span class="skill-flag skill-flag-soon">开发中</span>`;
     return (
-      `<button type="button" class="skill-card" data-skill="${U.esc(skill.key)}"` +
-      `${skill.status === "available" ? "" : ' data-soon="1"'}>` +
+      `<button type="button" class="skill-card" data-skill="${U.esc(skill.key)}">` +
       `<span class="skill-card-head">` +
       `<span class="skill-icon ${tone}">${U.esc(skill.icon)}</span>` +
       `<span class="skill-title-wrap"><span class="skill-name">${U.esc(skill.name)}</span>` +
-      `<span class="skill-cat">${U.esc(skill.cat)}</span></span>` + flag + `</span>` +
+      `<span class="skill-cat">${U.esc(skill.cat)}</span></span></span>` +
       `<span class="skill-desc">${U.esc(skill.desc)}</span>` +
       `<span class="skill-tags">` +
       skill.tags.map(function (t) { return `<span class="tag">${U.esc(t)}</span>`; }).join("") +
@@ -81,9 +115,9 @@
 
   function visibleSkills() {
     return C.SKILLS.filter(function (s) {
-      if (state.category === "推荐") return true;
-      if (state.category === "已接入") return s.status === "available";
-      return s.cat === state.category;
+      return s.status === "available";
+    }).filter(function (s) {
+      return state.category === "推荐" || s.cat === state.category;
     });
   }
 
@@ -158,16 +192,18 @@
 
   function expertRow() {
     const cards = C.AGENTS.map(function (agent) {
+      const names = agent.skills
+        .map(function (k) { return C.SKILL_NAME[k]; })
+        .filter(Boolean);
       return (
         `<div class="skill-card" style="cursor:default">` +
         `<span class="skill-card-head">` +
         `<span class="skill-icon">${U.esc(agent.name.slice(0, 1))}</span>` +
         `<span class="skill-title-wrap"><span class="skill-name">${U.esc(agent.name)}</span>` +
-        `<span class="skill-cat">${agent.skills.length} 个技能 · v${U.esc(agent.version)}</span></span>` +
-        `<span class="skill-flag skill-flag-free">${agent.status === "beta" ? "Beta" : "可用"}</span></span>` +
+        `<span class="skill-cat">${names.length} 项能力</span></span></span>` +
         `<span class="skill-desc">${U.esc(agent.summary)}</span>` +
         `<span class="skill-tags">` +
-        agent.skills.slice(0, 2).map(function (s) { return `<span class="tag">${U.esc(s)}</span>`; }).join("") +
+        names.slice(0, 2).map(function (n) { return `<span class="tag">${U.esc(n)}</span>`; }).join("") +
         `</span></div>`
       );
     }).join("");
@@ -182,7 +218,7 @@
     const tone = info.degraded ? "callout-warn" : "callout-info";
     return (
       `<div class="callout ${tone}" style="margin-top:var(--sp-3)">${U.icon(info.degraded ? "alert" : "info")}` +
-      `<div><strong>${info.degraded ? "目标解析已降级" : "目标已解析"}</strong>` +
+      `<div><strong>${info.degraded ? "执行参数是按文本推断的" : "已确认执行参数"}</strong>` +
       (info.degraded && info.reason ? `<br>${U.esc(info.reason)}` : "") +
       `<div class="row gap-2 wrap mt-2">` +
       `<span class="tag">站点 ${U.esc(spec.marketplace || state.marketplace)}</span>` +
@@ -214,28 +250,28 @@
       `<input id="wb-product" value="${U.esc(state.productName)}" placeholder="例如 EcoSip Insulated Water Bottle" /></label>` +
       `</div>` +
 
-      `<label class="field mt-3"><span class="field-label">竞品数据（JSON 数组）<span class="t-danger">*</span></span>` +
-      `<textarea id="wb-competitors" rows="7" spellcheck="false" placeholder='[{"name":"竞品 A","price":25.99,"reviews":[{"rating":2,"text":"lid leaked"}]}]'>${U.esc(state.competitorsJson)}</textarea>` +
-      `<span class="field-help">需要 <code>name</code>；可选 price / rating / reviews / is_demo。也可以先到「数据资产」或「店铺与渠道」导入数据。</span></label>` +
+      `<label class="field mt-3"><span class="field-label">竞品（每行一个）<span class="t-danger">*</span></span>` +
+      `<textarea id="wb-competitors" rows="7" spellcheck="false" placeholder="竞品 A | 25.99 | 4.2 | 380 | 盖子漏水&#10;竞品 B">${U.esc(state.competitorsText)}</textarea>` +
+      `<span class="field-help">按「名称 | 价格 | 评分 | 评论数 | 一条评论」写，只有名称必填，后面用不到就省掉。也可以先到「数据资产」导入文件。</span></label>` +
 
       `<div class="grid-2 mt-3">` +
       `<label class="field"><span class="field-label">站点</span>` +
       `<select id="wb-marketplace">` +
       ["US", "DE", "JP", "UK"].map(function (m) {
-        return `<option value="${m}"${m === state.marketplace ? " selected" : ""}>${m}</option>`;
+        return `<option value="${m}"${m === state.marketplace ? " selected" : ""}>${window.CPLabel.site(m)}</option>`;
       }).join("") +
       `</select></label>` +
       `<label class="field"><span class="field-label">Listing 语言</span>` +
       `<select id="wb-language">` +
-      [["en-US", "英语"], ["de-DE", "德语"], ["ja-JP", "日语"]].map(function (pair) {
-        return `<option value="${pair[0]}"${pair[0] === state.listingLanguage ? " selected" : ""}>${pair[1]}</option>`;
+      ["en-US", "de-DE", "ja-JP"].map(function (code) {
+        return `<option value="${code}"${code === state.listingLanguage ? " selected" : ""}>${window.CPLabel.language(code)}</option>`;
       }).join("") +
       `</select></label>` +
       `</div>` +
 
       `<label class="row gap-2 mt-3" style="cursor:pointer">` +
       `<input type="checkbox" id="wb-with-listing" ${state.withListing ? "checked" : ""} />` +
-      `<span class="t-sm">同时生成 Listing 草稿（需要配置了 API Key）</span></label>` +
+      `<span class="t-sm">同时生成 Listing 草稿（要先填 API Key）</span></label>` +
 
       (state.error ? `<p class="callout callout-danger mt-3">${U.esc(state.error)}</p>` : "") +
       keyHint() +
@@ -259,7 +295,7 @@
     const tone = message.content_type === "error" ? "t-danger" : "";
     return `<div class="msg msg-agent"><span class="msg-avatar">激</span><div class="msg-body grow">` +
       `<div class="msg-bubble ${tone}">${U.esc(message.content)}` +
-      (meta.degraded ? `<div class="t-xs t-muted mt-2">目标解析降级为规则，参数已按文本推断。</div>` : "") +
+      (meta.degraded ? `<div class="t-xs t-muted mt-2">这次没能完全读懂你的描述，参数是按文本推断的，开始前请核对一下。</div>` : "") +
       `</div>` +
       `<div class="msg-time">${message.task_id
         ? `<a href="/tasks/${U.esc(message.task_id)}" data-link>查看任务</a> · `
@@ -358,19 +394,6 @@
     return blocks.join("");
   }
 
-  function resultRawPane() {
-    const raw = {
-      task_id: state.taskId,
-      status: state.taskStatus,
-      plan: state.plan,
-      degraded: state.degraded,
-      degraded_reason: state.degradedReason,
-      task: state.taskRaw,
-      steps: state.steps,
-    };
-    return `<pre class="raw-pre">${U.esc(JSON.stringify(raw, null, 2))}</pre>`;
-  }
-
   function resultPane() {
     const running = AR.isRunning(state.taskStatus) || state.busy;
     const failed = state.taskStatus === "failed" || (state.error && !running);
@@ -384,7 +407,7 @@
         : cancelled ? `<span class="badge">已取消</span>`
         : failed ? `<span class="badge badge-danger">失败</span>`
         : state.taskId ? `<span class="badge badge-ok">已完成</span>` : "") +
-      (state.degraded ? `<span class="badge badge-warn">降级</span>` : "") +
+      (state.degraded ? `<span class="badge badge-warn">参数已推断</span>` : "") +
       `</div>` +
       `<div class="wb-run-actions">` +
       (running && state.taskId ? `<button type="button" class="btn btn-sm" id="wb-cancel">取消</button>` : "") +
@@ -394,14 +417,14 @@
       `<div class="res-body"><div class="res-inner">` +
       (running ? `<div class="progress is-indeterminate"><div class="progress-bar"></div></div>` : "") +
       (state.degraded
-        ? `<div class="callout callout-warn">${U.icon("alert")}<div><strong>已降级执行</strong><br>` +
-          `${U.esc(state.degradedReason || "目标解析使用了规则；结果仍然完整，但文案可能需要人工润色。")}</div></div>`
+        ? `<div class="callout callout-warn">${U.icon("alert")}<div><strong>执行参数是按文字推断的</strong><br>` +
+          `${U.esc(state.degradedReason || "结果仍然完整，但文案可能需要你再润色一遍。")}</div></div>`
         : "") +
       (tab === "steps"
         ? AR.stepList(state.steps, state.plan)
         : tab === "data"
           ? resultDataPane()
-          : resultRawPane()) +
+          : AR.stepList(state.steps, state.plan)) +
       (failed && state.error
         ? `<div class="callout callout-danger">${U.icon("alert")}<div>执行失败：${U.esc(state.error)}</div></div>`
         : "") +
@@ -421,7 +444,7 @@
         `<div class="msg-bubble">正在创建任务…</div></div></div>`;
 
     return (
-      `<div class="wb-run" id="wb-run">` +
+      `<div class="wb-run split" id="wb-run">` +
       `<section class="wb-pane wb-pane-chat">` +
       `<div class="wb-pane-head">` +
       `<div class="wb-pane-title"><span class="t-section">${U.esc(state.productName || "对话")}</span></div>` +
@@ -490,6 +513,19 @@
     }).catch(function () { /* 会话列表失败不影响主流程 */ });
   }
 
+  /* 左右分栏可拖拽：比例持久化，双击复位 */
+  function mountSplit(root) {
+    const run = root.querySelector("#wb-run.split");
+    if (!run || !window.CPPanels) return;
+    window.CPPanels.split(run, {
+      storageKey: "cp.split:workbench",
+      defaultSize: 0.58,
+      min: 0.3,
+      max: 0.76,
+      label: "调整对话与结果宽度",
+    });
+  }
+
   function bindResultPane(root) {
     root.querySelectorAll("[data-res-tab]").forEach(function (btn) {
       btn.addEventListener("click", function () {
@@ -508,6 +544,7 @@
 
   function bind(root) {
     bindResultPane(root);
+    mountSplit(root);
 
     root.onclick = function (event) {
       const tab = event.target.closest("[data-skills-tab]");
@@ -528,7 +565,7 @@
         const skill = C.SKILLS.find(function (s) { return s.key === key; });
         if (!skill) return;
         if (skill.status !== "available") {
-          U.toast("该技能仍在开发中，暂不可用", "danger");
+          U.toast("这个技能暂时用不了，换一个试试", "danger");
           return;
         }
         state.skill = skill;
@@ -652,7 +689,7 @@
     } catch (err) {
       if (err.status === 428) {
         state.needKey = true;
-        state.error = "需要先配置 API Key 才能解析目标。请到「设置 → 模型与密钥」添加配置。";
+        state.error = "这一步要用模型来读你的目标。到「设置 → 模型与密钥」填入你自己的 API Key 后就能继续。";
         U.toast(state.error, "danger");
       } else {
         state.resolveInfo = { degraded: true, reason: err.message, spec: {} };
@@ -666,7 +703,7 @@
       const demo = await A.get("/api/demo/dataset");
       const req = demo.analysis_request || {};
       state.productName = req.product_name || state.productName || "EcoSip Insulated Water Bottle";
-      state.competitorsJson = JSON.stringify(req.competitors || [], null, 2);
+      state.competitorsText = competitorsToText(req.competitors || []);
       if (!state.goal) state.goal = "分析示例竞品的价格与评论痛点，并生成一份英文 Listing";
       state.mode = "params";
       state.error = "";
@@ -685,21 +722,16 @@
     const marketEl = root.querySelector("#wb-marketplace");
     const langEl = root.querySelector("#wb-language");
     if (productEl) state.productName = productEl.value.trim();
-    if (compEl) state.competitorsJson = compEl.value;
+    if (compEl) state.competitorsText = compEl.value;
     if (listingEl) state.withListing = listingEl.checked;
     if (marketEl) state.marketplace = marketEl.value;
     if (langEl) state.listingLanguage = langEl.value;
     state.error = "";
 
     if (!state.productName) { state.error = "请填写商品名称"; render(root); return; }
-    let competitors;
-    try {
-      competitors = JSON.parse(state.competitorsJson || "[]");
-      if (!Array.isArray(competitors) || !competitors.length) {
-        throw new Error("至少需要 1 个竞品");
-      }
-    } catch (err) {
-      state.error = "竞品数据解析失败：" + err.message;
+    const competitors = parseCompetitors(state.competitorsText);
+    if (!competitors.length) {
+      state.error = "至少填一个竞品的名称";
       render(root);
       return;
     }
@@ -754,7 +786,7 @@
       state.taskStatus = "failed";
       if (err.status === 428) {
         state.needKey = true;
-        state.error = "需要先配置 API Key（BYOK）。请到「设置 → 模型与密钥」添加一个厂商配置后再运行。";
+        state.error = "还没有可用的模型。到「设置 → 模型与密钥」填入你自己的 API Key 并设为当前使用后再运行。";
       } else {
         state.error = err.message || String(err);
       }

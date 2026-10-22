@@ -17,6 +17,7 @@ from typing import Any, Iterable
 
 from pydantic import ValidationError
 
+from ..labels import humanize_message
 from ..models import CompetitorProduct, KeywordMetric, ReviewSample
 
 MAX_REVIEWS_PER_COMPETITOR = 500
@@ -187,7 +188,13 @@ def detect_file_columns(
         try:
             payload = json.loads(text)
         except json.JSONDecodeError as exc:
-            return [], [RowError(row=1, field="file", message=f"JSON 解析失败: {exc.msg}")]
+            return [], [
+                RowError(
+                    row=1,
+                    field="file",
+                    message="这个 JSON 文件格式不对，请检查括号、引号与逗号是否完整",
+                )
+            ]
         first: dict[str, Any] = {}
         if isinstance(payload, list) and payload and isinstance(payload[0], dict):
             first = payload[0]
@@ -204,10 +211,22 @@ def detect_file_columns(
             workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
             header_row = next(workbook.active.iter_rows(values_only=True))
             headers = [str(h) if h is not None else "" for h in header_row]
-        except Exception as exc:  # noqa: BLE001 - 预览失败给出可读原因
-            return [], [RowError(row=1, field="file", message=f"Excel 解析失败: {exc}")]
+        except Exception:  # noqa: BLE001 - 预览失败给出可读原因
+            return [], [
+                RowError(
+                    row=1,
+                    field="file",
+                    message="这个 Excel 文件打不开。如果设了密码，请先取消保护再上传",
+                )
+            ]
     else:
-        return [], [RowError(row=1, field="file", message=f"不支持的文件类型: {suffix}")]
+        return [], [
+            RowError(
+                row=1,
+                field="file",
+                message=f"暂不支持 {suffix} 格式，请用 .csv / .json / .xlsx",
+            )
+        ]
 
     columns: list[dict[str, Any]] = []
     for raw in headers:
@@ -292,7 +311,7 @@ def _row_to_competitor(row: dict[str, Any], row_number: int, errors: list[RowErr
 
     name = (row.get("name") or "").strip() if isinstance(row.get("name"), str) else row.get("name")
     if not name:
-        fail("name", "缺少必填字段 name（商品名称）")
+        fail("name", "缺少商品名称")
     else:
         data["name"] = name
 
@@ -346,7 +365,7 @@ def _row_to_competitor(row: dict[str, Any], row_number: int, errors: list[RowErr
         try:
             data["specifications"] = _parse_specs(row.get("specifications"))
         except Exception as exc:  # pragma: no cover - 防御性
-            fail("specifications", f"规格解析失败: {exc}", row.get("specifications"))
+            fail("specifications", "规格没能读出来，请用「键：值」或「键=值|键=值」的写法", row.get("specifications"))
 
     # 卖点 / 评论：来自 load_rows 的中间表示
     features = row.get("key_features")
@@ -365,9 +384,12 @@ def _row_to_competitor(row: dict[str, Any], row_number: int, errors: list[RowErr
                 try:
                     parsed_reviews.append(ReviewSample(**review))
                 except ValidationError as exc:
+                    first = exc.errors()[0] if exc.errors() else {}
                     fail(
                         f"review_list[{index}]",
-                        f"评论样本校验失败: {exc.errors()[0]['msg'] if exc.errors() else exc}",
+                        "这条评论样本填得不对：" + humanize_message(
+                            str(first.get("msg") or ""), str(first.get("type") or "")
+                        ),
                         review,
                     )
         if len(parsed_reviews) > MAX_REVIEWS_PER_COMPETITOR:
@@ -389,7 +411,13 @@ def _row_to_competitor(row: dict[str, Any], row_number: int, errors: list[RowErr
     except ValidationError as exc:
         for err in exc.errors():
             field_name = ".".join(str(p) for p in err.get("loc", ())) or "row"
-            errors.append(RowError(row=row_number, field=field_name, message=err["msg"]))
+            errors.append(
+                RowError(
+                    row=row_number,
+                    field=field_name,
+                    message=humanize_message(err.get("msg", ""), err.get("type", "")),
+                )
+            )
         return None
 
 
@@ -478,7 +506,10 @@ def load_json_rows(content: str) -> tuple[list[dict[str, Any]], list[dict[str, A
     try:
         payload = json.loads(content)
     except json.JSONDecodeError as exc:
-        raise ImportValidationError(f"JSON 解析失败（第 {exc.lineno} 行第 {exc.colno} 列）: {exc.msg}") from exc
+        raise ImportValidationError(
+            f"这个 JSON 文件第 {exc.lineno} 行第 {exc.colno} 列格式不对，"
+            "请检查那附近的括号、引号与逗号"
+        ) from exc
 
     errors: list[RowError] = []
     if isinstance(payload, list):
@@ -600,7 +631,13 @@ def _build_keywords(rows: list[dict[str, Any]], offset_row_base: int = 1) -> tup
         except ValidationError as exc:
             for err in exc.errors():
                 field_name = ".".join(str(p) for p in err.get("loc", ())) or "keyword"
-                errors.append(RowError(row=row_number, field=field_name, message=err["msg"]))
+                errors.append(
+                    RowError(
+                        row=row_number,
+                        field=field_name,
+                        message=humanize_message(err.get("msg", ""), err.get("type", "")),
+                    )
+                )
     return keywords, errors
 
 

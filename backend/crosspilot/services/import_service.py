@@ -24,6 +24,7 @@ from ..ingest.importers import (
     detect_file_columns,
     import_competitor_data,
 )
+from ..labels import humanize_error
 from ..persistence.storage import ObjectStorage, StorageError
 from ..tenancy import TenantContext
 
@@ -48,7 +49,7 @@ def _now() -> str:
 
 
 def _errors_as_dict(result: ImportResult) -> list[dict[str, Any]]:
-    return [error.as_dict() for error in result.errors]
+    return [humanize_error(error.as_dict()) for error in result.errors]
 
 
 def preview(
@@ -73,7 +74,7 @@ def preview(
 
     columns, column_errors = detect_file_columns(content, filename)
     result: ImportResult | None = None
-    errors: list[dict[str, Any]] = [e.as_dict() for e in column_errors]
+    errors: list[dict[str, Any]] = [humanize_error(e.as_dict()) for e in column_errors]
     warnings: list[str] = []
     status = "needs_mapping"
     if not column_errors:
@@ -85,12 +86,19 @@ def preview(
             warnings = result.warnings
             status = "validated" if not errors else "rejected"
         except ImportValidationError as exc:
-            errors = [e.as_dict() for e in exc.errors] or [
+            errors = [humanize_error(e.as_dict()) for e in exc.errors] or [
                 {"row": 1, "field": "file", "message": str(exc)}
             ]
             status = "needs_mapping"
-        except Exception as exc:  # noqa: BLE001 - 解析失败要变成可读预览
-            errors = [{"row": 1, "field": "file", "message": f"{type(exc).__name__}: {exc}"}]
+        except Exception:  # noqa: BLE001 - 解析失败要变成可读预览
+            # 异常类型名与原始报错是排错信息，对用户没有意义；说清「哪一步没成」即可
+            errors = [
+                {
+                    "row": 1,
+                    "field": "file",
+                    "message": "这个文件没能读出来。请另存为 .xlsx 或 .csv 后重试。",
+                }
+            ]
             status = "rejected"
 
     competitors = [c.model_dump(mode="json") for c in (result.competitors if result else [])]
@@ -166,7 +174,7 @@ def commit(
             content, source["name"], column_mapping=mapping
         )
     except ImportValidationError as exc:
-        errors = [e.as_dict() for e in exc.errors] or [
+        errors = [humanize_error(e.as_dict()) for e in exc.errors] or [
             {"row": 1, "field": "file", "message": str(exc)}
         ]
         db.update_data_source(
@@ -253,7 +261,7 @@ def remap(
 
     columns, column_errors = detect_file_columns(content, source["name"])
     result: ImportResult | None = None
-    errors: list[dict[str, Any]] = [e.as_dict() for e in column_errors]
+    errors: list[dict[str, Any]] = [humanize_error(e.as_dict()) for e in column_errors]
     warnings: list[str] = []
     status = "needs_mapping"
     if not column_errors:
@@ -265,7 +273,7 @@ def remap(
             warnings = result.warnings
             status = "validated" if not errors else "rejected"
         except ImportValidationError as exc:
-            errors = [e.as_dict() for e in exc.errors] or [
+            errors = [humanize_error(e.as_dict()) for e in exc.errors] or [
                 {"row": 1, "field": "file", "message": str(exc)}
             ]
             status = "needs_mapping"

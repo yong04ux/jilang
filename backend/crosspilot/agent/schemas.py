@@ -54,7 +54,7 @@ class AgentRunRequest(BaseModel):
     @model_validator(mode="after")
     def _require_goal_or_product(self) -> "AgentRunRequest":
         if not (self.goal or "").strip() and not (self.product_name or "").strip():
-            raise ValueError("必须提供 goal 或 product_name")
+            raise ValueError("填一句业务目标，或者至少写清商品名称")
         return self
 
 

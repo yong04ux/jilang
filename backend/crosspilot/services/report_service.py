@@ -11,6 +11,7 @@ import io
 import json
 from typing import Any
 
+from ..labels import data_source_label, engine_label
 from ..persistence.db import Database
 from ..tenancy import TenantContext
 
@@ -44,14 +45,14 @@ def to_markdown(report: dict[str, Any]) -> str:
     lines.append(
         f"- 平台/站点：{report.get('platform', '—')} / {report.get('marketplace', '—')}"
     )
-    lines.append(f"- 数据来源：{provenance.get('data_source', '—')}")
+    lines.append(f"- 数据来源：{data_source_label(provenance.get('data_source'))}")
     lines.append(f"- 示例数据：{'是（不可用于真实经营决策）' if provenance.get('is_demo') else '否'}")
     lines.append(
         f"- 竞品数：{provenance.get('competitor_count', '—')} · "
         f"评论样本：{provenance.get('review_sample_count', '—')} · "
         f"关键词：{provenance.get('keyword_count', '—')}"
     )
-    lines.append(f"- 生成引擎：{report.get('engine', '—')} {report.get('engine_version', '')}".rstrip())
+    lines.append(f"- 生成方式：{engine_label(report.get('engine'))}")
     lines.append("")
 
     price = report.get("price_analysis")

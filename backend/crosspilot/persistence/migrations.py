@@ -481,6 +481,37 @@ def _task_step_io(connection) -> None:
     _add_column(connection, "task_steps", "output", "TEXT")
 
 
+def _business_reports(connection) -> None:
+    """0014：选品/利润/广告复盘等「经营判断」类结果的统一存放表。
+
+    为什么不给每个模块建一张表：这三类结果的形态高度一致——一份输入、
+    一段摘要、一份完整结果。用 ``kind`` 区分即可，加模块时只加枚举值不建表。
+    ``competitor_reports`` / ``listing_drafts`` 保持原样不动：
+    它们是被 Agent 工作流直接引用的核心实体，泛化的收益不如改动风险。
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS business_reports (
+            report_id   TEXT PRIMARY KEY,
+            tenant_id   TEXT NOT NULL,
+            user_id     TEXT NOT NULL,
+            kind        TEXT NOT NULL,
+            title       TEXT NOT NULL DEFAULT '',
+            input       TEXT NOT NULL DEFAULT '{}',
+            summary     TEXT NOT NULL DEFAULT '{}',
+            payload     TEXT NOT NULL DEFAULT '{}',
+            is_demo     INTEGER NOT NULL DEFAULT 0,
+            seed_demo   INTEGER NOT NULL DEFAULT 0,
+            created_at  TEXT NOT NULL,
+            updated_at  TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_business_reports_tenant
+            ON business_reports(tenant_id, kind, created_at DESC);
+        """
+    )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001", "baseline", _baseline),
     Migration("0002", "conversations_and_messages", _conversations),
@@ -495,6 +526,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("0011", "seed_demo_flags", _demo_seed_flag),
     Migration("0012", "tasks_retry_of", _retry_of_column),
     Migration("0013", "task_steps_node_output", _task_step_io),
+    Migration("0014", "business_reports", _business_reports),
 )
 
 

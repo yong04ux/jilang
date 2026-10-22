@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import HTMLResponse
 
 from ..config import get_settings
 from ..version import __version__
@@ -35,6 +35,7 @@ SPA_ROUTES = (
     "/tasks",
     "/tasks/{task_id}",
     "/competitors",
+    "/profit",
     "/listings",
     "/data",
     "/agents",
@@ -73,21 +74,60 @@ def worker_health(settings) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# 外壳页不缓存：保证改完 index.html / 静态资源版本号后刷新即可见
+_NO_CACHE = {"Cache-Control": "no-cache"}
+
+#: 构建戳缓存：连续刷新时不重复扫描目录
+_ASSET_STAMP: dict[str, Any] = {"value": "", "at": 0.0}
+_ASSET_STAMP_TTL = 1.5
+
+
+def asset_stamp() -> str:
+    """前端构建戳 = 所有前端文件的最新修改时间（毫秒）。
+
+    外壳页里的 ``?v=0`` 会被替换成它。任何一个 css/js 改动都会让它变化，
+    资源 URL 随之变化，浏览器只能重新下载 —— 不需要用户手动硬刷新。
+    """
+    now = time.monotonic()
+    if _ASSET_STAMP["value"] and now - _ASSET_STAMP["at"] < _ASSET_STAMP_TTL:
+        return str(_ASSET_STAMP["value"])
+
+    root = FRONTEND_INDEX.parent
+    latest = 0.0
+    for pattern in ("index.html", "css/*.css", "js/*.js", "js/pages/*.js"):
+        for path in root.glob(pattern):
+            try:
+                latest = max(latest, path.stat().st_mtime)
+            except OSError:  # 扫描期间文件被替换/删除，跳过即可
+                continue
+
+    value = f"{int(latest * 1000)}"
+    _ASSET_STAMP["value"] = value
+    _ASSET_STAMP["at"] = now
+    return value
+
+
+def _shell_response() -> HTMLResponse:
+    """返回 SPA 外壳：注入资源版本戳，并禁掉页面缓存。"""
+    try:
+        html = FRONTEND_INDEX.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail="页面外壳缺失") from exc
+    return HTMLResponse(html.replace("?v=0", f"?v={asset_stamp()}"), headers=_NO_CACHE)
+
+
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def index() -> FileResponse:
-    return FileResponse(FRONTEND_INDEX)
+async def index() -> HTMLResponse:
+    return _shell_response()
 
 
 if FRONTEND_INDEX.is_file():
-
-    def _spa_shell() -> FileResponse:
-        return FileResponse(FRONTEND_INDEX)
-
     for _path in SPA_ROUTES:
         router.add_api_route(
             _path,
-            _spa_shell,
+            _shell_response,
             methods=["GET"],
+            response_class=HTMLResponse,
             include_in_schema=False,
             name=f"spa{_path.replace('/', '-')}",
         )
@@ -240,7 +280,7 @@ async def ping_provider(
     if not model_config.api_key:
         return {
             "ok": False,
-            "detail": "尚未配置 API Key，无法测试连接（BYOK：平台不提供 Key）",
+            "detail": "还没有配置 API Key，暂时无法测试连接",
             "model": model_config.model,
         }
 

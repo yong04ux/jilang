@@ -34,16 +34,13 @@ def _marketplace_connection(
             (c for c in connections if c["connection_id"] == connection_id), None
         )
         if match is None:
-            raise HTTPException(status_code=404, detail=f"店铺连接不存在: {connection_id}")
+            raise HTTPException(status_code=404, detail="没有找到这个店铺，可能已被移除")
         return match
     mock = next((c for c in connections if c.get("mode") == "mock"), None)
     if mock is None:
         raise HTTPException(
             status_code=409,
-            detail=(
-                "还没有可用的数据源连接。请先在「店铺与渠道」创建一个 Mock 连接，"
-                "或配置真实平台凭据（本期未接入）。"
-            ),
+            detail="还没有添加店铺。先到「店铺与渠道」添加一个店铺，商品与订单就会同步过来。",
         )
     return mock
 
@@ -70,11 +67,6 @@ async def data_source_status(
     connections = connector_service.list_connections(api.db, ctx)
     return {
         "items": describe_data_sources(connections),
-        "marketplace_mode": api.settings.marketplace_mode,
-        "note": (
-            "数据可以模拟，标记必须真实：Mock 数据全部带 is_mock=true，"
-            "Live 未配置时明确显示「未接入」，不会伪装成已连接。"
-        ),
     }
 
 

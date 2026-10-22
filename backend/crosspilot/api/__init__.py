@@ -24,6 +24,7 @@ from . import (
     listings,
     marketplace,
     meta,
+    profit,
     settings,
     stores,
     tasks,
@@ -42,6 +43,7 @@ ALL_ROUTERS = (
     agents.router,
     marketplace.router,
     stores.router,
+    profit.router,
 )
 
 __all__ = ["ALL_ROUTERS"]

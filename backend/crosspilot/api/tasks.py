@@ -148,7 +148,7 @@ async def retry_task_endpoint(
     if not payload.get("product_name") or not payload.get("competitors"):
         raise HTTPException(
             status_code=422,
-            detail="原任务缺少重跑所需的 product_name 或 competitors",
+            detail="原任务缺商品名称或竞品，没法直接重跑；请回工作台重新填一次",
         )
 
     resume_from: dict[str, Any] = {}

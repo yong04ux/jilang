@@ -128,7 +128,7 @@ class ApiContext:
             raise HTTPException(
                 status_code=428,
                 detail={
-                    "message": "需要先配置 API Key（BYOK）：平台不提供模型额度。",
+                    "message": "需要先配置你自己的 API Key：激浪不提供模型额度。",
                     **API_KEY_REQUIRED,
                 },
             )
@@ -137,7 +137,7 @@ class ApiContext:
                 status_code=428,
                 detail={
                     "message": (
-                        "还没有配置 API Key（BYOK）。请在「设置 → 模型与密钥」中"
+                        "还没有配置 API Key。请在「设置 → 模型与密钥」中"
                         "添加一个厂商配置并激活后再运行。"
                     ),
                     **API_KEY_REQUIRED,

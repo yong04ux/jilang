@@ -27,14 +27,7 @@
     poller: null,
   };
 
-  const TYPE_LABEL = {
-    competitor_analysis: "竞品分析",
-    listing_generation: "Listing 生成",
-    data_import: "数据导入",
-    agent_workflow: "Agent 工作流",
-    publish_listing: "发布审批",
-  };
-
+  /* 任务类型文案统一来自 CPLabel，避免与工作台不一致 */
   const RESULT_LABEL = {
     competitor_analysis: "报告",
     listing_generation: "草稿",
@@ -42,6 +35,14 @@
     publish_listing: "草稿",
     data_import: "批次",
   };
+
+  const KIND_LABEL = {
+    publish_listing: "发布 Listing",
+  };
+
+  function typeLabel(type) {
+    return window.CPLabel.taskType(type);
+  }
 
   function shell() {
     return (
@@ -53,7 +54,7 @@
       `<div class="card-head" style="flex-wrap:wrap;gap:12px">` +
       `<div class="chips" id="task-filters"></div>` +
       `<div class="row gap-2">` +
-      `<input type="search" class="task-search" id="task-search" placeholder="搜索任务名或 ID" aria-label="搜索任务" />` +
+      `<input type="search" class="task-search" id="task-search" placeholder="搜索任务名称" aria-label="搜索任务" />` +
       `<span class="t-xs t-muted" id="task-count" style="white-space:nowrap"></span></div>` +
       `</div>` +
       `<div id="task-body"><div class="card-body">` +
@@ -98,23 +99,14 @@
     });
   }
 
-  function shortId(taskId) {
-    const text = String(taskId || "");
-    // 种子数据 ID 前缀相同（seed-task-xxx），后缀才有区分度
-    if (text.startsWith("seed-")) return text.replace("seed-task-", "").replace("seed-", "");
-    return text.slice(0, 12);
-  }
-
   function rowHtml(t) {
     const resultLabel = t.result_ref ? (RESULT_LABEL[t.type] || "记录") : "—";
     return (
       `<tr data-task-row="${U.esc(t.task_id)}" tabindex="0" style="cursor:pointer">` +
-      `<td><strong>${U.esc(t.title)}</strong>` +
-      `<div class="t-xs t-faint t-mono">${U.esc(shortId(t.task_id))}</div></td>` +
-      `<td class="t-muted">${U.esc(TYPE_LABEL[t.type] || t.type)}</td>` +
+      `<td><strong>${U.esc(t.title)}</strong></td>` +
+      `<td class="t-muted">${U.esc(typeLabel(t.type))}</td>` +
       `<td class="t-muted">${t.origin === "chat" ? "AI 助手" : t.origin === "seed" ? "示例数据" : "业务页面"}</td>` +
-      `<td>${U.statusBadge(t.status)}` +
-      (t.error_code ? `<div class="t-xs t-danger">${U.esc(t.error_code)}</div>` : "") + `</td>` +
+      `<td>${U.statusBadge(t.status)}</td>` +
       `<td class="t-muted num">${U.esc(U.fmtTime(t.created_at))}</td>` +
       `<td class="num t-muted">${U.esc(resultLabel)}</td>` +
       `</tr>`
@@ -211,12 +203,13 @@
     card.style.marginBottom = "var(--sp-4)";
     card.innerHTML =
       `<div class="row between wrap gap-2"><div><div class="card-title">待审批（${pending.length}）</div>` +
-      `<div class="card-sub">发布类动作需 admin/owner 审批；通过也<b>不会真实发布</b>——平台接口尚未接入。</div></div></div>` +
+      `<div class="card-sub">发布 Listing 前需要管理员确认。通过后把内容复制到店铺后台，在那里完成发布。</div></div></div>` +
       `<div class="mt-3">` + pending.map(function (a) {
         const payload = a.payload || {};
+        const title = payload.product_name || payload.listing_id || "Listing 发布请求";
         return `<div class="row between wrap gap-2" style="padding:10px 0;border-top:1px solid var(--line)">` +
-          `<div><div class="t-sm">${U.esc(payload.product_name || payload.listing_id || a.approval_id)}</div>` +
-          `<div class="t-xs t-muted">${U.esc(a.kind)} · ${U.esc(U.fmtTime(a.created_at))} · ${U.esc(a.requested_by.slice(0, 8))}</div></div>` +
+          `<div><div class="t-sm">${U.esc(title)}</div>` +
+          `<div class="t-xs t-muted">${U.esc(KIND_LABEL[a.kind] || "审批请求")} · ${U.esc(U.fmtTime(a.created_at))}</div></div>` +
           (canDecide
             ? `<div class="row gap-2"><button type="button" class="btn btn-sm btn-primary" data-approve="${U.esc(a.approval_id)}">通过</button>` +
               `<button type="button" class="btn btn-sm" data-reject="${U.esc(a.approval_id)}">拒绝</button></div>`
@@ -234,7 +227,7 @@
       button.disabled = true;
       try {
         await A.post(`/api/approvals/${encodeURIComponent(approvalId)}/decide`, { decision: decision });
-        U.toast(decision === "approved" ? "已通过（未实际发布）" : "已拒绝", "ok");
+        U.toast(decision === "approved" ? "已通过，可以到店铺后台发布了" : "已拒绝", "ok");
         load(root);
       } catch (err) {
         U.toast(err.message, "danger");
@@ -266,8 +259,7 @@
     drawer.setAttribute("aria-label", "任务详情");
     drawer.innerHTML =
       `<div class="drawer-head">` +
-      `<div class="task-detail-head"><span class="t-section">任务详情</span>` +
-      `<span class="t-xs t-muted" id="task-drawer-id"></span></div>` +
+      `<div class="task-detail-head"><span class="t-section">任务详情</span></div>` +
       `<button type="button" class="btn-icon" id="task-drawer-close" aria-label="关闭">${U.icon("close")}</button>` +
       `</div>` +
       `<div class="drawer-body" id="task-drawer-body">` +
@@ -288,16 +280,6 @@
 
   function detailBody(task, steps, result) {
     const canCancel = ["queued", "running", "cancelling"].includes(task.status);
-    const outputKeys = Object.keys(task.output || {});
-    const outputBlock = outputKeys.length
-      ? `<div class="t-section mt-4">输出摘要</div>` +
-        `<div class="table-wrap"><table class="table"><tbody>` +
-        outputKeys.map(function (k) {
-          const v = task.output[k];
-          return `<tr><td class="t-muted" style="width:150px">${U.esc(k)}</td>` +
-            `<td>${U.esc(typeof v === "object" ? JSON.stringify(v) : String(v))}</td></tr>`;
-        }).join("") + `</tbody></table></div>`
-      : "";
 
     const links = [];
     if (task.type === "competitor_analysis" && task.result_ref) {
@@ -309,16 +291,17 @@
         `${U.icon("external")}打开草稿</a>`);
     }
 
+    // 失败原因直接展示服务端给的中文说明；不暴露错误码与追踪号
     const errorBlock = task.error_message
       ? `<div class="callout callout-danger mt-3">${U.icon("alert")}<div>` +
-        `<strong>${U.esc(task.error_code || "error")}</strong><br>${U.esc(task.error_message)}` +
-        `<div class="t-xs mt-1" style="opacity:.85">追踪 ID：<code>${U.esc(task.trace_id)}</code></div></div></div>`
+        `<strong>这个任务没有完成</strong><br>${U.esc(task.error_message)}` +
+        `</div></div>`
       : "";
 
     const approvalId = (task.output || {}).approval_id;
     const approvalBlock = task.status === "awaiting_approval" && approvalId
       ? `<div class="callout callout-warn mt-3">${U.icon("shield")}` +
-        `<div><strong>等待发布审批</strong><br>审批通过也不会真实发布：平台发布接口尚未接入。` +
+        `<div><strong>等待发布审批</strong><br>通过后把内容复制到店铺后台，在那里完成发布。` +
         `<div class="row gap-2 mt-2">` +
         `<button type="button" class="btn btn-sm btn-primary" data-decide="approved">通过</button>` +
         `<button type="button" class="btn btn-sm" data-decide="rejected">拒绝</button>` +
@@ -329,16 +312,16 @@
       `<div class="row between wrap gap-3">` +
       `<div><div class="row gap-2 wrap"><span class="t-title" style="font-size:var(--fs-lg)">${U.esc(task.title)}</span>` +
       U.statusBadge(task.status) + `</div>` +
-      `<div class="t-xs t-muted mt-1 t-mono">${U.esc(task.task_id)}<br>` +
-      `${U.esc(U.fmtTime(task.created_at))} · ${U.esc(TYPE_LABEL[task.type] || task.type)}` +
-      (task.degraded ? " · 已降级" : "") + `</div></div>` +
+      `<div class="t-xs t-muted mt-1">` +
+      `${U.esc(typeLabel(task.type))} · ${U.esc(U.fmtTime(task.created_at))}` +
+      (task.degraded ? " · 本次未调用模型" : "") + `</div></div>` +
       `<div class="row gap-2">${links.join("")}` +
       (canCancel ? `<button type="button" class="btn btn-sm" id="task-cancel">取消任务</button>` : "") +
       `</div></div>` +
       errorBlock + approvalBlock +
       (["queued", "running"].includes(task.status)
         ? `<div class="callout callout-info mt-3">${U.icon("info")}` +
-          `<div>任务正在异步执行。取消会在当前步骤结束后的检查点生效，状态每 1 秒自动刷新。</div></div>`
+          `<div>任务正在执行。取消会在当前步骤结束后生效，进度会自动刷新。</div></div>`
         : "") +
       (task.status === "cancelling"
         ? `<div class="callout callout-warn mt-3">${U.icon("info")}` +
@@ -346,8 +329,7 @@
         : "") +
       `<hr class="divider mt-4 mb-4" />` +
       `<div class="t-section mb-3">执行步骤</div>` +
-      AR.stepList(steps, (result && result.plan) || (task.output || {}).plan || []) +
-      outputBlock
+      AR.stepList(steps, (result && result.plan) || (task.output || {}).plan || [])
     );
   }
 
@@ -355,8 +337,6 @@
     state.activeTaskId = taskId;
     const drawer = mountDrawer();
     const body = drawer.querySelector("#task-drawer-body");
-    const idNode = drawer.querySelector("#task-drawer-id");
-    if (idNode) idNode.textContent = taskId.slice(0, 14);
 
     // 让 URL 可分享；不触发路由重绘
     if (location.pathname !== `/tasks/${taskId}`) {
@@ -438,5 +418,5 @@
     return render(root, params);
   }
 
-  window.CPPageTasks = { render, detail, TYPE_LABEL, closeDrawer };
+  window.CPPageTasks = { render, detail, closeDrawer };
 })();

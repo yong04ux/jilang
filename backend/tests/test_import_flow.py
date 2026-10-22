@@ -81,8 +81,8 @@ def test_preview_flags_row_errors_with_row_and_field(client):
     assert body["can_commit"] is False
     assert len(body["errors"]) == 2
     fields = {e["field"] for e in body["errors"]}
-    assert "name" in fields
-    assert "price" in fields
+    assert "商品名称" in fields
+    assert "价格" in fields
     assert all(e["row"] >= 2 for e in body["errors"])
 
 
@@ -228,7 +228,7 @@ def test_error_csv_contains_row_and_field(client):
     assert resp.status_code == 200
     text = resp.content.decode("utf-8-sig")
     assert "row,field,message,value" in text
-    assert "name" in text
+    assert "商品名称" in text
 
 
 def test_import_is_tenant_scoped(client):

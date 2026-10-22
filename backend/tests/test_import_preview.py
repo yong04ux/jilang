@@ -105,7 +105,7 @@ def test_row_errors_block_commit_and_can_be_downloaded(client):
     )
     assert csv_resp.status_code == 200
     assert "row,field,message,value" in csv_resp.text
-    assert "name" in csv_resp.text
+    assert "商品名称" in csv_resp.text
 
 
 def test_preview_survives_supplying_mapping_at_commit(client):

@@ -4,16 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>激浪 · 跨境电商 AI 运营助手</title>
-  <meta name="description" content="激浪：跨境电商 AI 运营演示站。竞品分析、Listing 生成、任务与审批全流程，BYOK 使用你自己的 LLM Key。" />
-  <meta name="theme-color" content="#1B6EF3" />
+  <meta name="description" content="激浪：跨境电商 AI 运营演示站。竞品分析、Listing 生成、任务与审批全流程，使用你自己的模型密钥。" />
+  <meta name="theme-color" content="#FAFAFA" />
   <link rel="icon" type="image/svg+xml" href="/media/favicon.svg?v=2" />
   <!-- 绝对路径：保证 /tasks/xxx 这类深链下静态资源不被打到子路径 -->
-  <link rel="stylesheet" href="/css/tokens.css" />
-  <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/components.css" />
-  <link rel="stylesheet" href="/css/layout.css" />
-  <link rel="stylesheet" href="/css/pages.css" />
-  <link rel="stylesheet" href="/css/liquid-glass.css?v=3" />
+  <!--
+    ?v=0 是占位符，由服务端在返回本页时替换成「前端构建戳」（所有前端文件的最新修改时间）。
+    前端任何一个文件改动都会让这些 URL 变化，浏览器因此不会再用旧缓存。
+    不要手工改这里的 v 值。
+  -->
+  <link rel="stylesheet" href="/css/tokens.css?v=0" />
+  <link rel="stylesheet" href="/css/base.css?v=0" />
+  <link rel="stylesheet" href="/css/components.css?v=0" />
+  <link rel="stylesheet" href="/css/layout.css?v=0" />
+  <link rel="stylesheet" href="/css/pages.css?v=0" />
 </head>
 <body>
   <a class="skip-link" href="#view-root">跳到主内容</a>
@@ -30,23 +34,28 @@
 
   <div id="nav-drawer" class="drawer" role="dialog" aria-modal="true" aria-label="全部导航" hidden></div>
 
-  <script src="/js/icons.js"></script>
-  <script src="/js/ui.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/auth.js"></script>
-  <script src="/js/catalog.js"></script>
-  <script src="/js/render.js"></script>
-  <script src="/js/async-run.js"></script>
-  <script src="/js/router.js"></script>
-  <script src="/js/shell.js"></script>
-  <script src="/js/pages/dashboard.js"></script>
-  <script src="/js/pages/workbench.js"></script>
-  <script src="/js/pages/tasks.js"></script>
-  <script src="/js/pages/competitors.js"></script>
-  <script src="/js/pages/listings.js"></script>
-  <script src="/js/pages/data.js"></script>
-  <script src="/js/pages/settings.js"></script>
-  <script src="/js/pages/misc.js"></script>
-  <script src="/js/app.js"></script>
+  <script src="/js/icons.js?v=0"></script>
+  <script src="/js/store.js?v=0"></script>
+  <script src="/js/motion.js?v=0"></script>
+  <script src="/js/panels.js?v=0"></script>
+  <script src="/js/ui.js?v=0"></script>
+  <script src="/js/api.js?v=0"></script>
+  <script src="/js/auth.js?v=0"></script>
+  <script src="/js/catalog.js?v=0"></script>
+  <script src="/js/labels.js?v=0"></script>
+  <script src="/js/render.js?v=0"></script>
+  <script src="/js/async-run.js?v=0"></script>
+  <script src="/js/router.js?v=0"></script>
+  <script src="/js/shell.js?v=0"></script>
+  <script src="/js/pages/dashboard.js?v=0"></script>
+  <script src="/js/pages/workbench.js?v=0"></script>
+  <script src="/js/pages/tasks.js?v=0"></script>
+  <script src="/js/pages/competitors.js?v=0"></script>
+  <script src="/js/pages/listings.js?v=0"></script>
+  <script src="/js/pages/profit.js?v=0"></script>
+  <script src="/js/pages/data.js?v=0"></script>
+  <script src="/js/pages/settings.js?v=0"></script>
+  <script src="/js/pages/misc.js?v=0"></script>
+  <script src="/js/app.js?v=0"></script>
 </body>
 </html>

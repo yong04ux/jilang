@@ -169,7 +169,7 @@ async def request_approval(
         raise HTTPException(status_code=400, detail=f"暂不支持审批类型：{kind}")
     listing_id = str(payload.get("listing_id") or "").strip()
     if not listing_id:
-        raise HTTPException(status_code=422, detail="缺少 listing_id")
+        raise HTTPException(status_code=422, detail="这次运行没有关联任何 Listing 草稿")
     try:
         return approval_service.request_publish(
             api.db, tenant, listing_id=listing_id, note=payload.get("note")

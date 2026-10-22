@@ -34,7 +34,7 @@
     { key: "review_rating", label: "评论星级" },
     { key: "review_title", label: "评论标题" },
     { key: "review_date", label: "评论日期" },
-    { key: "is_demo", label: "是否为演示数据" },
+    { key: "is_demo", label: "是否为示例数据" },
     { key: "keyword", label: "关键词" },
     { key: "search_volume", label: "搜索量" },
     { key: "rank", label: "排名" },
@@ -120,7 +120,7 @@
 
     const errors = r.errors || [];
     const errorRows = errors.slice(0, 50).map(function (e) {
-      return `<tr><td class="num">${e.row}</td><td><code>${U.esc(e.field || "")}</code></td>` +
+      return `<tr><td class="num">${e.row}</td><td>${U.esc(e.field || "")}</td>` +
         `<td>${U.esc(e.message || "")}</td>` +
         `<td class="t-muted">${e.value === null || e.value === undefined ? "" : U.esc(String(e.value))}</td></tr>`;
     }).join("");
@@ -129,7 +129,7 @@
       return `<tr><td>${U.esc(c.name)}</td>` +
         `<td class="num">${c.price === null || c.price === undefined ? "—" : Number(c.price).toFixed(2)}</td>` +
         `<td class="num">${(c.reviews || []).length}</td>` +
-        `<td>${c.is_demo ? '<span class="badge badge-warn">演示数据</span>' : '<span class="badge badge-ok">已导入</span>'}</td></tr>`;
+        `<td>${c.is_demo ? '<span class="badge badge-warn">示例数据</span>' : '<span class="badge badge-ok">已导入</span>'}</td></tr>`;
     }).join("");
 
     const statusBadge =
@@ -215,7 +215,7 @@
     state.upload = false;
     root.innerHTML = `<div class="view"><div class="page data-page"><div class="page-inner">` +
       `<section class="data-hero"><div class="data-hero-copy"><div class="data-eyebrow">CROSS-BORDER COMMERCE · DATA HUB</div>` +
-      `<div class="data-title-row"><h1 class="page-title">数据资产</h1><span class="badge badge-brand">${U.icon("sparkles")}演示环境</span></div>` +
+      `<div class="data-title-row"><h1 class="page-title">数据资产</h1><span class="badge badge-brand">${U.icon("sparkles")}示例数据</span></div>` +
       `<p class="page-desc">管理商品数据、校验导入文件，并维护统一的数据字段。</p></div>` +
       `<div class="data-hero-note"><span class="data-hero-mark">${U.icon("database")}</span><div>` +
       `<strong>让数据成为运营决策的起点</strong><p>当前可通过文件导入体验数据校验与字段映射，真实平台数据将在完成连接后呈现。</p></div></div></section>` +

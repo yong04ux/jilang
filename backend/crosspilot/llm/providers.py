@@ -87,7 +87,7 @@ class RuleProvider:
         return ProviderInfo(
             name=self.name,
             available=True,
-            detail="本地规则引擎：无需 API Key，离线可运行；Listing 为事实直出草案，需人工改写。",
+            detail="当前用规则生成：不需要 API Key，离线也能出结果；生成的 Listing 是初稿，建议你再改一遍。",
             verified=True,
         )
 
@@ -156,7 +156,7 @@ class DeepSeekProvider(RuleProvider):
             return ProviderInfo(
                 name=self.name,
                 available=False,
-                detail="未配置 CROSSPILOT_DEEPSEEK_API_KEY；启动或生成时会降级为 rule。",
+                detail="还没有配置这个厂商的 Key，需要模型的任务会先用规则生成。",
                 verified=False,
                 model=self.model,
                 base_url=self.base_url,
@@ -164,7 +164,7 @@ class DeepSeekProvider(RuleProvider):
         return ProviderInfo(
             name=self.name,
             available=True,
-            detail=f"DeepSeek 官方 API（{self.base_url}），模型 {self.model}",
+            detail=f"DeepSeek 官方接口，当前模型 {self.model}",
             verified=False,  # 只有真正调用成功才算验证
             model=self.model,
             base_url=self.base_url,
