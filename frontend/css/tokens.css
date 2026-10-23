@@ -1,39 +1,42 @@
 /* ============================================================================
-   激浪 · Design Tokens
-   体系：shadcn/ui · Nova（紧凑间距 / 边框优先 / 极小阴影 / 中性灰阶）
+   激浪 · Design Tokens  v3.0
+   体系：shadcn/ui 语义层 + LinkFox Agent 视觉语言（2026-10-22 实测取值）
    语义命名沿用 shadcn 的 --background / --foreground / --card / --border 模型，
    同时保留 v1 的旧变量名作为兼容别名，页面与页面样式无需改动。
    唯一允许的间距 / 圆角 / 字号来源，页面不得自造数值。
+   规范见 frontend/design.md；改这里必须同步改那份文档。
    ========================================================================== */
 
 :root {
   color-scheme: light;
 
   /* ---- shadcn 语义层：底层面 ---- */
-  --background:          #FAFAFA;   /* 页面底：中性 50 */
-  --foreground:          #0A0A0A;   /* 主文字：中性 950 */
+  --background:          #FAFAFA;   /* 页面底 */
+  --foreground:          #111114;   /* 主文字 */
   --card:                #FFFFFF;
-  --card-foreground:     #0A0A0A;
+  --card-foreground:     #111114;
   --popover:             #FFFFFF;
-  --popover-foreground:  #0A0A0A;
+  --popover-foreground:  #111114;
 
-  /* ---- 主色：保留激浪品牌蓝，仅用于 CTA / 链接 / 焦点环 ---- */
+  /* ---- 主色：激浪品牌蓝（不变），只用于 CTA / 链接 / 焦点环 / 选中 ---- */
   --primary:             #1B6EF3;
   --primary-foreground:  #FFFFFF;
   --primary-hover:       #1560DC;
+  --primary-soft:        #EFF6FF;   /* 选中底 / 图标容器底 */
+  --primary-line:        #BFDBFE;   /* 浅色标记描边 */
 
-  /* ---- 次级 / 静默 / 强调：全部走中性，不再用蓝色大面积铺底 ---- */
+  /* ---- 次级 / 静默 / 强调 ---- */
   --secondary:           #F5F5F5;
   --secondary-foreground:#171717;
-  --muted-surface:       #F5F5F5;   /* 面：禁用、表头、骨架 */
-  --muted-foreground:    #737373;   /* 字：辅助说明 */
-  --accent:              #F5F5F5;   /* hover 底 */
-  --accent-foreground:   #0A0A0A;
+  --muted-surface:       #F8F8F8;   /* 面：禁用、表头、骨架 */
+  --muted-foreground:    #73737B;   /* 字：辅助说明 */
+  --accent:              #F4F4F5;   /* hover 底 */
+  --accent-foreground:   #111114;
 
   /* ---- 线与焦点 ---- */
-  --border:              #E5E5E5;   /* 中性 200 */
-  --border-strong:       #D4D4D4;   /* 中性 300 */
-  --input:               #E5E5E5;
+  --border:              #E5E7EB;
+  --border-strong:       #D4D4D8;
+  --input:               #E5E7EB;
   --ring:                #1B6EF3;
 
   /* ---- 语义色（成功 / 警告 / 危险 / 信息）：不与主色混用 ---- */
@@ -46,9 +49,14 @@
   --destructive:         #DC2626;
   --destructive-soft:    #FEF2F2;
   --destructive-line:    #FECACA;
-  --info:                #2563EB;
-  --info-soft:           #EFF6FF;
-  --info-line:           #BFDBFE;
+  --info:                #165DFF;
+  --info-soft:           #EFF4FF;
+  --info-line:           #BFD3FE;
+
+  /* ---- 对话区专用（对标 LinkFox 的 chat 令牌） ---- */
+  --chat-user-bg:        #E4E4E4;
+  --chat-tool-bg:        #F0F0F0;
+  --chat-text-tertiary:  #B0B0B7;
 
   /* ==========================================================================
      兼容别名 —— v1 变量名映射到上面的语义层
@@ -59,14 +67,14 @@
   --surface-hover:  #F7F7F7;
 
   --ink:        var(--foreground);
-  --ink-soft:   #404040;
+  --ink-soft:   #3F3F46;
   --muted:      var(--muted-foreground);
-  --faint:      #A3A3A3;
+  --faint:      #A1A1AA;
 
   --brand:      var(--primary);
   --brand-dark: var(--primary-hover);
-  --brand-soft: #EFF6FF;
-  --brand-line: #BFDBFE;
+  --brand-soft: var(--primary-soft);
+  --brand-line: var(--primary-line);
 
   --ok:     var(--success);      --ok-soft:     var(--success-soft);      --ok-line:     var(--success-line);
   --warn:   var(--warning);      --warn-soft:   var(--warning-soft);      --warn-line:   var(--warning-line);
@@ -76,19 +84,19 @@
   --line:        var(--border);
   --line-strong: var(--border-strong);
 
-  /* ---- 圆角：Nova 偏小，控件 6px / 卡片 10px ---- */
+  /* ---- 圆角：v3 放大一档，卡片 12 / 面板 16 ---- */
   --radius-xs:   4px;
   --radius-sm:   6px;
   --radius:      8px;
-  --radius-lg:   10px;
-  --radius-xl:   12px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
   --radius-pill: 999px;
 
-  /* ---- 阴影：Nova 几乎不用阴影，只留分层所需的最小值 ---- */
-  --shadow-xs: 0 1px 2px rgba(10, 10, 10, .04);
-  --shadow-sm: 0 1px 2px rgba(10, 10, 10, .05);
-  --shadow-md: 0 2px 6px rgba(10, 10, 10, .06), 0 1px 2px rgba(10, 10, 10, .04);
-  --shadow-lg: 0 12px 32px rgba(10, 10, 10, .10), 0 2px 8px rgba(10, 10, 10, .06);
+  /* ---- 阴影：卡片不用，只留浮层与微抬升 ---- */
+  --shadow-xs: 0 1px 2px rgba(17, 17, 20, .05);
+  --shadow-sm: 0 1px 2px rgba(17, 17, 20, .06);
+  --shadow-md: 0 2px 8px rgba(17, 17, 20, .07), 0 1px 2px rgba(17, 17, 20, .04);
+  --shadow-lg: 0 12px 32px rgba(17, 17, 20, .10), 0 2px 8px rgba(17, 17, 20, .06);
 
   /* ---- 间距：四档主用 + 两档结构用 ---- */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
@@ -104,22 +112,25 @@
   --lh-normal: 1.5;
   --lh-relaxed: 1.65;
 
-  /* ---- 布局 ---- */
-  --sidebar-w: 208px;
-  --sidebar-w-collapsed: 56px;
+  /* ---- 布局：默认 68px 图标栏，可展开成 208px 文字侧栏 ---- */
+  --sidebar-w: 68px;
+  --sidebar-w-expanded: 208px;
   --topbar-h: 48px;
-  --content-max: 1440px;
+  --content-max: 1120px;        /* 表格类页面的内容宽度 */
+  --content-max-narrow: 760px;  /* 对话/技能类页面的居中单列宽度 */
 
-  /* ---- 控件高度：Nova 紧缩 ---- */
+  /* ---- 控件高度 ---- */
   --h-xs: 24px;
   --h-sm: 28px;
   --h-md: 32px;
   --h-lg: 36px;
+  --h-xl: 40px;
+  --h-2xl: 44px;
 
-  /* ---- 字体：优先本地 Inter / Geist，缺失时回落系统栈，不加载外部字体 ---- */
-  --font-sans: "Inter var", "Inter", "Geist", -apple-system, BlinkMacSystemFont,
-               "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Microsoft YaHei",
-               "Hiragino Sans GB", sans-serif;
+  /* ---- 字体：Noto Sans SC 优先（对标 LinkFox），缺失回落系统栈，不加载外部字体 ---- */
+  --font-sans: "Noto Sans SC", "Noto Sans SC Variable", "Inter var", "Inter",
+               -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
+               "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
   --font-mono: "Geist Mono", "JetBrains Mono", "SFMono-Regular", Consolas,
                "Liberation Mono", monospace;
 
@@ -142,21 +153,26 @@
 /* 主题扩展位：后续加暗色只需覆写语义层，页面代码不动 */
 .dark {
   color-scheme: dark;
-  --background: #0A0A0A;
+  --background: #09090B;
   --foreground: #FAFAFA;
-  --card: #171717;
+  --card: #18181B;
   --card-foreground: #FAFAFA;
-  --popover: #171717;
+  --popover: #18181B;
   --popover-foreground: #FAFAFA;
-  --secondary: #262626;
+  --secondary: #27272A;
   --secondary-foreground: #FAFAFA;
-  --muted-surface: #262626;
-  --muted-foreground: #A3A3A3;
-  --accent: #262626;
+  --muted-surface: #27272A;
+  --muted-foreground: #A1A1AA;
+  --accent: #27272A;
   --accent-foreground: #FAFAFA;
-  --border: #262626;
+  --border: #27272A;
   --border-strong: #404040;
   --input: #404040;
-  --ink-soft: #D4D4D4;
-  --faint: #737373;
+  --primary-soft: #E8F1FE;
+  --primary-line: #C7DBFD;
+  --chat-user-bg: #3F3F46;
+  --chat-tool-bg: #27272A;
+  --chat-text-tertiary: #71717A;
+  --ink-soft: #D4D4D8;
+  --faint: #71717A;
 }

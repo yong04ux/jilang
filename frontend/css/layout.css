@@ -1,7 +1,7 @@
 /* ============================================================================
-   激浪 · Layout
-   体系：shadcn/ui · Nova —— 208px 侧栏 · 48px 顶栏 · 20px 内容边距
-   导航靠 1px 边框分层，不做玻璃、不做发光。
+   激浪 · Layout  v3.0
+   体系：shadcn/ui 语义层 + LinkFox Agent 布局 —— 68px 图标栏 · 48px 顶栏
+   导航是「图标在上、文字在下」的窄栏，把横向空间让给居中的内容单列。
    ========================================================================== */
 
 /* ----------------------------------------------------------------------------
@@ -14,10 +14,11 @@
   min-height: 100vh;
 }
 
-.app.is-collapsed { grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr); }
+.app.is-expanded { grid-template-columns: var(--sidebar-w-expanded) minmax(0, 1fr); }
 
 /* ----------------------------------------------------------------------------
-   侧栏
+   侧栏：默认 68px 图标栏（图标在上、文字在下）
+   加 .is-expanded 变成 208px 文字侧栏。对标 LinkFox 的图标栏模型。
    ---------------------------------------------------------------------------- */
 
 .sidebar {
@@ -26,50 +27,102 @@
   z-index: 120;
   display: flex;
   flex-direction: column;
+  align-items: center;
   height: 100vh;
-  padding: 12px 8px 8px;
+  padding: 10px 6px 8px;
   background: var(--card);
   border-right: 1px solid var(--border);
-  overflow: hidden;
+  /* 账号菜单要溢出到主区，不能裁切；滚动交给 .sidebar-nav */
+  overflow: visible;
+}
+
+.app.is-expanded .sidebar {
+  align-items: stretch;
+  padding: 12px 8px 8px;
 }
 
 .sidebar-head {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 0 0 8px;
+  flex-shrink: 0;
+}
+
+.app.is-expanded .sidebar-head {
+  flex-direction: row;
   align-items: center;
   gap: 8px;
   height: 36px;
   padding: 0 4px;
   margin-bottom: 8px;
-  flex-shrink: 0;
 }
 
+/* Logo 同时是侧栏展开/收起的开关 */
 .sidebar-brand {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  width: 100%;
   min-width: 0;
-  flex: 1 1 auto;
+  padding: 4px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out);
 }
-.sidebar-brand:hover { text-decoration: none; }
-.sidebar-brand img { width: 24px; height: 24px; flex-shrink: 0; }
+.sidebar-brand:hover { background: var(--accent); text-decoration: none; }
+.sidebar-brand img {
+  width: auto;
+  height: 40px;
+  flex-shrink: 0;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.sidebar-brand:active img { transform: scale(.94); }
+.app.is-expanded .sidebar-brand { justify-content: flex-start; }
+.app.is-expanded .sidebar-brand img { width: auto; height: 30px; }
+.drawer-head .sidebar-brand-text { display: block; }
 .sidebar-brand-text {
+  display: none;
   font-size: var(--fs-base);
   font-weight: 600;
   letter-spacing: -.01em;
   color: var(--foreground);
   white-space: nowrap;
 }
+.app.is-expanded .sidebar-brand { flex: 1 1 auto; justify-content: flex-start; }
+.app.is-expanded .sidebar-brand-text { display: block; }
 
 .sidebar-nav {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+}
+.sidebar-nav::-webkit-scrollbar { display: none; }
+.app.is-expanded .sidebar-nav { align-items: stretch; gap: 1px; }
+
+.sidebar-group { display: block; width: 100%; }
+/* 图标栏里用一条细分隔线代替分组标题 */
+.sidebar-group + .sidebar-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.app.is-expanded .sidebar-group + .sidebar-group {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 
 .sidebar-group-title {
+  display: none;
   padding: 14px 8px 4px;
   font-size: 11px;
   font-weight: 500;
@@ -77,17 +130,22 @@
   letter-spacing: .02em;
   white-space: nowrap;
 }
+.app.is-expanded .sidebar-group-title { display: block; }
 
 .nav-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: var(--radius-sm);
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  height: 52px;
+  padding: 6px 2px;
+  border-radius: var(--radius);
   color: var(--muted-foreground);
-  font-size: var(--fs-sm);
+  font-size: 10px;
   font-weight: 500;
+  line-height: 1.2;
   white-space: nowrap;
   transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
 }
@@ -96,16 +154,35 @@
   color: var(--foreground);
   text-decoration: none;
 }
-.nav-item .icon { width: 16px; height: 16px; color: currentColor; flex-shrink: 0; }
+.nav-item .icon { width: 18px; height: 18px; color: currentColor; flex-shrink: 0; }
 
 .nav-item.is-active {
-  background: var(--accent);
-  color: var(--foreground);
+  background: var(--primary-soft);
+  color: var(--primary);
   font-weight: 600;
 }
 .nav-item.is-active .icon { color: var(--primary); }
 
-.nav-item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-item-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-label-full { display: none; }
+.app.is-expanded .nav-label-short { display: none; }
+.app.is-expanded .nav-label-full { display: inline; }
+
+/* 展开态：回到横向图标 + 文字 */
+.app.is-expanded .nav-item {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  font-size: var(--fs-sm);
+}
+.app.is-expanded .nav-item .icon { width: 16px; height: 16px; }
+.app.is-expanded .nav-item-label { flex: 1; min-width: 0; }
 
 .sidebar-sep {
   height: 1px;
@@ -114,24 +191,29 @@
   flex-shrink: 0;
 }
 
+
+
 .sidebar-foot {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  width: 100%;
   padding-top: 8px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
+.app.is-expanded .sidebar-foot { align-items: stretch; }
 
 .account-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  min-width: 0;
-  flex: 1 1 auto;
+  width: 100%;
   height: 36px;
   padding: 0 6px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   text-align: left;
 }
 .account-btn:hover { background: var(--accent); }
@@ -140,17 +222,127 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-xs);
-  background: var(--foreground);
-  color: var(--background);
-  font-size: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 11px;
   font-weight: 600;
   flex-shrink: 0;
 }
 
-.account-meta { min-width: 0; display: flex; flex-direction: column; }
+.account-wrap { position: relative; width: 100%; }
+
+/* ---- 账号菜单（悬停展开） ---- */
+.account-menu {
+  position: absolute;
+  left: calc(100% + 10px);
+  bottom: -4px;
+  z-index: 200;
+  width: 292px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 展开成文字侧栏时，菜单改为向上弹出，避免超出视口右缘 */
+.app.is-expanded .account-menu {
+  left: 0;
+  bottom: calc(100% + 8px);
+}
+
+.account-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 10px;
+}
+.account-menu-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 15px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.account-menu-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.account-menu-name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu-sub {
+  font-size: var(--fs-xs);
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-card {
+  display: flex;
+  gap: 12px;
+  margin: 0 4px 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--muted-surface);
+}
+.account-menu-card-row {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.account-menu-card-row + .account-menu-card-row {
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.account-menu-card-label { font-size: var(--fs-xs); color: var(--muted-foreground); }
+.account-menu-card-value {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-list { display: flex; flex-direction: column; gap: 1px; padding: 0 2px; }
+
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  text-align: left;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.account-menu-item:hover { background: var(--accent); color: var(--foreground); text-decoration: none; }
+.account-menu-item .icon { width: 15px; height: 15px; color: var(--muted-foreground); flex-shrink: 0; }
+.account-menu-item:hover .icon { color: var(--foreground); }
+
+.account-menu-sep { height: 1px; margin: 6px 8px; background: var(--border); }
+
+.account-meta { display: none; min-width: 0; flex-direction: column; text-align: left; }
+.app.is-expanded .account-meta { display: flex; }
+.app.is-expanded .account-btn { justify-content: flex-start; padding: 0 8px; }
 .account-name {
   font-size: var(--fs-xs);
   font-weight: 500;
@@ -160,16 +352,6 @@
   white-space: nowrap;
 }
 .account-role { font-size: 10px; color: var(--muted-foreground); }
-
-/* 收起态：只留图标 */
-.app.is-collapsed .sidebar { padding-left: 8px; padding-right: 8px; }
-.app.is-collapsed .sidebar-brand-text,
-.app.is-collapsed .sidebar-group-title,
-.app.is-collapsed .nav-item-label,
-.app.is-collapsed .account-meta { display: none; }
-.app.is-collapsed .nav-item { justify-content: center; padding: 0; }
-.app.is-collapsed .sidebar-head { justify-content: center; padding: 0; }
-.app.is-collapsed .account-btn { justify-content: center; padding: 0; }
 
 /* ----------------------------------------------------------------------------
    主区
@@ -191,7 +373,23 @@
   outline: none;
 }
 
-.view-root > .view { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+/* 每次路由挂载都会新建一个 .mount-slot 容器（见 app.js 的 mountPage）。
+   目的是让上一页慢回来的异步渲染只能写进已经脱离文档的旧容器，
+   不会把新页面覆盖掉。这里把 flex 链补上，保持原布局不变。 */
+.view-root > .mount-slot {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.view-root > .view,
+.view-root > .mount-slot > .view {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 
 /* ----------------------------------------------------------------------------
    顶栏
@@ -309,6 +507,11 @@
    响应式
    ---------------------------------------------------------------------------- */
 
+/* 桌面端图标栏常驻，顶栏的抽屉入口是冗余的，隐藏掉（对标 LinkFox 无顶栏菜单） */
+@media (min-width: 981px) {
+  #nav-open { display: none; }
+}
+
 @media (max-width: 1180px) {
   .page { padding: 16px; }
   .topbar { padding: 0 16px; }
@@ -317,15 +520,19 @@
 }
 
 @media (max-width: 980px) {
-  .app { grid-template-columns: var(--sidebar-w-collapsed) minmax(0, 1fr); }
-  .sidebar { padding-left: 8px; padding-right: 8px; }
+  /* 窗口窄时强制回到图标栏，不允许展开 */
+  .app,
+  .app.is-expanded { grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
+  .sidebar { align-items: center; padding: 10px 6px 8px; }
   .sidebar-brand-text,
   .sidebar-group-title,
-  .nav-item-label,
-  .account-meta { display: none; }
-  .nav-item { justify-content: center; padding: 0; }
-  .sidebar-head { justify-content: center; padding: 0; }
+  .account-meta { display: none !important; }
+  .sidebar-head { flex-direction: column; align-items: center; padding: 0 0 8px; margin-bottom: 0; }
+  .nav-item { flex-direction: column; justify-content: center; height: 52px; padding: 6px 2px; font-size: 10px; }
+  .nav-item .icon { width: 18px; height: 18px; }
+  .sidebar-foot { flex-direction: column; }
   .account-btn { justify-content: center; padding: 0; }
+  .sidebar-group + .sidebar-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
   .topbar-right .pill-action span { display: none; }
 }
 

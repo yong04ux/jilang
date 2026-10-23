@@ -174,4 +174,117 @@ async def marketplace_metrics(
     }
 
 
+# ---------------------------------------------------------------------------
+# 店铺经营助手（看板 / 单品 / 明细）
+# ---------------------------------------------------------------------------
+
+
+def _store_brief(connection: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "connection_id": connection["connection_id"],
+        "platform": connection["platform"],
+        "marketplace": connection["marketplace"],
+        "shop_name": connection["shop_name"],
+        "mode": connection["mode"],
+        "is_demo": bool(connection.get("is_demo")),
+    }
+
+
+@router.get("/api/marketplace/dashboard")
+async def marketplace_dashboard(
+    connection_id: str | None = None,
+    range: str = "30d",
+    api: ApiContext = Depends(get_ctx),
+    ctx: TenantContext = Depends(require_tenant),
+) -> dict[str, Any]:
+    """经营看板的全部数据，一次返回。
+
+    五个分段（概览/订单/广告/库存/售后）在页面上是秒切的，如果每切一次
+    打一个接口，0.1 CPU 的实例上体感会明显卡顿；这里先一次取全，
+    前端本地切换，滑动时间范围时才重新请求。
+    """
+    require_role(ctx, ROLE_READ)
+    connection = _marketplace_connection(api, ctx, connection_id)
+    provider = _provider_for(connection)
+    store_id = connection["connection_id"]
+    metrics = provider.metrics(store_id, range=range)
+    inventory = provider.inventory_aging(store_id)
+    return {
+        "store": _store_brief(connection),
+        "range": range,
+        "days": metrics["days"],
+        "currency": metrics["currency"],
+        "metrics": metrics,
+        # 订单分段要出列表，一并带上；上限 200 行，够看也够小
+        "orders": provider.list_orders(store_id, since=f"{metrics['days']}d")[:200],
+        "ads": provider.ads_summary(store_id),
+        "inventory": inventory,
+        "returns": provider.list_returns(store_id),
+        "health": provider.account_health(store_id),
+        "mode": provider.mode,
+        "provider": provider.name,
+        "is_mock": True,
+    }
+
+
+@router.get("/api/marketplace/products/{asin}/detail")
+async def marketplace_product_detail(
+    asin: str,
+    connection_id: str | None = None,
+    api: ApiContext = Depends(get_ctx),
+    ctx: TenantContext = Depends(require_tenant),
+) -> dict[str, Any]:
+    require_role(ctx, ROLE_READ)
+    connection = _marketplace_connection(api, ctx, connection_id)
+    provider = _provider_for(connection)
+    payload = provider.product_detail(connection["connection_id"], asin)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="这个 ASIN 不在当前店铺里")
+    return {
+        **payload,
+        "store": _store_brief(connection),
+        "mode": provider.mode,
+        "provider": provider.name,
+    }
+
+
+#: 经营明细支持的四类表
+LEDGER_KINDS: tuple[str, ...] = ("listing", "orders", "aftersales", "fba")
+
+
+@router.get("/api/marketplace/ledger")
+async def marketplace_ledger(
+    kind: str = "listing",
+    connection_id: str | None = None,
+    api: ApiContext = Depends(get_ctx),
+    ctx: TenantContext = Depends(require_tenant),
+) -> dict[str, Any]:
+    """经营明细：Listing / 订单列表 / 售后订单 / FBA 库存明细。"""
+    require_role(ctx, ROLE_READ)
+    if kind not in LEDGER_KINDS:
+        raise HTTPException(status_code=422, detail="不支持的明细类型")
+    connection = _marketplace_connection(api, ctx, connection_id)
+    provider = _provider_for(connection)
+    store_id = connection["connection_id"]
+
+    if kind == "listing":
+        items = provider.list_products(store_id, limit=100)
+    elif kind == "orders":
+        items = provider.list_orders(store_id, since="30d")[:200]
+    elif kind == "aftersales":
+        items = provider.list_returns(store_id)
+    else:
+        items = provider.inventory_aging(store_id)["items"]
+
+    return {
+        "kind": kind,
+        "items": items,
+        "total": len(items),
+        "store": _store_brief(connection),
+        "mode": provider.mode,
+        "provider": provider.name,
+        "is_mock": True,
+    }
+
+
 __all__ = ["router"]

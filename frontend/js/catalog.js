@@ -39,6 +39,7 @@
     workbench: "AI 助手",
     tasks: "任务",
     competitors: "竞品",
+    profit: "利润",
     listings: "Listing",
     data: "数据",
     agents: "Agent",

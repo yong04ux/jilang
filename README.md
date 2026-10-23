@@ -512,8 +512,11 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 `docs/` 只保留**仍然有效**的四份文档，历史阶段的计划/审计/阶段记录已归档清理
 （本地备份在 `.workbuddy/backup/`，不入库）。完整索引见 `docs/README.md`。
 
+产品需求文档单独放在仓库根目录 [`PRD.md`](PRD.md)（**入版本库**，不随 `docs/` 一起被忽略）。
+
 | 文档 | 内容 |
 |---|---|
+| `PRD.md` | **产品需求文档 v3**：对标 LinkFox、Skill 协议层、意图路由、专家模板、功能清单与验收脚本 |
 | `docs/11-backlog.md` | 待办与已知限制清单 |
 | `docs/12-task-overrides.md` | 按步骤分配模型的配置说明 |
 | `docs/13-demo-site-checklist.md` | 演示站上线前的验收清单 |

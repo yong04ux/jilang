@@ -443,9 +443,9 @@
 
 .chip {
   height: var(--h-sm);
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: var(--card);
   color: var(--ink-soft);
   font-size: var(--fs-xs);
@@ -455,12 +455,14 @@
               color var(--dur-1) var(--ease-out);
 }
 .chip:hover { border-color: var(--border-strong); background: var(--accent); }
+/* 选中态：白底 + 品牌蓝描边 + 蓝字（对标 LinkFox 的筛选标签） */
 .chip.is-active {
-  border-color: transparent;
-  background: var(--foreground);
-  color: var(--background);
+  border-color: var(--primary);
+  background: var(--card);
+  color: var(--primary);
+  font-weight: 500;
 }
-.chip.is-active:hover { background: #262626; border-color: transparent; }
+.chip.is-active:hover { background: var(--primary-soft); border-color: var(--primary); }
 
 /* ----------------------------------------------------------------------------
    Empty state
@@ -983,3 +985,44 @@ body.is-resizing-y { user-select: none; cursor: row-resize; }
 @media (prefers-reduced-motion: reduce) {
   .modal, .modal-card, .drawer, .drawer-scrim, .toast { animation: none; }
 }
+
+/* ----------------------------------------------------------------------------
+   图表（js/charts.js 产出，工作台与经营看板共用）
+   ---------------------------------------------------------------------------- */
+
+.cp-chart { position: relative; width: 100%; }
+
+.cp-chart-svg { display: block; width: 100%; overflow: visible; }
+
+.cp-chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  color: var(--muted-foreground);
+  font-size: var(--fs-xs);
+}
+
+.cp-chart-tip {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.cp-chart-tip-label { color: var(--muted-foreground); font-size: 10px; }
+.cp-chart-tip-value {
+  color: var(--foreground);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cp-bar { transition: fill var(--dur-1) var(--ease-out); }

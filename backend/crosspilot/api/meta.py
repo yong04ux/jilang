@@ -41,6 +41,11 @@ SPA_ROUTES = (
     "/agents",
     "/skills",
     "/stores",
+    # 店铺经营助手的四个子页：刷新 / 直接打开 / 分享链接都要能落到外壳，
+    # 少登记一条，用户看到的就是 404 的裸 JSON。
+    "/stores/authorize",
+    "/stores/product",
+    "/stores/ledger",
     "/settings",
     "/research",
     "/assets",

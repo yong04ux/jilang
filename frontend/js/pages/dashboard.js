@@ -18,67 +18,47 @@
     );
   }
 
-  /* 近 14 天任务趋势：内联 SVG 面积图，无第三方库 */
-  function trendChart(daily) {
-    const series = daily && daily.length ? daily : [];
-    const width = 640;
-    const height = 148;
-    const padL = 8;
-    const padR = 8;
-    const padT = 12;
-    const padB = 22;
-    if (!series.length) {
-      return `<div class="empty" style="padding:var(--sp-5) 0">` +
-        `<p class="t-sm t-muted">还没有任务数据，趋势图会在第一个任务完成后出现。</p></div>`;
+  /* 图表统一走 js/charts.js 的 CPChart，页面里不再各写一份 SVG 拼装 */
+
+  /* 经营概览：4 个核心指标 + 近 30 天销售额走势，点进去是完整经营看板 */
+  function shopOverview(m) {
+    const sm = m.salesMetrics || {};
+    const currency = m.currency || "USD";
+    const money = window.CPChart.moneyFull;
+
+    function deltaTag(value) {
+      if (value === null || value === undefined || !isFinite(Number(value))) {
+        return `<span class="st-metric-delta is-flat">无对比</span>`;
+      }
+      const n = Number(value);
+      if (Math.abs(n) < 0.05) return `<span class="st-metric-delta is-flat">持平</span>`;
+      return `<span class="st-metric-delta ${n > 0 ? "is-good" : "is-bad"}">` +
+        `${n > 0 ? "▲" : "▼"} ${Math.abs(n).toFixed(1)}%<span style="opacity:.6"> 环比</span></span>`;
     }
-    const values = series.map(function (d) { return Number(d.count) || 0; });
-    const max = Math.max.apply(null, values.concat([1]));
-    const innerW = width - padL - padR;
-    const innerH = height - padT - padB;
-    const stepX = series.length > 1 ? innerW / (series.length - 1) : 0;
 
-    const points = series.map(function (d, i) {
-      const x = padL + stepX * i;
-      const ratio = (Number(d.count) || 0) / max;
-      const y = padT + innerH - ratio * innerH;
-      return { x: x, y: y, value: Number(d.count) || 0, label: d.date || "" };
-    });
-
-    const line = points.map(function (p, i) {
-      return `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;
-    }).join(" ");
-    const area = line +
-      ` L${points[points.length - 1].x.toFixed(1)},${(padT + innerH).toFixed(1)}` +
-      ` L${points[0].x.toFixed(1)},${(padT + innerH).toFixed(1)} Z`;
-
-    const gridLines = [0, 0.5, 1].map(function (ratio) {
-      const y = padT + innerH - ratio * innerH;
-      return `<line class="trend-grid" x1="${padL}" y1="${y.toFixed(1)}" x2="${(width - padR).toFixed(1)}" y2="${y.toFixed(1)}" />`;
-    }).join("");
-
-    const dots = points.map(function (p) {
-      return `<circle class="trend-point" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.6">` +
-        `<title>${U.esc(p.label)} · ${p.value} 个任务</title></circle>`;
-    }).join("");
-
-    const first = points[0];
-    const last = points[points.length - 1];
-    const axis = `<text class="trend-axis" x="${padL}" y="${height - 4}">${U.esc(first.label)}</text>` +
-      `<text class="trend-axis" x="${(width - padR).toFixed(1)}" y="${height - 4}" text-anchor="end">${U.esc(last.label)}</text>` +
-      `<text class="trend-axis" x="${padL}" y="${(padT - 2).toFixed(1)}">最多 ${max}</text>`;
+    function cell(key, label, format) {
+      const item = sm[key] || { value: 0, changePct: null };
+      return (
+        `<div class="st-metric">` +
+        `<span class="st-metric-label">${U.esc(item.label || label)}</span>` +
+        `<span class="st-metric-value">${format(item.value)}</span>` +
+        deltaTag(item.changePct) +
+        `</div>`
+      );
+    }
 
     return (
-      `<svg class="trend" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" ` +
-      `aria-label="近 ${series.length} 天任务数量趋势">` +
-      `<defs><linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">` +
-      `<stop offset="0" stop-color="#1B6EF3" stop-opacity="0.18"/>` +
-      `<stop offset="1" stop-color="#1B6EF3" stop-opacity="0"/>` +
-      `</linearGradient></defs>` +
-      gridLines +
-      `<path class="trend-area" d="${area}" />` +
-      `<path class="trend-line" d="${line}" />` +
-      dots + axis +
-      `</svg>`
+      `<div class="card" style="margin-top:var(--sp-4)">` +
+      `<div class="card-head"><div><div class="card-title">经营概览</div>` +
+      `<div class="card-sub">这家店近 ${m.days || 30} 天的销售情况，与上一个等长周期对比</div></div>` +
+      `<a class="btn btn-quiet btn-sm" href="/stores" data-link>经营看板</a></div>` +
+      `<div class="card-body">` +
+      `<div class="st-metrics">` +
+      cell("salesAmount", "销售额", function (v) { return money(v, currency); }) +
+      cell("unitCount", "销量", function (v) { return window.CPChart.num(v); }) +
+      cell("orderCount", "订单量", function (v) { return window.CPChart.num(v); }) +
+      cell("aov", "客单价", function (v) { return money(v, currency); }) +
+      `</div></div></div>`
     );
   }
 
@@ -142,6 +122,11 @@
     const listings = data.recent_listings || [];
     const daily = data.daily_tasks || [];
     const sources = data.data_sources || [];
+
+    // 经营概览：和「店铺与渠道 → 经营看板」同一套数据，近 30 天
+    let shop = null;
+    try { shop = await A.get("/api/marketplace/metrics?range=30d"); } catch (err) { shop = null; }
+    const shopBlock = shop ? shopOverview(shop) : "";
 
     const kpis =
       kpi("任务总数", stats.total || 0, "含全部状态", true) +
@@ -218,11 +203,13 @@
 
       `<div class="card dash-kpi"><div class="kpi-row">${kpis}</div></div>` +
 
+      shopBlock +
+
       `<div class="dash-grid">` +
       `<div class="card"><div class="card-head"><div><div class="card-title">任务趋势</div>` +
       `<div class="card-sub">近 14 天每天新建的任务数</div></div>` +
       `<a class="btn btn-quiet btn-sm" href="/tasks" data-link>查看全部</a></div>` +
-      `<div class="card-body">${trendChart(daily)}</div></div>` +
+      `<div class="card-body"><div id="dash-trend"></div></div></div>` +
 
       `<div class="card"><div class="card-head"><div><div class="card-title">最近报告</div>` +
       `<div class="card-sub">竞品分析结果</div></div></div>` +
@@ -250,6 +237,23 @@
 
       `</div></div></div>`;
     window.CPIcon.hydrate(root);
+
+    // 任务趋势图：数据拿到后再画，容器宽度才能实测
+    // 全 0 时不要画一条贴底的零线——那是一张「空壳图」，什么信息都没给。
+    const trendHost = root.querySelector("#dash-trend");
+    if (trendHost && window.CPChart) {
+      const hasTrend = daily.some(function (d) { return Number(d.count) > 0; });
+      if (!hasTrend) {
+        trendHost.innerHTML = '<div class="cp-chart-empty">这 14 天还没有新建任务</div>';
+      } else {
+        window.CPChart.line(trendHost, {
+          series: daily.map(function (d) { return { date: d.date, value: d.count }; }),
+          format: "number",
+          height: 148,
+          label: "近 " + daily.length + " 天任务数量趋势",
+        });
+      }
+    }
   }
 
   window.CPPageDashboard = { render };

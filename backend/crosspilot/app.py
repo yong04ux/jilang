@@ -31,7 +31,7 @@ from .api.deps import ApiContext, make_secret_box
 from .api.helpers import validation_errors
 from .config import get_settings
 from .labels import humanize_error
-from .persistence.db import Database
+from .persistence.db import Database, DatabaseError
 from .demo.demo_mode import ensure_demo_account
 from .services.queue import QueueBackendError, build_task_queue
 from .persistence.storage import StorageError, build_storage
@@ -129,6 +129,19 @@ def create_app() -> FastAPI:
     async def tenant_error_handler(_: Request, exc: TenantError) -> JSONResponse:
         """角色不足统一返回 403，消息可直接展示。"""
         return JSONResponse(status_code=403, content={"detail": str(exc)})
+
+    @app.exception_handler(DatabaseError)
+    async def database_error_handler(_: Request, exc: DatabaseError) -> JSONResponse:
+        """数据库暂时连不上：给 503 + 一句人话，不要把驱动堆栈甩到界面上。
+
+        云端库偶尔会瞬断（DNS 抖一下、连接池重建），这不是用户的操作问题，
+        也不该让前端显示「请求失败（HTTP 500）」这种看不懂的提示。
+        """
+        logger.warning("数据库不可用：%s", exc)
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "数据服务暂时不可用，请稍后重试"},
+        )
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_handler(

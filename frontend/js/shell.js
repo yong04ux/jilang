@@ -10,26 +10,26 @@
   });
 
   const BRAND = "激浪";
-  const COLLAPSE_KEY = "cp.sidebar.collapsed";
+  const EXPAND_KEY = "cp.sidebar.expanded";
   const BANNER_KEY = "cp.banner.dismissed";
 
   /* 外壳 UI 状态：走 CPStore，折叠状态与 DOM 单向同步 */
-  const UI = window.CPStore ? window.CPStore.create({ collapsed: false, bannerDismissed: false }) : null;
+  const UI = window.CPStore ? window.CPStore.create({ expanded: false, bannerDismissed: false }) : null;
 
   if (UI) {
     try {
       UI.setState({
-        collapsed: localStorage.getItem(COLLAPSE_KEY) === "1",
+        expanded: localStorage.getItem(EXPAND_KEY) === "1",
         bannerDismissed: localStorage.getItem(BANNER_KEY) === "1",
       });
     } catch (err) { /* 忽略 */ }
 
     UI.subscribe(
-      function (s) { return s.collapsed; },
-      function (collapsed) {
-        try { localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0"); } catch (err) { /* 忽略 */ }
+      function (s) { return s.expanded; },
+      function (expanded) {
+        try { localStorage.setItem(EXPAND_KEY, expanded ? "1" : "0"); } catch (err) { /* 忽略 */ }
         const app = document.querySelector(".app");
-        if (app) app.classList.toggle("is-collapsed", collapsed);
+        if (app) app.classList.toggle("is-expanded", expanded);
       }
     );
 
@@ -43,16 +43,16 @@
     );
   }
 
-  function isCollapsed() {
-    if (UI) return UI.getState().collapsed;
-    try { return localStorage.getItem(COLLAPSE_KEY) === "1"; } catch (err) { return false; }
+  function isExpanded() {
+    if (UI) return UI.getState().expanded;
+    try { return localStorage.getItem(EXPAND_KEY) === "1"; } catch (err) { return false; }
   }
 
-  function setCollapsed(value) {
-    if (UI) { UI.setState({ collapsed: Boolean(value) }); return; }
-    try { localStorage.setItem(COLLAPSE_KEY, value ? "1" : "0"); } catch (err) { /* 忽略 */ }
+  function setExpanded(value) {
+    if (UI) { UI.setState({ expanded: Boolean(value) }); return; }
+    try { localStorage.setItem(EXPAND_KEY, value ? "1" : "0"); } catch (err) { /* 忽略 */ }
     const app = document.querySelector(".app");
-    if (app) app.classList.toggle("is-collapsed", value);
+    if (app) app.classList.toggle("is-expanded", value);
   }
 
   function renderSidebar() {
@@ -63,11 +63,15 @@
 
     const groups = C.NAV.map(function (group) {
       const items = group.items.map(function (item) {
+        const short = C.RAIL_LABEL[item.key] || item.label;
         return (
           `<a class="nav-item" href="${item.path}" data-link data-nav="${item.key}" ` +
           `title="${U.esc(item.label)}">` +
           U.icon(item.icon) +
-          `<span class="nav-item-label">${U.esc(item.label)}</span>` +
+          `<span class="nav-item-label">` +
+          `<span class="nav-label-short">${U.esc(short)}</span>` +
+          `<span class="nav-label-full">${U.esc(item.label)}</span>` +
+          `</span>` +
           `</a>`
         );
       }).join("");
@@ -79,23 +83,58 @@
       );
     }).join("");
 
+    const expanded = isExpanded();
     bar.innerHTML =
       `<div class="sidebar-head">` +
-      `<a class="sidebar-brand" href="/dashboard" data-link aria-label="${BRAND} 首页">` +
-      `<img src="/media/logo-mark.svg?v=2" alt="" width="28" height="28" />` +
-      `<span class="sidebar-brand-text">${BRAND}</span></a>` +
-      `<button type="button" class="btn-icon" id="sidebar-toggle" aria-label="收起侧栏" ` +
-      `aria-expanded="${isCollapsed() ? "false" : "true"}">${U.icon("chevronLeft")}</button>` +
+      `<button type="button" class="sidebar-brand" id="sidebar-brand"` +
+      ` aria-expanded="${expanded ? "true" : "false"}"` +
+      ` aria-label="${expanded ? "收起导航" : "展开导航"}"` +
+      ` title="${expanded ? "收起导航" : "展开导航"}">` +
+      `<img src="/media/logo-mark.svg?v=2" alt="" width="36" height="36" />` +
+      `<span class="sidebar-brand-text">${BRAND}</span></button>` +
       `</div>` +
       `<nav class="sidebar-nav" aria-label="主导航">${groups}</nav>` +
       `<div class="sidebar-foot">` +
-      `<button type="button" class="account-btn" id="user-chip" title="当前账号">` +
+      `<div class="account-wrap" id="account-wrap">` +
+      `<button type="button" class="account-btn" id="user-chip" title="当前账号"` +
+      ` aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu">` +
       `<span class="account-avatar" id="account-avatar">·</span>` +
       `<span class="account-meta"><span class="account-name" id="account-name">未登录</span>` +
       `<span class="account-role" id="account-role">—</span></span>` +
       `</button>` +
-      `<button type="button" class="btn-icon" id="user-logout" title="退出登录" aria-label="退出登录">` +
-      U.icon("logout") + `</button>` +
+      `<div class="account-menu" id="account-menu" role="menu" aria-label="账号" hidden>` +
+      `<div class="account-menu-head">` +
+      `<span class="account-menu-avatar" id="menu-avatar">·</span>` +
+      `<span class="account-menu-id">` +
+      `<span class="account-menu-name" id="menu-name">未登录</span>` +
+      `<span class="account-menu-sub" id="menu-sub">—</span>` +
+      `</span>` +
+      `</div>` +
+      `<div class="account-menu-card">` +
+      `<div class="account-menu-card-row">` +
+      `<span class="account-menu-card-label">智能助手</span>` +
+      `<span class="account-menu-card-value" id="menu-model">检查中…</span>` +
+      `</div>` +
+      `<div class="account-menu-card-row">` +
+      `<span class="account-menu-card-label">任务执行</span>` +
+      `<span class="account-menu-card-value" id="menu-worker">检查中…</span>` +
+      `</div>` +
+      `</div>` +
+      `<div class="account-menu-list">` +
+      `<a class="account-menu-item" role="menuitem" href="/settings" data-link>` +
+      U.icon("settings") + `<span>个人设置</span></a>` +
+      `<a class="account-menu-item" role="menuitem" href="/stores" data-link>` +
+      U.icon("stores") + `<span>店铺与渠道</span></a>` +
+      `<a class="account-menu-item" role="menuitem" href="/data" data-link>` +
+      U.icon("data") + `<span>数据资产</span></a>` +
+      `</div>` +
+      `<div class="account-menu-sep"></div>` +
+      `<div class="account-menu-list">` +
+      `<button type="button" class="account-menu-item" role="menuitem" id="user-logout">` +
+      U.icon("logout") + `<span>退出登录</span></button>` +
+      `</div>` +
+      `</div>` +
+      `</div>` +
       `</div>`;
   }
 
@@ -159,10 +198,21 @@
         flag.classList.add("is-warn");
         flag.title = ((p.detail || "") + " · 任务执行服务暂时不可用").trim();
       }
+
+      const menuModel = document.getElementById("menu-model");
+      const menuWorker = document.getElementById("menu-worker");
+      if (menuModel) menuModel.textContent = p.available ? name : "未配置";
+      if (menuWorker) {
+        menuWorker.textContent = worker && worker.alive === false ? "暂不可用" : "正常";
+      }
     } catch (err) {
       flag.classList.remove("is-ok");
       flag.classList.add("is-warn");
       flag.innerHTML = `${U.icon("alert")}<span>服务状态未知</span>`;
+      const menuModel = document.getElementById("menu-model");
+      const menuWorker = document.getElementById("menu-worker");
+      if (menuModel) menuModel.textContent = "未知";
+      if (menuWorker) menuWorker.textContent = "未知";
     }
   }
 
@@ -175,13 +225,23 @@
       const roleNode = document.getElementById("account-role");
       const avatar = document.getElementById("account-avatar");
       const display = user.display_name || user.username || "—";
+      const role = user.is_admin ? "管理员" : (user.is_guest ? "临时账号" : "成员");
+      const initial = String(display).slice(0, 1).toUpperCase();
       if (nameNode) nameNode.textContent = display;
-      if (roleNode) roleNode.textContent = user.is_admin ? "管理员" : (user.is_guest ? "临时账号" : "成员");
-      if (avatar) avatar.textContent = String(display).slice(0, 1).toUpperCase();
+      if (roleNode) roleNode.textContent = role;
+      if (avatar) avatar.textContent = initial;
+
+      const menuName = document.getElementById("menu-name");
+      const menuSub = document.getElementById("menu-sub");
+      const menuAvatar = document.getElementById("menu-avatar");
+      if (menuName) menuName.textContent = display;
+      if (menuSub) menuSub.textContent = `${role} · ${user.username || "—"}`;
+      if (menuAvatar) menuAvatar.textContent = initial;
+
       const chip = document.getElementById("user-chip");
       if (chip) {
-        chip.title = `${display} · 点击退出`;
-        chip.setAttribute("aria-label", `账号 ${user.username}`);
+        chip.title = "账号";
+        chip.setAttribute("aria-label", `账号 ${user.username}，打开账号菜单`);
       }
     } catch (err) { /* 会话失效由 401 处理器接管 */ }
   }
@@ -261,23 +321,86 @@
     if (event.key === "Escape") closeDrawer();
   }
 
+  /* ---- 账号菜单：悬停展开，点击切换，Esc / 点击外部收起 ---- */
+  let menuTimer = null;
+
+  function openMenu() {
+    const chip = document.getElementById("user-chip");
+    const menu = document.getElementById("account-menu");
+    if (!chip || !menu || !menu.hidden) return;
+    menu.hidden = false;
+    chip.setAttribute("aria-expanded", "true");
+    if (window.CPMotion) window.CPMotion.fadeIn(menu, { y: 4, duration: 140 });
+  }
+
+  function closeMenu(restoreFocus) {
+    const chip = document.getElementById("user-chip");
+    const menu = document.getElementById("account-menu");
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    if (chip) chip.setAttribute("aria-expanded", "false");
+    if (restoreFocus && chip) chip.focus();
+  }
+
+  function scheduleClose() {
+    if (menuTimer) clearTimeout(menuTimer);
+    menuTimer = setTimeout(function () { menuTimer = null; closeMenu(false); }, 160);
+  }
+
+  function mountAccountMenu() {
+    const wrap = document.getElementById("account-wrap");
+    if (!wrap) return;
+
+    wrap.addEventListener("mouseenter", function () {
+      if (menuTimer) { clearTimeout(menuTimer); menuTimer = null; }
+      openMenu();
+    });
+    wrap.addEventListener("mouseleave", scheduleClose);
+    wrap.addEventListener("focusin", openMenu);
+
+    const chip = document.getElementById("user-chip");
+    if (chip) {
+      chip.addEventListener("click", function (event) {
+        event.preventDefault();
+        const menu = document.getElementById("account-menu");
+        if (menu && menu.hidden) openMenu();
+        else closeMenu(false);
+      });
+    }
+
+    document.addEventListener("click", function (event) {
+      const box = document.getElementById("account-wrap");
+      if (!box) return;
+      if (event.target.closest("#account-menu a, #account-menu #user-logout") || !box.contains(event.target)) {
+        closeMenu(false);
+      }
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") closeMenu(true);
+    });
+  }
+
   function mount() {
-    document.querySelector(".app").classList.toggle("is-collapsed", isCollapsed());
+    document.querySelector(".app").classList.toggle("is-expanded", isExpanded());
     renderSidebar();
     renderTopbar();
     renderDrawer();
     mountBanner();
+    mountAccountMenu();
     const opener = document.getElementById("nav-open");
     if (opener) opener.addEventListener("click", openDrawer);
     const closer = document.getElementById("nav-close");
     if (closer) closer.addEventListener("click", closeDrawer);
-    const toggle = document.getElementById("sidebar-toggle");
-    if (toggle) {
-      toggle.addEventListener("click", function () {
-        const next = !document.querySelector(".app").classList.contains("is-collapsed");
-        setCollapsed(next);
-        toggle.setAttribute("aria-expanded", next ? "false" : "true");
-        toggle.setAttribute("aria-label", next ? "展开侧栏" : "收起侧栏");
+    const brand = document.getElementById("sidebar-brand");
+    if (brand) {
+      brand.addEventListener("click", function () {
+        const next = !document.querySelector(".app").classList.contains("is-expanded");
+        setExpanded(next);
+        const label = next ? "收起导航" : "展开导航";
+        brand.setAttribute("aria-expanded", next ? "true" : "false");
+        brand.setAttribute("aria-label", label);
+        brand.title = label;
+        if (window.CPMotion) window.CPMotion.tap(brand);
       });
     }
     document.addEventListener("click", function (event) {
@@ -292,6 +415,6 @@
 
   window.CPShell = {
     mount, setNavKey, openDrawer, closeDrawer, loadProvider, loadUser, LABELS,
-    setCollapsed, mountBanner,
+    setExpanded, mountBanner,
   };
 })();

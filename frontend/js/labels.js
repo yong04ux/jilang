@@ -158,6 +158,49 @@
     return TASK_RESULT[kind] || "产出";
   }
 
+  /* 订单履约状态：接口给的是平台原值，界面必须说人话 */
+  const ORDER_STATUS = {
+    pending: "待发货",
+    unshipped: "待发货",
+    partially_shipped: "部分发货",
+    shipped: "已发货",
+    delivered: "已送达",
+    cancelled: "已取消",
+    refunded: "已退款",
+  };
+
+  /* 售后单状态 */
+  const RETURN_STATUS = {
+    pending: "待审核",
+    processing: "处理中",
+    refunded: "已退款",
+    rejected: "已拒绝",
+  };
+
+  function orderStatus(code) {
+    return ORDER_STATUS[String(code || "").toLowerCase()] || "处理中";
+  }
+
+  function returnStatus(code) {
+    return RETURN_STATUS[String(code || "").toLowerCase()] || "处理中";
+  }
+
+  /* 状态 → 徽标色调，页面不必各自维护一份映射 */
+  function orderTone(code) {
+    const key = String(code || "").toLowerCase();
+    if (key === "delivered") return "ok";
+    if (key === "shipped" || key === "partially_shipped") return "brand";
+    if (key === "cancelled" || key === "refunded") return "muted";
+    return "warning";
+  }
+
+  function returnTone(code) {
+    const key = String(code || "").toLowerCase();
+    if (key === "refunded") return "ok";
+    if (key === "rejected") return "muted";
+    return "warning";
+  }
+
   window.CPLabel = {
     SITE: SITE,
     LANGUAGE: LANGUAGE,
@@ -170,5 +213,9 @@
     field: field,
     taskType: taskType,
     taskResult: taskResult,
+    orderStatus: orderStatus,
+    returnStatus: returnStatus,
+    orderTone: orderTone,
+    returnTone: returnTone,
   };
 })();

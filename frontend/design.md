@@ -1,118 +1,158 @@
 # 激浪（Cross-border AI Workspace）设计规范
 
-> 版本：2.0 · 体系：**shadcn/ui · Nova** + **Lucide** + **Motion**
+> 版本：**3.0** · 体系：**shadcn/ui 语义层 + LinkFox Agent 布局语言 + Lucide + Motion**
 > 适用：当前原生 HTML/CSS/JavaScript 前端（无构建步骤）
+> 变更：v2 → v3 **配色不动**（品牌蓝 `#1B6EF3` 保持），只借 LinkFox 的**形态与布局**：
+> 大圆角、允许胶囊、68px 图标栏、内容居中单列、常驻输入框。
+> 对标 <https://os.linkfox.com/>，但不采用它的紫色配色。
 
-## 0. 体系选型说明
+## 0. 体系与参照
 
-统一采用一套外部成熟体系，不再自造视觉语言。对应关系：
-
-| 领域 | 参照体系 | 本项目落地方式 |
+| 领域 | 参照 | 本项目落地方式 |
 |---|---|---|
-| UI 风格 | shadcn/ui · Nova | 语义 Token + 组件样式（`css/tokens.css`、`components.css`） |
-| 图标 | Lucide | 真实 Lucide 路径数据（`js/icons.js`，24 栅格 / 2px 描边） |
-| 动画 | Motion | Web Animations API 封装（`js/motion.js`），曲线统一取 Token |
-| 布局分栏 | react-resizable-panels | `js/panels.js` 的 `split()`，比例持久化 + 键盘可调 |
-| 拖拽 | dnd-kit | `js/panels.js` 的 `sortable()`，原生拖拽重排 |
-| 状态管理 | Zustand | `js/store.js` 的 `create()`，选择器订阅 + 持久化 |
+| 语义 Token | shadcn/ui（`--background` / `--card` / `--border` / `--radius`） | `css/tokens.css` |
+| **视觉语言与交互** | **LinkFox Agent（os.linkfox.com）** | 本文件第 1–6 节，实测取值见第 1 节 |
+| 图标 | Lucide | 真实路径数据（`js/icons.js`，24 栅格 / 2px 描边） |
+| 动画 | Motion | Web Animations API 封装（`js/motion.js`） |
+| 布局分栏 | react-resizable-panels | `js/panels.js` 的 `split()` |
+| 拖拽 | dnd-kit | `js/panels.js` 的 `sortable()` |
+| 状态管理 | Zustand | `js/store.js` 的 `create()` |
 
-**为什么不是直接装这些 npm 包**：前端是无构建的原生工程（后端 FastAPI 直接托管静态文件，
-Render 单服务部署）。shadcn/ui、Motion(React)、react-resizable-panels、dnd-kit、Zustand
-都是 React 生态包，引入任意一个都需要加 Vite/React 构建链，会同时改掉部署形态。
-因此按"**同一套设计语言 + 等价能力**"落地：视觉、图标、曲线、交互模型对齐上游，
-实现保持零依赖。后续如果迁移到 React，`components.css` 的组件清单和 Token 名可以直接
-映射到 shadcn 组件，`store.js` 的 API 与 Zustand 一致，迁移成本可控。
+**为什么是「同一套语言 + 等价能力」而不是装包**：前端是无构建的原生工程（FastAPI 直接托管
+静态文件，Render 单服务）。shadcn/ui、Motion、dnd-kit、Zustand 都是 React 生态包，
+引入任意一个都要加构建链并改掉部署形态。
 
-## 1. 设计目标
+> **关键发现（2026-10-22 实测）**：LinkFox Agent 的 CSS 变量与 shadcn 完全同构
+> （`--color-background` / `--color-card` / `--color-border` / `--radius-lg: .5rem`）。
+> 也就是说 v2 选的体系方向是对的，v3 只是把**取值和布局模型**对齐它，不需要换体系。
 
-激浪是跨境电商 AI 运营工作台。视觉表达**智能、行动、增长、可靠**，不做泛化的"未来科技后台"。
+## 1. 对标实测取值
+
+2026-10-22 直接抓取 `os.linkfox.com` 的样式产物（约 1MB CSS）提取：
+
+| 项 | LinkFox 实测值 | 激浪 v3 取值 |
+|---|---|---|
+| 页面底 | `#fafafa`（暗色 `#09090b`） | `#fafafa` |
+| 卡片 | `#ffffff` | `#ffffff` |
+| 主文字 | `#111114` | `#111114` |
+| 次要文字 | `#73737b` | `#73737B` |
+| 边框 | `#e5e7eb` | `#E5E7EB` |
+| 品牌强调色 | 紫 `#8c35f8` + 蓝 `#165dff` | **品牌蓝 `#1B6EF3`（不变，不引入紫）** |
+| 圆角基准 | `--radius: .5rem`，sm `.25` / md `.375` / lg `.5` / xl `.75rem` | 4 / 6 / 8 / 12 / 16 / 999 |
+| 字体 | `Noto Sans SC Variable` | 优先 `Noto Sans SC`，回落系统栈 |
+| 间距基数 | `--spacing: .25rem`（4px 栅格） | 同 |
+| 字号阶梯 | xs `.75` / sm `.875` / base `1` / lg `1.125` / xl `1.25rem` | 12 / 13 / 14 / 16 / 20 |
+| 侧栏 | 图标栏（图标在上、10px 文字在下），`--sidebar-width-icon: 80px` | **68px 图标栏，可展开为 208px** |
+| 聊天底 | 用户 `#e4e4e4`、工具 `#f0f0f0`、三级文字 `#b0b0b7` | 同 |
+
+## 2. 设计目标与原则
+
+激浪是跨境电商 AI 运营工作台。视觉表达**智能、行动、增长**，参照 LinkFox 的轻盈感，
+不做泛化的"未来科技后台"。
 
 核心原则：
 
-- **边框优先，阴影克制**。层级靠 1px 边框和留白建立，不用玻璃、渐变、发光。
-- **品牌蓝是强调色，不是背景色**。蓝色只出现在主操作、链接、焦点环、选中图标。
-- **紧凑**。14px 正文、32px 控件、12–20px 内边距，信息密度优先。
-- **数据密集区高可读**。表格、表单保持纯白底、高对比，不叠加任何透明效果。
+- **品牌蓝是唯一强调色**。只出现在主操作、链接、焦点环、选中态、AI 结果标记。
+  一屏蓝色面积不超过 8%。**不引入第二套强调色**（LinkFox 的紫色不采用）。
+- **留白优先于边框**。内容居中单列（最大 760px），两侧留白；卡片用极浅边框，
+  不再靠密集分割线撑结构。
+- **大圆角 + 允许胶囊**。输入框、面板用 12–16px；模式切换、筛选项、状态标签用胶囊。
+  v2 的「禁用胶囊」规则**作废**。
+- **图标栏代替宽侧栏**。导航默认 68px（图标上、文字下），可展开成 208px 文字侧栏。
+- **卡片零阴影**，Hover 只加深边框与底色，不抬升。
 - **演示数据必须诚实标注**，不把模拟结果呈现成真实店铺数据。
 - **真实交互优先**，动效不得盖过功能，且必须尊重 `prefers-reduced-motion`。
 
-## 2. 色彩 Token
+## 3. 色彩 Token
 
-命名沿用 shadcn 的语义层，页面只用语义名，不写死色值。
+命名沿用 shadcn 语义层，页面只用语义名，不写死色值。
 
 | Token | 值 | 用途 |
 |---|---|---|
-| `--background` | `#FAFAFA` | 页面底（中性 50） |
+| `--background` | `#FAFAFA` | 页面底 |
 | `--card` | `#FFFFFF` | 卡片、表格、输入框 |
-| `--foreground` | `#0A0A0A` | 主文字（中性 950） |
-| `--muted-surface` | `#F5F5F5` | 表头、骨架、禁用底 |
-| `--muted-foreground` | `#737373` | 辅助文字 |
-| `--border` | `#E5E5E5` | 唯一分隔线颜色 |
-| `--primary` | `#1B6EF3` | 主操作、链接、焦点环、选中图标 |
+| `--foreground` | `#111114` | 主文字 |
+| `--muted-surface` | `#F8F8F8` | 表头、骨架、禁用底 |
+| `--muted-foreground` | `#73737B` | 辅助文字 |
+| `--border` | `#E5E7EB` | 唯一分隔线颜色 |
+| `--primary` | `#1B6EF3` | 主操作、链接、焦点环、选中态 |
 | `--primary-hover` | `#1560DC` | 主操作 Hover |
+| `--primary-soft` | `#EFF6FF` | 图标容器底、选中底、浅色标记 |
+| `--primary-line` | `#BFDBFE` | 浅色标记的描边 |
 | `--ring` | `#1B6EF3` | 焦点环 |
 
 语义色独立于主色，禁止用蓝色替代成功/警告/错误：
 
 | Token | 值 | 用途 |
 |---|---|---|
-| `--success` / `--ok` | `#15803D` | 已完成、已连接 |
-| `--warning` / `--warn` | `#B45309` | 等待审批、示例数据、降级 |
-| `--destructive` / `--danger` | `#DC2626` | 失败、删除 |
+| `--success` | `#15803D` | 已完成、已连接 |
+| `--warning` | `#B45309` | 等待审批、示例数据、降级 |
+| `--destructive` | `#DC2626` | 失败、删除 |
 | `--info` | `#2563EB` | 演示提示条、中性信息 |
 
-**强调色的使用配额**：一屏内品牌蓝面积不应超过 5%。默认按钮是白底描边，只有页面的
-"唯一主操作"才用 `.btn-primary`。导航选中态用中性底 + 蓝色图标，不用蓝色填充。
+**强调色配额**：一屏内品牌蓝面积不超过 8%。默认按钮白底描边，只有页面的"唯一主操作"
+用 `.btn-primary`。导航选中态用**浅蓝底 + 蓝图标**，不用纯色填充。
 
-旧变量名（`--bg` / `--surface` / `--ink` / `--brand` / `--line` …）保留为兼容别名，
-新代码一律用语义名。
+旧变量名（`--bg` / `--surface` / `--ink` / `--brand` / `--line` …）保留为兼容别名。
 
-## 3. 字体与字号
+## 4. 字体与字号
 
-- 字体栈：`Inter` → `Geist` → 系统字体（PingFang SC / Microsoft YaHei）。
-  **不加载外部 Web Font**（Google Fonts 在境内不可用），本机装了 Inter 就自动生效。
-- 正文 14px / 行高 1.5；辅助 13px；元信息 12px；卡片标题 14px/600；页面标题 20px/600。
-- 数字统一 `font-variant-numeric: tabular-nums`，统计值与表格数字必须用。
-- 标题字距 `-.02em` 左右，正文不加字距。
-
-## 4. 图标
-
-- 全部取自 **Lucide**（ISC 许可），24×24 栅格、2px 描边、圆头圆角。
-- 路径数据固化在 `js/icons.js`，key 沿用旧名（`dashboard` / `tasks` / `listing` …），
-  页面代码不需要关心图标来源。新增图标时从 `lucide-static` 取路径追加。
-- 视觉尺寸：侧栏 16px、按钮 14px、顶栏 12px、空态 20px。
-- 颜色继承文字；选中项与主操作用品牌蓝；语义状态用语义色。
-- **不给每个图标套彩色底块**。只有品牌 Logo、空状态、数据源类型提供图形容器，
-  且容器是中性底 + 1px 边框，不用渐变。
-- 命名对照：`research`→telescope、`competitors`→grid-2x2、`assets`→image、
-  `operations`→chart-column、`skills`→puzzle、`workflows`→workflow、`agents`→bot。
+- 字体栈：`Noto Sans SC` → `Inter` → 系统字体（PingFang SC / Microsoft YaHei）。
+  **不加载外部 Web Font**（Google Fonts 在境内不可用），本机装了即生效。
+- 正文 14px / 行高 1.5；辅助 13px；元信息 12px；卡片标题 14px/500；页面标题 20px/600。
+- **大标题用 600–700**（LinkFox 首页主标题字重明显更重，这是"有力"的来源）。
+- 数字统一 `font-variant-numeric: tabular-nums`。
+- 标题字距 `-.02em`，正文不加字距。
 
 ## 5. 形状、间距、高度
 
-- 圆角：控件与徽章 `6px`（`--radius-sm`）、卡片 `10px`（`--radius-lg`）、
-  浮层 `12px`（`--radius-xl`）。**不使用胶囊形**（旧版 pill 全部改为圆角矩形）。
+- 圆角：控件与徽章 `6px`、卡片 `12px`（`--radius-lg`）、面板与浮层 `16px`、
+  胶囊 `999px`（`--radius-pill`）。**胶囊可用于模式切换 / 筛选 / 状态标签**。
 - 间距只用四档主值：`4 / 8 / 12 / 16`，结构间距可用 `20 / 28`。
-- 控件高度：`24 / 28 / 32 / 36`（`--h-xs/sm/md/lg`），默认 32。
-- 阴影只用于浮层：卡片无阴影，Hover 不改阴影；弹层用 `--shadow-lg`。
-- 侧栏 208px（收起 56px），顶栏 48px，内容边距 20px。
+- 控件高度：`28 / 32 / 36 / 40 / 44`（`--h-*`），默认 32；输入区与主按钮 36–40。
+- 阴影只用于浮层：卡片无阴影，Hover 不加阴影；弹层用 `--shadow-lg`。
+- 侧栏 68px（收起 56px 纯图标），顶栏 48px，内容边距 20px，
+  **内容最大宽度 760px 居中**。
 
-## 6. 组件规则
+## 6. 组件与交互模型
 
 | 组件 | 规则 |
 |---|---|
-| Button | 默认白底描边；`primary` 品牌蓝；`secondary` 中性填充 + 描边；`quiet` 无边框；`danger` 红描边。三档高度 28/32/36 |
-| Badge | 20px 高、6px 圆角、11px 字。语义色用浅底 + 同色描边 + 深字；示例数据必须虚线边框 |
-| Card | 白底 + 1px 边框 + 10px 圆角，**无阴影**。不是所有内容都卡片化，仅独立可操作单元 |
+| Button | 默认白底描边；`primary` 品牌蓝底白字；`secondary` 中性填充 + 描边；`quiet` 无边框；`danger` 红描边 |
+| Badge | 22px 高、6px 圆角、11px 字。语义色用浅底 + 同色描边 + 深字；示例数据必须虚线边框 |
+| Card | 白底 + 1px 极浅边框 + 12px 圆角，**无阴影**；Hover 边框转 `--border-strong` |
+| **技能卡片** | 左侧 32px 浅蓝圆角图标块（蓝字），右侧标题 + 分类 + 两行描述 + 标签 chips |
 | Table | 无斑马纹、表头无底色，靠行分隔线；行高 44px；数字右对齐 |
-| Tabs | 两套：页面级用下划线式（选中为前景色 2px 下划线，不用蓝色）；控件级用 `segmented`（静默底 + 白滑块） |
-| Chip | 28px 高；选中态用**前景色底 + 背景色字**（反向），不用蓝色填充 |
-| Input / Select | 32px 高、6px 圆角、`--input` 描边；聚焦时品牌蓝描边 + 3px 淡蓝光圈；Select 用统一 chevron |
+| Tabs | 页面级用下划线式；控件级用 `segmented`（静默底 + 白滑块） |
+| **Chip** | 28px 高，**胶囊形**；未选：浅灰底无边框；选中：品牌蓝描边 + 蓝字 + 白底 |
+| **模式切换** | 胶囊组，选中项白底 + 边框 + 轻微 `--shadow-xs`，未选透明 |
+| Input / Select | 32px 高、6px 圆角、`--input` 描边；聚焦品牌蓝描边 + 3px 淡蓝光圈 |
+| **对话输入区** | 大圆角 16px 容器、白底、聚焦时边框转品牌蓝；底部一行工具（`+` / 技能 / 提示词库 / 发送） |
 | Empty | 40px 中性图标容器 + 标题 + 说明 + 最多两个操作 |
 | Skeleton | 中性底 + 透明度脉冲，不用流光扫过 |
 | Toast | 浅色卡片 + 语义色图标，不用整块深色 |
-| Modal / Drawer | 遮罩 `rgba(10,10,10,.5)`，浮层白底 + 1px 边框 + 大阴影 |
+| Modal / Drawer | 遮罩 `rgba(17,17,20,.5)`，浮层白底 + 1px 边框 + 大阴影 |
 
-**禁止**：`backdrop-filter` 玻璃、渐变背景、彩色发光、卡片 Hover 浮起、胶囊按钮/徽章。
+**布局模型（对标 LinkFox）**：
+
+```
+┌────┬──────────────────────────────────────┐
+│    │                  通知 · 状态 · 账号  │  ← 顶栏（无底色，右侧浮起）
+│图标│                                      │
+│栏  │        ┌──────────────────┐          │
+│68px│        │   页面标题（居中） │          │  ← 首屏：标题 + 模式切换
+│    │        └──────────────────┘          │
+│    │        [ 模式胶囊组 ]                │
+│    │        [ 分类筛选 chips ]            │
+│    │        ┌─────┐ ┌─────┐ ┌─────┐      │  ← 技能卡片 3 列
+│    │        └─────┘ └─────┘ └─────┘      │
+│    │        ┌───────────────┐            │
+│    │        │  常驻输入区    │            │  ← 底部固定，主入口
+│    │        └───────────────┘            │
+└────┴──────────────────────────────────────┘
+```
+
+**禁止**：`backdrop-filter` 玻璃、渐变背景、彩色发光、卡片 Hover 浮起。
 
 ## 7. 动效（Motion）
 
@@ -122,31 +162,25 @@ Render 单服务部署）。shadcn/ui、Motion(React)、react-resizable-panels�
 |---|---|---|
 | `--ease-out` | `cubic-bezier(.16,1,.3,1)` | 出现、位移（默认） |
 | `--ease-in-out` | `cubic-bezier(.4,0,.2,1)` | 循环动画 |
+| `--ease-spring` | `cubic-bezier(.34,1.36,.64,1)` | 选中态回弹（胶囊切换） |
 | `--dur-1` | 120ms | 颜色、边框、Hover |
 | `--dur-2` | 180ms | 进场、Toast、Modal |
 | `--dur-3` | 280ms | 抽屉、分栏 |
 
 `js/motion.js` 提供 `animate / fadeIn / fadeOut / stagger / inView / tap`，基于 Web
-Animations API。当前用在：页面进场（主区块按 22ms 交错淡入）、Toast 进出、浮层进场。
-新增动效优先用 `CPMotion`，不要在业务代码里写死 `transition` 时长。
+Animations API。新增动效优先用 `CPMotion`，不要在业务代码里写死 `transition` 时长。
 
-**硬约束**：`prefers-reduced-motion: reduce` 下所有时长归零并与 CSS 同步，
-功能不受影响。
+**硬约束**：`prefers-reduced-motion: reduce` 下所有时长归零并与 CSS 同步。
 
 ## 8. 布局与交互原语
 
 - **分栏**：`CPPanels.split(el, { storageKey, defaultSize, min, max })`。
-  在容器前两个子节点之间插入 1px 拖拽条，比例写入 `--split-a`，落 localStorage；
   支持方向键 ±2%（Shift ±8%）、Home/End 到边界、双击复位；
   `role="separator"` + `aria-valuenow` 可访问。
-- **拖拽重排**：`CPPanels.sortable(list, { item, onEnd })`，原生 `draggable`，
-  结束后回调返回新顺序的 `data-id` 数组。
-- **状态**：`CPStore.create(initializer)`，API 与 Zustand 一致
-  （`getState / setState / subscribe`），`subscribe(selector, fn)` 只在选中值变化时触发；
-  `CPStore.persist(store, key, pick)` 做 localStorage 持久化。
-  当前外壳的侧栏折叠、提示条关闭已迁移到 store。
-- **响应式**：≤960px 分栏退化为上下堆叠并隐藏拖拽条；≤980px 侧栏只留图标；
-  ≤720px 表格转卡片、页面头改纵向。
+- **拖拽重排**：`CPPanels.sortable(list, { item, onEnd })`，原生 `draggable`。
+- **状态**：`CPStore.create(initializer)`，API 与 Zustand 一致。
+- **响应式**：≤960px 分栏退化为上下堆叠；≤980px 图标栏只留图标；
+  ≤720px 表格转卡片、技能卡片改单列、页面头改纵向。
 
 ## 9. 数据资产页面规则
 
@@ -162,7 +196,7 @@ Animations API。当前用在：页面进场（主区块按 22ms 交错淡入）
 
 - 所有按钮保留 hover / active / disabled / focus-visible 状态。
 - 不用颜色作为唯一状态提示；状态同时提供文字。
-- 焦点环统一 `outline: 2px solid var(--ring)` + 2px offset，不用 box-shadow 伪焦点。
+- 焦点环统一 `outline: 2px solid var(--ring)` + 2px offset。
 - 保持键盘导航；分栏拖拽条可用方向键操作。
 - 尊重 `prefers-reduced-motion`。
 - 错误提示说明用户可以采取的下一步，内部堆栈留在日志。
@@ -195,13 +229,73 @@ Animations API。当前用在：页面进场（主区块按 22ms 交错淡入）
 
 ## 12. 验收清单
 
-- [ ] 页面底色 `#FAFAFA`、卡片纯白 + 1px 边框、无阴影、无玻璃、无渐变。
-- [ ] 品牌蓝只出现在主操作、链接、焦点环、选中图标。
+- [ ] 页面底 `#FAFAFA`、卡片纯白 + 1px `#E5E7EB` 边框、无阴影、无玻璃、无渐变。
+- [ ] 品牌蓝只出现在主操作、AI 结果、选中态、焦点环；全站不出现第二套强调色。
 - [ ] 图标全部为 Lucide 形态（24 栅格 / 2px 描边），无描边粗细混用。
-- [ ] 控件高度 32px、圆角 6px、卡片圆角 10px，无胶囊形。
+- [ ] 控件圆角 6px、卡片 12px、面板 16px；胶囊只用于模式切换 / 筛选 / 状态标签。
+      （**例外：`/stores` 系列的数据卡用 8px**，见 §13——那是经营看板的密度要求。）
+- [ ] 侧栏是 68px 图标栏（图标在上、文字在下），不是宽文字侧栏。
+- [ ] 主内容是居中单列（≤760px），不是全宽铺满。
+      （**例外：`/stores` 系列最宽 1320px**，9 列广告指标在 760px 里会挤成两行。）
 - [ ] 表格无斑马纹、表头无底色、数字右对齐。
+      （**例外：`/stores` 的宽表允许 `#FAFAFA` 表头 + 35px 行高**，用于长表扫读。）
 - [ ] 动效统一用 `--dur-*` / `--ease-*`，`reduced-motion` 下全部关闭。
-- [ ] 工作台左右栏可拖拽，刷新后比例保持，键盘可调。
 - [ ] 不向普通用户展示 Mock / Seed / 接口 / Cookie 等开发者术语。
 - [ ] 模拟数据与用户导入数据能被清楚区分。
 - [ ] 原有路由、上传、校验、字段映射和提交功能未被视觉改造破坏。
+
+## 13. 店铺经营助手（`/stores` 四子页）
+
+2026-10-23 实测 `os.linkfox.com/store-assistant` 后落地。**本节覆盖 §12 中与之冲突的条目。**
+
+### 13.1 信息架构
+
+一页四子页，子导航在**页面内顶部**，不占用左侧 68px 图标栏：
+
+| 子页 | 路由 | 内容 |
+|---|---|---|
+| 经营看板 | `/stores` | 待处理事项 → 5 段切换（概览 / 订单 / 广告 / 库存 / 售后） |
+| 单品分析 | `/stores/product` | ASIN 检索 → 商品摘要 → 指标 + 走势 + 该品广告 |
+| 经营明细 | `/stores/ledger?kind=` | 4 类长表（商品 / 订单 / 售后 / 库存） |
+| 店铺授权 | `/stores/authorize` | 已绑店铺、各数据域来源、添加表单 |
+
+筛选态（`range` / `seg` / `kind` / `asin`）同步进 URL，用 `history.replaceState`，刷新可复原。
+**新增子页必须同时**：注册路由、加进 `TABS`、加进后端 `SPA_ROUTES`
+（少一处，用户刷新就直接看到 404 的裸 JSON）。
+
+### 13.2 实测取值（照抄 LinkFox，不再自创）
+
+| 项 | 取值 | 用途 |
+|---|---|---|
+| 卡片圆角 | `8px` | `.st-card` |
+| 卡片边框 | `1px solid #E7E7EA` | 边框优先，**零阴影** |
+| 指标格最小高 | `82px` | `.st-metric` |
+| 指标值 | `20px` + `tabular-nums` | 数字必须等宽 |
+| 表头高 / 底色 | `35px` / `#FAFAFA` | `.st-table th` |
+| 表格行高 | `44px` | `.st-table td` |
+| 内容区 | `max-width: 1320px`、`gap: 14px` | `.page--store` |
+| 状态徽标 | `22px` 高、全圆角 | `.st-pill` |
+| 子导航项 | `13px` / `36px` 高 | `.st-tab` |
+
+指标网格列数：核心 6 列、订单/库存 5 列、广告 9 列（`.st-metrics--ads`）。
+
+### 13.3 数据纪律（这一页最容易出问题）
+
+- **前端不造任何业绩数字**。所有数值来自 `/api/marketplace/*`；后端没给的维度就不出卡片，不摆空壳。
+- **口径必须自洽**：广告销售额由近 30 天真实订单销售额反推（`ad_share = 32%~58%`），
+  否则会出现「广告销售额 > 全店销售额」这种一眼假的数。
+- **环比不编 0%**：上一窗口为 0 时返回 `null`，前端显示「无对比」；`|Δ| < 0.05` 显示「持平」。
+  成本类指标（花费 / ACOS）用 `inverse`，涨了是坏事，颜色要反过来。
+- **确定性种子**：日级 `random.Random(seed(store_key, day))`。同一天刷新数字不变，
+  窗口滑动只增删一天，不会出现整条曲线跳变。
+- **未绑定店铺不出空图表**，改出三步引导（选店铺 → 确认站点 → 开始同步）。
+
+### 13.4 组件约定
+
+- 命名空间 `.st-`，全部写在 `css/store.css`，不往 `components.css` 里塞页面级样式。
+- 图标尺寸要显式给：`.icon` 基础样式**无宽高**，页面里用到的地方都得补，
+  否则 SVG 撑满父容器。
+- 图表统一走 `window.CPChart`（`js/charts.js`，手写内联 SVG）。
+  **不准引 Recharts**——前端是无构建原生工程，引一个 React 图表库就得加 Vite 构建链，
+  并改掉 Render 单服务托管形态。
+
