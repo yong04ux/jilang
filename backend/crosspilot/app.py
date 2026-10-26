@@ -8,7 +8,7 @@
 - ``api/handlers.py`` / ``api/helpers.py`` —— 任务外层保护 / 无状态小工具。
 
 **历史**：端点曾经是 ``create_app()`` 里的 88 个闭包函数，共享 15 个闭包变量
-（``db`` / ``require_user`` / ``audit_user`` / ``require_llm_provider``…），
+（``db`` / ``require_user`` / ``audit_user`` / ``resolve_llm_provider``…），
 导致无法拆文件、无法脱离 ``create_app()`` 单测。现已全部搬入 ``api/``，
 这里收敛成"装配 + 挂载"。
 """

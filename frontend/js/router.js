@@ -77,7 +77,13 @@
 
   function go(path, opts) {
     const replace = opts && opts.replace;
-    if (normalize(path) === normalize(location.pathname) && !(opts && opts.force)) {
+    // 同路径 + 同查询串才走「只重绘、不动历史」的捷径。
+    // 早先只比 normalize(path)（它会丢掉 ?query），结果「/skills → /skills?skill=x」
+    // 这类只改查询串的跳转既不更新地址栏也不进历史：刷新回列表、后退直接离开、
+    // 链接也分享不出去。
+    const targetQuery = (path.split("?")[1] || "").split("#")[0];
+    const currentQuery = location.search.replace(/^\?/, "");
+    if (normalize(path) === normalize(location.pathname) && targetQuery === currentQuery && !(opts && opts.force)) {
       render(path);
       return;
     }

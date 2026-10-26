@@ -3,6 +3,11 @@
  * 这里描述的是**实际可用的能力**，不是示例业务数据。
  * 业务数据（报告、Listing、任务）一律来自后端 API，不得在此伪造。
  *
+ * 重要：技能的名称、说明、分类、参数清单**只有一份真源**——后端的技能注册表。
+ * 这个文件里只留「怎么展示」：图标、色调、标签、起始提示语。
+ * 之前这里写死过一整份技能数组，于是同一件能力在代码里存在三份描述，
+ * 改一处漏三处；现在列表由 `CPCatalog.ensureSkills()` 拉 `/api/skills` 合并生成。
+ *
  * 约定：只有真正能用的入口才进 NAV。尚未开放的能力不进导航——
  * 与其摆一堆点不开的入口，不如让用户看到的每一项都可用。
  */
@@ -16,14 +21,9 @@
       { key: "workbench",   label: "AI 助手",     icon: "chat",       path: "/workbench" },
       { key: "tasks",       label: "任务中心",    icon: "tasks",      path: "/tasks" },
     ]},
-    { group: "业务工具", items: [
-      { key: "competitors", label: "竞品分析",   icon: "competitors", path: "/competitors" },
-      { key: "profit",      label: "成本与利润", icon: "chart",       path: "/profit" },
-      { key: "listings",    label: "Listing 工作室", icon: "listing", path: "/listings" },
-    ]},
     { group: "Agent 平台", items: [
       { key: "agents",      label: "Agent 市场", icon: "agents",      path: "/agents" },
-      { key: "skills",      label: "Skills 技能库", icon: "skills",   path: "/skills" },
+      { key: "skills",      label: "技能广场",   icon: "skills",   path: "/skills" },
     ]},
     { group: "数据与系统", items: [
       { key: "stores",      label: "店铺与渠道", icon: "stores",      path: "/stores" },
@@ -31,8 +31,6 @@
       { key: "settings",    label: "设置",       icon: "settings",    path: "/settings" },
     ]},
   ];
-
-  const RAIL = ["dashboard", "workbench", "tasks", "competitors", "listings", "data", "stores", "settings"];
 
   const RAIL_LABEL = {
     dashboard: "工作台",
@@ -48,64 +46,41 @@
     settings: "设置",
   };
 
-  /* ---------------- 技能（当前可用的能力清单） ---------------- */
-  /* 只列真正能跑的能力。不在这里放「规划中」的条目——
-     界面上不出现的东西就不该占一个分类空壳。 */
-  const SKILL_CATEGORIES = [
-    "推荐", "竞品与Listing", "选品与开发", "产品运营", "数据分析",
-  ];
-
-  const SKILLS = [
-    {
-      key: "competitor_analysis", name: "竞品分析", cat: "竞品与Listing",
-      icon: "C", tone: "brand", status: "available",
-      desc: "汇总竞品价格、评分、评论与卖点，输出带原文出处的结论与差异化机会。",
-      tags: ["价格定位", "评论痛点", "差异化"],
-      input: "商品名 · 平台与站点 · 竞品明细（价格、评分、评论）",
-      output: "分析报告：价格分布、评论痛点、差异化机会，每条结论附原文出处",
-      action: "competitor",
+  /* ---------------- 展示提示（不含能力语义） ----------------
+   * icon/tone 决定卡片长相，tags 是短标签，prompt 是工作台里「点这张卡」
+   * 填进输入框的那句话。能力叫什么、要什么参数、产出什么，一律来自接口。 */
+  /* 卡片上的「头像」用一个汉字 / 字母，比英文首字母好认；
+     tone 决定底色，跟页面其余地方的语义色保持一致。 */
+  const PRESENTATION = {
+    competitor_analysis: {
+      icon: "竞", tone: "brand", tags: ["价格定位", "评论痛点", "差异化"],
       prompt: "分析这批竞品的价格定位与评论痛点，找出我的差异化机会",
     },
-    {
-      key: "listing_generation", name: "Listing 生成", cat: "竞品与Listing",
-      icon: "L", tone: "info", status: "available",
-      desc: "基于已确认的商品事实生成标题、五点描述、产品描述与 Search Terms，并做事实对齐质检。",
-      tags: ["标题", "五点", "事实核对"],
-      input: "商品事实（规格、卖点、认证）· 目标语言 · 可选用分析报告",
-      output: "Listing 草稿：标题、五点描述、产品描述、Search Terms，附事实核对结果",
-      action: "listing",
+    listing_generation: {
+      icon: "写", tone: "info", tags: ["标题", "五点", "事实核对"],
       prompt: "基于已确认的商品资料生成一份英文 Listing 草稿",
     },
-    {
-      key: "market_summary", name: "市场机会总结", cat: "选品与开发",
-      icon: "M", tone: "brand", status: "available",
-      desc: "把分析结论归纳成一段可读的市场机会判断，只引用已有证据，不推断销量与规模。",
-      tags: ["机会判断", "证据引用"],
-      input: "一份已生成的分析报告（只读，不会补数据）",
-      output: "市场机会判断，附引用到的原文出处",
+    market_summary: {
+      icon: "市", tone: "brand", tags: ["机会判断", "证据引用"],
       prompt: "把这份竞品分析归纳成市场机会判断",
     },
-    {
-      key: "data_validation", name: "数据校验与导入", cat: "数据分析",
-      icon: "D", tone: "neutral", status: "available",
-      desc: "上传 CSV / JSON / Excel，逐行校验字段并给出可定位到单元格的错误报告。",
-      tags: ["字段映射", "逐行校验", "错误导出"],
-      input: "CSV / JSON / Excel 文件，不超过 5 MB",
-      output: "校验结果：有效行数、逐行错误位置、字段统计",
-      action: "data",
-      prompt: "帮我检查这份竞品数据文件的字段完整度",
-    },
-    {
-      key: "review_mining", name: "评论痛点挖掘", cat: "产品运营",
-      icon: "R", tone: "info", status: "available",
-      desc: "从评论样本中识别痛点、需求与购买顾虑，附原文引用与出现频次。",
-      tags: ["痛点", "需求", "原文证据"],
-      input: "评论样本（文本，可选星级与日期）",
-      output: "四类主题（痛点 / 低星 / 需求 / 顾虑）+ 出现频次 + 原文",
-      action: "competitor",
+    review_mining: {
+      icon: "评", tone: "info", tags: ["痛点", "需求", "原文证据"],
       prompt: "从这些评论里挖出主要痛点，并附上原文",
     },
-  ];
+    data_validation: {
+      icon: "校", tone: "neutral", tags: ["字段映射", "逐行校验", "错误定位"],
+      prompt: "帮我检查这份竞品数据文件的字段完整度",
+    },
+    listing_quality: {
+      icon: "检", tone: "neutral", tags: ["事实对齐", "待确认项"],
+      prompt: "核对这份 Listing 草稿里的数字和卖点是否有出处",
+    },
+    profit_calc: {
+      icon: "利", tone: "neutral", tags: ["成本拆解", "盈亏平衡", "敏感性"],
+      prompt: "按这批成本数据算一下定价区间和盈亏平衡",
+    },
+  };
 
   /* ---------------- Agent（随能力清单一起展示） ---------------- */
   const AGENTS = [
@@ -126,15 +101,84 @@
     },
   ];
 
-  const SKILL_DEFS = SKILLS.map(function (s) {
-    return Object.assign({}, s, { runs: null });
-  });
+  /* ---------------- 运行时技能清单 ---------------- */
+  const A = window.CPApi;
+
+  let skills = [];
+  let pending = null;
+  let loadError = null;
 
   /* 技能 key → 中文名，给「这个 Agent 会哪些技能」这类展示用 */
   const SKILL_NAME = {};
-  SKILLS.forEach(function (s) { SKILL_NAME[s.key] = s.name; });
+
+  function mergeSkill(item) {
+    const look = PRESENTATION[item.skill_key] || { icon: "·", tone: "", tags: [], prompt: "" };
+    return {
+      key: item.skill_key,
+      name: item.name,
+      cat: item.category || "",
+      desc: item.summary || "",
+      status: item.status,
+      renderer: item.renderer || "",
+      requires: item.requires || [],
+      credits: item.credits || 0,
+      inputSchema: item.input_schema || {},
+      outputSchema: item.output_schema || {},
+      runnable: item.runnable !== false,
+      builtin: item.builtin !== false,
+      icon: look.icon,
+      tone: look.tone,
+      tags: look.tags,
+      prompt: look.prompt,
+    };
+  }
+
+  /** 拉一次技能清单并缓存。失败时返回空数组（页面自己决定怎么提示）。 */
+  function ensureSkills() {
+    if (skills.length) return Promise.resolve(skills);
+    if (pending) return pending;
+    pending = A.get("/api/skills")
+      .then(function (res) {
+        skills = (res.items || [])
+          .filter(function (s) { return s.runnable !== false && s.status === "available"; })
+          .map(mergeSkill);
+        skills.forEach(function (s) { SKILL_NAME[s.key] = s.name; });
+        loadError = null;
+        pending = null;
+        return skills;
+      })
+      .catch(function (err) {
+        loadError = err;
+        pending = null;
+        return [];
+      });
+    return pending;
+  }
+
+  /** 分类 chips：「推荐」是伪分类（等价于全部），其余来自接口 */
+  function skillCategories() {
+    const seen = {};
+    const list = ["推荐"];
+    skills.forEach(function (s) {
+      if (s.cat && !seen[s.cat]) {
+        seen[s.cat] = true;
+        list.push(s.cat);
+      }
+    });
+    return list;
+  }
+
+  function skillByKey(key) {
+    return skills.filter(function (s) { return s.key === key; })[0] || null;
+  }
+
+  function skillLoadError() {
+    return loadError;
+  }
 
   window.CPCatalog = {
-    NAV, RAIL, RAIL_LABEL, SKILL_CATEGORIES, SKILLS, AGENTS, SKILL_DEFS, SKILL_NAME,
+    NAV, RAIL_LABEL, PRESENTATION, AGENTS, SKILL_NAME,
+    ensureSkills, skillCategories, skillByKey, skillLoadError,
+    get skills() { return skills; },
   };
 })();

@@ -15,6 +15,7 @@ from ..agent import tools as agent_tools
 from ..agent.planner import plan_for, resolve_goal
 from ..agent.runtime import AgentRunError, create_agent_task, execute_agent, run_agent
 from ..agent.schemas import AgentRunRequest, AgentRunResponse, GoalResolveRequest, GoalResolveResponse
+from ..llm.providers import engine_label
 from ..services import approvals as approval_service
 from ..services import audit
 from ..services import conversations as conversation_service
@@ -231,25 +232,6 @@ async def get_agent(
     return agent
 
 
-@router.get("/api/skills")
-async def list_skills(
-    tenant: TenantContext = Depends(require_tenant), api: ApiContext = Depends(get_ctx)
-) -> dict[str, Any]:
-    return {"items": agent_registry.list_skills(api.db, tenant.tenant_id)}
-
-
-@router.get("/api/skills/{skill_key}")
-async def get_skill(
-    skill_key: str,
-    tenant: TenantContext = Depends(require_tenant),
-    api: ApiContext = Depends(get_ctx),
-) -> dict[str, Any]:
-    skill = agent_registry.get_skill(api.db, skill_key, tenant.tenant_id)
-    if skill is None:
-        raise HTTPException(status_code=404, detail=f"技能不存在: {skill_key}")
-    return skill
-
-
 @router.get("/api/tools")
 async def list_tools(
     tenant: TenantContext = Depends(require_tenant), api: ApiContext = Depends(get_ctx)
@@ -258,10 +240,13 @@ async def list_tools(
 
 
 # ---------------------------------------------------------------------------
-# 注册表写入：租户自定义 Agent / Skill
+# 注册表写入：租户自定义 Agent
 #
 # 只允许 admin+ 写；只能写当前租户空间，不能改/停用平台内置定义。
 # 自定义定义是元数据（列表/详情可见可管理），Agent 运行仍走固定工作流图。
+#
+# Skills 的读取与执行、以及自定义 Skill 的写入，都在 ``api/skills.py``：
+# 能力协议的入口只有一个，避免「列表在 A 文件、执行在 B 文件」再次分叉。
 # ---------------------------------------------------------------------------
 
 
@@ -333,69 +318,6 @@ async def disable_tenant_agent(
     return {"ok": True, "agent": item}
 
 
-@router.post("/api/skills", status_code=201)
-async def create_tenant_skill(
-    payload: dict[str, Any],
-    tenant: TenantContext = Depends(require_tenant),
-    api: ApiContext = Depends(get_ctx),
-) -> dict[str, Any]:
-    require_role(tenant, ROLE_MANAGE)
-    try:
-        item = agent_registry.create_skill(api.db, tenant.tenant_id, payload)
-    except agent_registry.RegistryError as exc:
-        raise _registry_http_error(exc) from exc
-    api.audit_context(
-        tenant,
-        audit.ACTION_SKILL_CREATE,
-        target_type="skill",
-        target_id=item["skill_key"],
-        detail={"version": item.get("version")},
-    )
-    return item
-
-
-@router.put("/api/skills/{skill_key}")
-async def update_tenant_skill(
-    skill_key: str,
-    payload: dict[str, Any],
-    tenant: TenantContext = Depends(require_tenant),
-    api: ApiContext = Depends(get_ctx),
-) -> dict[str, Any]:
-    require_role(tenant, ROLE_MANAGE)
-    try:
-        item = agent_registry.update_skill(api.db, tenant.tenant_id, skill_key, payload)
-    except agent_registry.RegistryError as exc:
-        raise _registry_http_error(exc) from exc
-    api.audit_context(
-        tenant,
-        audit.ACTION_SKILL_UPDATE,
-        target_type="skill",
-        target_id=skill_key,
-        detail={"version": item.get("version")},
-    )
-    return item
-
-
-@router.delete("/api/skills/{skill_key}")
-async def disable_tenant_skill(
-    skill_key: str,
-    tenant: TenantContext = Depends(require_tenant),
-    api: ApiContext = Depends(get_ctx),
-) -> dict[str, Any]:
-    require_role(tenant, ROLE_MANAGE)
-    try:
-        item = agent_registry.disable_skill(api.db, tenant.tenant_id, skill_key)
-    except agent_registry.RegistryError as exc:
-        raise _registry_http_error(exc) from exc
-    api.audit_context(
-        tenant,
-        audit.ACTION_SKILL_DISABLE,
-        target_type="skill",
-        target_id=skill_key,
-    )
-    return {"ok": True, "skill": item}
-
-
 # ---------------------------------------------------------------------------
 # Agent 运行：目标解析与完整工作流（LangGraph）
 # ---------------------------------------------------------------------------
@@ -414,7 +336,7 @@ async def resolve_goal_endpoint(
     **不再静默降级成规则解析后假装成功**。
     """
     require_role(tenant, ROLE_WRITE)
-    _active, _config, provider = api.require_llm_provider(user)
+    _active, _config, provider = api.resolve_llm_provider(user)
     client = provider.chat_client() if hasattr(provider, "chat_client") else None
     resolution = resolve_goal(
         payload.goal,
@@ -445,11 +367,6 @@ async def run_agent_endpoint(
     require_role(tenant, ROLE_WRITE)
     if agent_registry.get_agent(api.db, payload.agent_key, tenant.tenant_id) is None:
         raise HTTPException(status_code=404, detail=f"Agent 不存在: {payload.agent_key}")
-
-    # BYOK：Agent 工作流必然要调模型（目标解析 / Listing 生成），
-    # 没有 Key 就明确 428，而不是降级成规则引擎后显示"成功"。
-    if api.settings.require_api_key:
-        api.require_llm_provider(user)
 
     api.rate_limit(user, "task.run", api.settings.rate_limit_tasks_per_hour)
 
@@ -496,7 +413,8 @@ async def run_agent_endpoint(
         except Exception as exc:  # noqa: BLE001 - 坏批次按 422 处理
             raise HTTPException(status_code=422, detail=f"读取导入批次失败：{exc}") from exc
         data["competitors"] = competitors
-    if not competitors:
+    # 只生成 Listing 的路径不需要竞品：它只读商品事实，不跑竞品分析。
+    if not competitors and not data.get("listing_only"):
         raise HTTPException(
             status_code=422,
             detail={
@@ -509,7 +427,14 @@ async def run_agent_endpoint(
             },
         )
     if not (data.get("product_name") or "").strip():
-        raise HTTPException(status_code=422, detail="缺少商品名称")
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "还没有选商品：先选一个商品，或者写清商品名称再生成。",
+                "missing": ["product_name"],
+                "goal_spec": spec_payload,
+            },
+        )
 
     title_hint = goal or f"{data['product_name']} · Agent 工作流"
     try:
@@ -537,10 +462,15 @@ async def run_agent_endpoint(
     )
 
     _active, _config, provider = api.build_user_provider(user)
+    engine = engine_label(provider)
+    if engine["kind"] == "rule":
+        # 没有可用模型就跑规则引擎：结果照出，但必须让用户知道这不是模型写的
+        degraded = True
+        degraded_reason = degraded_reason or (
+            "这次没有用大模型：按规则生成结果。到「设置 → 模型与密钥」配上 API Key 后效果会更好。"
+        )
     conversation_id = conversation["conversation_id"]
     plan_preview = plan_for(bool(data.get("with_listing")))
-    # 按步骤分配模型：analyze / listing 可能各用不同配置（配置级 task_overrides）
-    step_providers = api.build_step_providers(user)
 
     def completion_message(task_id: str) -> None:
         """任务结束后把结果摘要写回会话（失败/取消也如实标注）。"""
@@ -572,7 +502,6 @@ async def run_agent_endpoint(
                     db=api.db,
                     provider=provider,
                     payload={**data, "goal": goal},
-                    providers=step_providers,
                 )
             except TaskCancelled:
                 pass  # Runtime 已把任务落成 cancelled
@@ -605,6 +534,7 @@ async def run_agent_endpoint(
             status="queued",
             plan=plan_preview,
             conversation_id=conversation_id,
+            engine=engine,
             degraded=degraded,
             degraded_reason=degraded_reason,
         )
@@ -619,7 +549,6 @@ async def run_agent_endpoint(
             title=title_hint[:120],
             conversation_id=conversation_id,
             degraded=degraded,
-            providers=step_providers,
         )
     except TaskCancelled as exc:
         raise HTTPException(status_code=409, detail="任务已取消") from exc
@@ -649,6 +578,7 @@ async def run_agent_endpoint(
         checks=final.get("checks"),
         quality=final.get("quality"),
         conversation_id=conversation_id,
+        engine=engine,
         degraded=degraded,
         degraded_reason=degraded_reason,
     )

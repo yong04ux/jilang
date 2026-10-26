@@ -264,7 +264,7 @@ class ExpertTemplate:
 | F-02 | 7 个已有能力包成 Skill（不改算法） | 同一输入产出与改造前**逐字段一致** |
 | F-03 | `GET /api/skills` 从注册表生成 | 前端不再硬编码 Skill 列表 |
 | F-04 | `POST /api/skills/{key}/run` 统一执行 | 参数非法返回 422 并指出字段；缺依赖返回 428 |
-| F-05 | 7 节点图改为调用 Skill executor | **原有 404 项测试全过，零改动断言** |
+| F-05 | 7 节点图改为调用 Skill executor | **原有测试全过，零改动断言**（改造前基线实测 394 项） |
 | F-06 | Skills 页面读接口 + 真实运行 | 点「运行」产出真实结果，不再是填 prompt 的跳板 |
 
 ### P1 · 意图路由
@@ -360,7 +360,7 @@ class ExpertTemplate:
 | 成本与利润测算 `/profit` | 已实现 |
 | 数据导入校验（CSV/JSON/Excel） | 已实现 |
 | 应用内 Agent（7 节点图） | 已实现 |
-| **Skill 协议层** | **本 PRD 的 P0 目标** |
+| **Skill 协议层** | **已实现（P0 · F-01 ~ F-06）**：`SkillSpec` + `SKILL_REGISTRY` 唯一真源；`POST /api/skills/{key}/run` 统一执行；7 节点图内 4 个能力节点改调 executor；`/skills` 页由 `input_schema` 生成表单并真实运行 |
 | 意图路由（对话驱动编排） | 规划中（P1） |
 | 专家模板 / 富产出图表 / 导出 | 规划中（P2） |
 | 定时任务 / 广告复盘 | 规划中（P3） |

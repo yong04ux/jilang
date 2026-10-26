@@ -309,10 +309,15 @@ def test_rule_fallback_function_marks_pending():
 
 
 def test_model_alias_normalization():
+    # 官方文档的当前模型名是 deepseek-flash / deepseek-v4-pro
     assert normalize_model("deepseek-chat") == "deepseek-flash"
-    assert normalize_model("deepseek-v4-flash") == "deepseek-flash"
-    assert normalize_model("deepseek-v4-pro") == "deepseek-v4-pro"
     assert normalize_model("deepseek-flash") == "deepseek-flash"
+    assert normalize_model("deepseek-v4-pro") == "deepseek-v4-pro"
+    # 退役旧名要能收敛回来，否则老配置保存后直接报「模型不存在」
+    assert normalize_model("deepseek-v4-flash") == "deepseek-flash"
+    assert normalize_model("") == "deepseek-flash"
+    # 非 DeepSeek 的模型名原样放行，不能被别名表改写
+    assert normalize_model("gpt-4o-mini") == "gpt-4o-mini"
 
 
 def test_parse_json_strips_code_fence():

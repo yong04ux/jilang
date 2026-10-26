@@ -18,7 +18,11 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..llm.llm import LLMError
 from ..llm.model_settings import ModelSettingsError, ModelSettingsUpdate
-from ..llm.provider_configs import ProviderConfigError, ProviderConfigInput
+from ..llm.provider_configs import (
+    ProviderConfigError,
+    ProviderConfigInput,
+    ProviderModelsInput,
+)
 from ..llm.providers import DeepSeekProvider, ProviderError, build_provider
 from ..services import audit
 from .deps import ApiContext, get_ctx, require_user
@@ -217,11 +221,25 @@ async def upsert_provider_config(
             "label": saved["label"],
             "base_url": saved["base_url"],
             "model": saved["model"],
-            # 按步骤分配模型：只记改了哪些节点，不记具体模型名以外的信息
-            "task_overrides_nodes": sorted(saved.get("task_overrides") or {}),
         },
     )
     return {"config": saved}
+
+
+@router.post("/api/settings/providers/models")
+async def list_provider_models(
+    payload: ProviderModelsInput,
+    user: dict[str, Any] = Depends(require_user),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    """读取该账号在这个接口下真正可用的模型名，供设置页做下拉选择。
+
+    只是读清单，不落库、不改激活状态，所以不需要 demo 写保护。
+    """
+    try:
+        return api.provider_service().list_models(user["user_id"], payload)
+    except ProviderConfigError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.delete("/api/settings/providers/{config_id}")
@@ -285,6 +303,8 @@ async def test_provider_config(
             model=row.get("model") or "",
             timeout=min(api.settings.deepseek_timeout, 20.0),
             max_retries=0,
+            # 必须带上厂商：Anthropic / Gemini 走原生协议，不能拿 OpenAI 客户端去调
+            provider=provider_key,
         )
         started = time.perf_counter()
         try:
@@ -298,7 +318,8 @@ async def test_provider_config(
         result = {
             "ok": bool(ok),
             "detail": detail,
-            "model": row.get("model") or "",
+            # 用归一化后的名字回报：库里可能存着已退役的旧模型名（如 deepseek-v4-flash）
+            "model": candidate.model,
             "elapsed_ms": int((time.perf_counter() - started) * 1000),
         }
 

@@ -6,9 +6,10 @@
 - 记录 token 用量，便于成本核算；
 - JSON 模式严格校验，失败可重试（LLM 偶尔会包 ```json 围栏）。
 
-模型名以官方文档为准：``deepseek-flash`` 是当前推荐名（由 V4.1-Flash 服务），
-``deepseek-v4-pro`` 为增强版本；``deepseek-v4-flash`` 等旧名仍被接受但已退役。
-详见 https://api-docs.deepseek.com/
+模型名以官方文档为准（https://api-docs.deepseek.com/quick_start/pricing）：
+当前可用的是 ``deepseek-flash``（快、便宜，日常生成用它，对应 DeepSeek-V4.1-Flash-1017）
+与 ``deepseek-v4-pro``（强推理）。``deepseek-v4-flash`` 等旧名服务端仍接受但模型已退役，
+统一收敛到当前名，避免"配了个非官方名"的困惑。
 """
 
 from __future__ import annotations
@@ -22,11 +23,13 @@ from typing import Any
 # 官方文档给出的当前模型名
 DEFAULT_MODEL = "deepseek-flash"
 MODEL_ALIASES = {
-    # 旧名 -> 当前推荐名（保持向后兼容，避免老配置直接失效）
+    # 旧名 / 别名 -> 当前可用名（老配置不用重配，服务端已不接受的名字由这里兜住）
     "deepseek-chat": "deepseek-flash",
     "deepseek-reasoner": "deepseek-v4-pro",
+    # 2026-10 官方把 flash 改名为 deepseek-flash，旧名仍可用但模型已退役
     "deepseek-v4-flash": "deepseek-flash",
     "deepseek-v4-flash-vision-exp": "deepseek-flash",
+    "deepseek-v4.1-flash": "deepseek-flash",
 }
 KNOWN_MODELS = ("deepseek-flash", "deepseek-v4-pro")
 
@@ -180,6 +183,27 @@ class DeepSeekClient:
             return LLMError(f"服务端错误：{text}", kind="server", retryable=True)
         return LLMError(f"LLM 调用失败（{name}）：{text}", kind="unknown", retryable=True)
 
+    def list_models(self, *, limit: int = 400) -> list[str]:
+        """读取该账号在这个接口下真正可用的模型名。
+
+        OpenAI 兼容协议的 ``GET /models`` 是各家都实现的公共端点，所以
+        「模型」不必靠猜或抄文档——直接问服务端要，避免填了个不存在的名字。
+        部分厂商（如 Ollama）不校验 Key，可用任意占位值。
+        """
+        client = self._sdk()
+        try:
+            page = client.models.list()
+        except Exception as exc:  # noqa: BLE001 - 统一分类
+            raise self._classify(exc) from exc
+        names: list[str] = []
+        for item in getattr(page, "data", None) or []:
+            model_id = getattr(item, "id", None)
+            if not model_id and isinstance(item, dict):
+                model_id = item.get("id")
+            if model_id:
+                names.append(str(model_id))
+        return sorted(set(names))[:limit]
+
     def chat(
         self,
         messages: list[dict[str, str]],
@@ -239,30 +263,96 @@ class DeepSeekClient:
         schema_hint: str | None = None,
     ) -> tuple[dict[str, Any], ChatResult]:
         """要求模型返回 JSON 对象，并解析；解析失败会重试一次。"""
-        request_messages = list(messages)
-        if schema_hint:
-            request_messages = [
-                *request_messages,
-                {
-                    "role": "system",
-                    "content": "只输出 JSON 对象，不要输出解释、Markdown 或代码围栏。字段要求：\n" + schema_hint,
-                },
-            ]
-        attempts = 2
-        last: LLMError | None = None
-        for _ in range(attempts):
-            result = self.chat(
-                request_messages,
-                json_mode=True,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            )
-            try:
-                return parse_json_response(result.content), result
-            except LLMError as exc:
-                last = exc
-                continue
-        raise last or LLMError("LLM 未能返回合法 JSON", kind="invalid_json", retryable=False)
+        return chat_json_via(
+            self,
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            schema_hint=schema_hint,
+        )
+
+
+def chat_json_via(
+    client: Any,
+    messages: list[dict[str, str]],
+    *,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    schema_hint: str | None = None,
+) -> tuple[dict[str, Any], ChatResult]:
+    """「要 JSON、解析失败再试一次」的公共实现。
+
+    各家客户端（OpenAI 兼容 / Anthropic / Gemini）共用这一份，
+    避免三处各写一遍重试逻辑后行为跑偏。
+    """
+    request_messages = list(messages)
+    if schema_hint:
+        request_messages = [
+            *request_messages,
+            {
+                "role": "system",
+                "content": "只输出 JSON 对象，不要输出解释、Markdown 或代码围栏。字段要求：\n" + schema_hint,
+            },
+        ]
+    last: LLMError | None = None
+    for _ in range(2):
+        result = client.chat(
+            request_messages,
+            json_mode=True,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        try:
+            return parse_json_response(result.content), result
+        except LLMError as exc:
+            last = exc
+            continue
+    raise last or LLMError("LLM 未能返回合法 JSON", kind="invalid_json", retryable=False)
+
+
+def create_chat_client(
+    kind: str,
+    *,
+    api_key: str,
+    base_url: str = "",
+    model: str = "",
+    timeout: float = 90.0,
+    max_retries: int = 2,
+    temperature: float = 0.4,
+    thinking: bool = False,
+    reasoning_effort: str | None = None,
+) -> Any:
+    """按厂商返回聊天客户端。
+
+    OpenAI 兼容的那一批（含自定义地址、Ollama）共用 ``DeepSeekClient``；
+    Anthropic / Gemini 原生协议走 ``LangChainChatClient``。两者对外契约一致，
+    所以 Provider 层只有一个 ``_client()``，不必按厂商分叉业务逻辑。
+    """
+    # 延迟导入：langchain_client 依赖本模块的类型，顶层互引会成环
+    from .langchain_client import NATIVE_PROVIDERS, LangChainChatClient
+
+    if kind in NATIVE_PROVIDERS:
+        return LangChainChatClient(
+            provider=kind,
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+            timeout=timeout,
+            max_retries=max_retries,
+            temperature=temperature,
+            thinking=thinking,
+            reasoning_effort=reasoning_effort,
+        )
+    return DeepSeekClient(
+        api_key=api_key,
+        base_url=base_url or "https://api.deepseek.com",
+        model=model or DEFAULT_MODEL,
+        timeout=timeout,
+        max_retries=max_retries,
+        temperature=temperature,
+        thinking=thinking,
+        reasoning_effort=reasoning_effort,
+    )
 
 
 __all__ = [
@@ -273,6 +363,8 @@ __all__ = [
     "LLMError",
     "MODEL_ALIASES",
     "Usage",
+    "chat_json_via",
+    "create_chat_client",
     "normalize_model",
     "parse_json_response",
 ]

@@ -34,9 +34,6 @@ SPA_ROUTES = (
     "/dashboard",
     "/tasks",
     "/tasks/{task_id}",
-    "/competitors",
-    "/profit",
-    "/listings",
     "/data",
     "/agents",
     "/skills",
@@ -163,6 +160,21 @@ async def health(request: Request, api: ApiContext = Depends(get_ctx)) -> dict[s
         name = model_config.provider if model_config else active.provider
         provider_info = {"name": name, "available": False, "detail": str(exc)}
 
+    # 「验证过」的唯一证据是真的调通过一次。顶栏据此区分「已就绪」和「未验证」，
+    # 所以把当前这套配置的测试结果带上，否则测试通过了界面还在说未验证。
+    if user is not None and provider_info.get("available"):
+        try:
+            config_id = api.provider_service().active_config_id(user["user_id"])
+            row = (
+                api.db.get_provider_config(user["user_id"], config_id)
+                if config_id
+                else None
+            )
+            if row is not None and row.get("last_test_ok") is not None:
+                provider_info["verified"] = bool(row["last_test_ok"])
+        except Exception:  # noqa: BLE001 - 探针不能让健康检查失败
+            pass
+
     return {
         "status": "ok",
         "version": __version__,
@@ -259,7 +271,7 @@ async def providers(
         "source": model_config.source,
         "status": provider_status(api.settings, model_config),
         "models": list(KNOWN_MODELS),
-        "note": "deepseek-flash 为官方文档推荐的当前模型名；旧名仍被服务端接受但已退役",
+        "note": "deepseek-flash 是官方文档的当前模型名；deepseek-v4-flash 等旧名仍可用但已退役",
     }
 
 

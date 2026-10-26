@@ -81,46 +81,9 @@
     });
   }
 
-  /* ---------------- 技能库 ---------------- */
-  async function skills(root) {
-    root.innerHTML = `<div class="view">${pageShell(
-      "Skills 技能库",
-      "激浪能完成的任务。每个能力都可以单独使用，也会在 AI 助手对话里根据你的目标自动调用。", "",
-      `<div class="skeleton skeleton-line" style="height:140px"></div>`
-    )}</div>`;
-
-    let items = [];
-    try {
-      items = (await A.get("/api/skills")).items || [];
-    } catch (err) {
-      root.innerHTML = `<div class="view">${pageShell("Skills 技能库", "", "",
-        `<div class="callout callout-danger">${U.icon("alert")}<div>加载失败：${U.esc(err.message)}</div></div>`
-      )}</div>`;
-      return;
-    }
-
-    const usable = items.filter(function (s) { return s.status === "available"; });
-    const rows = usable.map(function (s) {
-      const def = C.SKILLS.filter(function (x) { return x.key === s.skill_key; })[0] || {};
-      return (
-        `<tr><td><strong>${U.esc(s.name)}</strong>` +
-        `<div class="t-xs t-muted">${U.esc(s.summary)}</div></td>` +
-        `<td class="t-xs t-soft">${U.esc(def.input || "—")}</td>` +
-        `<td class="t-xs t-soft">${U.esc(def.output || "—")}</td></tr>`
-      );
-    }).join("");
-
-    root.innerHTML = `<div class="view">${pageShell(
-      "Skills 技能库",
-      "激浪能完成的任务。每个能力都可以单独使用，也会在 AI 助手对话里根据你的目标自动调用。", "",
-      `<div class="card"><div class="table-wrap"><table class="table"><thead><tr>` +
-      `<th>能做什么</th><th>你需要准备</th><th>你会得到</th>` +
-      `</tr></thead><tbody>` +
-      (rows || '<tr><td colspan="3" class="t-muted">暂没有可用的技能</td></tr>') +
-      `</tbody></table></div></div>`
-    )}</div>`;
-    window.CPIcon.hydrate(root);
-  }
+  /* ---------------- 技能库 ----------------
+   * 已迁到 js/pages/skills.js：那一页要渲染参数表单与运行结果，
+   * 和本文件里的静态列表不是一回事，混在一起会让两边都难改。 */
 
 
   function notFound(root) {
@@ -134,5 +97,5 @@
     )}</div>`;
   }
 
-  window.CPPages = { agents, skills, notFound, pageShell };
+  window.CPPages = { agents, notFound, pageShell };
 })();

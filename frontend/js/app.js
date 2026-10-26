@@ -51,12 +51,11 @@
   R.define("/workbench", mountPage("workbench", W.entry));
   R.define("/tasks", mountPage("tasks", window.CPPageTasks.render));
   R.define("/tasks/:id", mountPage("tasks", window.CPPageTasks.detail));
-  R.define("/competitors", mountPage("competitors", window.CPPageCompetitors.render));
-  R.define("/profit", mountPage("profit", window.CPPageProfit.render));
-  R.define("/listings", mountPage("listings", window.CPPageListings.render));
   R.define("/data", mountPage("data", window.CPPageData.render));
   R.define("/agents", mountPage("agents", P.agents));
-  R.define("/skills", mountPage("skills", P.skills));
+  /* 技能库：能力清单与参数表单都由接口给出，所以页面是独立模块。
+     回调必须是 (root, params, query) 三个参数，否则 ?skill= / ?batch= 会静默失效。 */
+  R.define("/skills", mountPage("skills", window.CPPageSkills.render));
   /* 店铺与渠道：四个子页共用一个页面模块，子导航在页面顶部。
      注意 mountPage 的回调签名是 (root, params, query) 三个参数——
      写成 (params, query) 会把路由 params 当成 query，URL 上的筛选条件就全丢了。 */

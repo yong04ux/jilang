@@ -18,6 +18,9 @@ psycopg[binary]>=3.2
 
 # ---- 业务与 Agent ---------------------------------------------------------
 langgraph>=1.0,<2.0
+# Anthropic / Gemini 是原生协议，走 LangChain 官方适配包（OpenAI 兼容的那批不需要）
+langchain-anthropic>=1.7,<2.0
+langchain-google-genai>=3.0,<5.0
 openpyxl>=3.1,<4.0
 openai>=1.40
 

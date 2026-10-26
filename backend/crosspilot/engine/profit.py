@@ -65,35 +65,65 @@ class ProfitRequest(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    product_name: str = Field(default="未命名商品", max_length=200)
-    marketplace: str = Field(default="US", max_length=16)
-    currency: str = Field(default="USD", max_length=8)
-    fulfillment: FulfillmentMode = "fba"
+    # ``title`` 是用户可见文案：技能页的参数表单由 ``model_json_schema()`` 生成，
+    # 没有 title 就只能把字段名印在界面上（文案红线的直接违反）。
+    product_name: str = Field(default="未命名商品", max_length=200, title="商品名称")
+    marketplace: str = Field(default="US", max_length=16, title="站点")
+    currency: str = Field(default="USD", max_length=8, title="币种")
+    fulfillment: FulfillmentMode = Field(default="fba", title="履约方式")
 
     # ---- 售价与成本（单件口径） ----
-    selling_price: float = Field(gt=0, le=1_000_000, description="单件售价")
-    purchase_cost: float = Field(ge=0, le=1_000_000, description="采购成本（含税到仓）")
-    shipping_cost: float = Field(default=0.0, ge=0, le=1_000_000, description="头程运费（单件摊销）")
-    packaging_cost: float = Field(default=0.0, ge=0, le=1_000, description="包装耗材")
-    fulfillment_fee: float = Field(default=0.0, ge=0, le=1_000, description="履约/配送费（单件）")
-    other_cost: float = Field(default=0.0, ge=0, le=1_000, description="其他（关税/合规/汇损等）")
+    selling_price: float = Field(gt=0, le=1_000_000, description="单件售价", title="单件售价")
+    purchase_cost: float = Field(
+        ge=0, le=1_000_000, description="采购成本（含税到仓）", title="采购成本"
+    )
+    shipping_cost: float = Field(
+        default=0.0, ge=0, le=1_000_000, description="头程运费（单件摊销）", title="头程运费"
+    )
+    packaging_cost: float = Field(
+        default=0.0, ge=0, le=1_000, description="包装耗材", title="包装耗材"
+    )
+    fulfillment_fee: float = Field(
+        default=0.0, ge=0, le=1_000, description="履约/配送费（单件）", title="履约配送费"
+    )
+    other_cost: float = Field(
+        default=0.0, ge=0, le=1_000, description="其他（关税/合规/汇损等）", title="其他成本"
+    )
     ad_cost_per_order: float = Field(
-        default=0.0, ge=0, le=1_000, description="广告摊销（每单，不是 ACOS 百分比）"
+        default=0.0,
+        ge=0,
+        le=1_000,
+        description="广告摊销（每单，不是 ACOS 百分比）",
+        title="广告摊销（每单）",
     )
 
     # ---- 比率 ----
-    commission_rate: float = Field(default=0.15, ge=0, le=0.6, description="平台佣金率")
-    return_rate: float = Field(default=0.0, ge=0, le=1, description="退货率")
+    commission_rate: float = Field(
+        default=0.15, ge=0, le=0.6, description="平台佣金率", title="平台佣金率"
+    )
+    return_rate: float = Field(default=0.0, ge=0, le=1, description="退货率", title="退货率")
     return_handling_cost: float = Field(
-        default=0.0, ge=0, le=1_000, description="单件退货处理成本（换标/弃置/回运）"
+        default=0.0,
+        ge=0,
+        le=1_000,
+        description="单件退货处理成本（换标/弃置/回运）",
+        title="退货处理成本",
     )
 
     # ---- 一次性投入与目标 ----
     fixed_cost: float = Field(
-        default=0.0, ge=0, le=10_000_000, description="一次性投入（开模/认证/首批备货/拍摄）"
+        default=0.0,
+        ge=0,
+        le=10_000_000,
+        description="一次性投入（开模/认证/首批备货/拍摄）",
+        title="一次性投入",
     )
     target_margin: float | None = Field(
-        default=None, gt=0, lt=0.95, description="目标毛利率，用于反算定价"
+        default=None,
+        gt=0,
+        lt=0.95,
+        description="目标毛利率，用于反算定价",
+        title="目标毛利率",
     )
 
     @field_validator("marketplace")

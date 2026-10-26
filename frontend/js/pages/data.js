@@ -180,9 +180,8 @@
 
       ((r.status === "imported" && (r.valid_rows || 0) > 0)
         ? `<div class="row gap-2 mt-4">` +
-          `<a class="btn btn-primary btn-sm" href="/competitors" data-link>` +
-          `${U.icon("competitors")}去竞品分析页使用</a>` +
-          `<a class="btn btn-sm" href="/workbench" data-link>在 AI 助手里用这批数据</a>` +
+          `<a class="btn btn-primary btn-sm" href="/workbench" data-link>` +
+          `${U.icon("chat")}在 AI 助手里用这批数据</a>` +
           `</div>`
         : "") +
       `</div></div>`

@@ -24,7 +24,7 @@ from ..persistence.secrets import SecretBox, SecretError
 PROVIDER_CHOICES = ("rule", "deepseek", "openai")
 CLEAR_KEY_SENTINEL = "__CLEAR__"
 # 官方文档给出的模型名（前端下拉用；允许手填其他兼容模型）
-KNOWN_MODELS = ("deepseek-flash", "deepseek-v4-pro")
+KNOWN_MODELS = ("deepseek-v4-flash", "deepseek-v4-pro")
 
 
 class ModelSettingsError(ValueError):
@@ -71,7 +71,7 @@ class ModelSettingsUpdate(BaseModel):
     def _thinking_only_for_reasoning_models(self) -> "ModelSettingsUpdate":
         if self.thinking and self.model:
             model = self.model.lower()
-            if model in {"deepseek-flash"} and not self.reasoning_effort:
+            if model in {"deepseek-v4-flash", "deepseek-flash"} and not self.reasoning_effort:
                 # flash 关闭思考是默认行为，开启也可，但不强制报错，仅保持宽松
                 pass
         return self
@@ -121,7 +121,7 @@ def _defaults_from_settings(settings) -> EffectiveModelConfig:
     api_key = settings.deepseek_api_key or settings.openai_api_key or ""
     return EffectiveModelConfig(
         provider=settings.provider,
-        model=settings.deepseek_model or settings.openai_model or "deepseek-flash",
+        model=settings.deepseek_model or settings.openai_model or "deepseek-v4-flash",
         base_url=settings.deepseek_base_url or settings.openai_base_url or "https://api.deepseek.com",
         api_key=api_key,
         temperature=settings.deepseek_temperature,

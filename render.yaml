@@ -44,8 +44,6 @@ services:
       # 表已在 Supabase 上建好（13 个迁移已应用），启动时不要再跑
       - key: CROSSPILOT_AUTO_MIGRATE
         value: "false"
-      - key: CROSSPILOT_REQUIRE_API_KEY
-        value: "true"
       - key: CROSSPILOT_STORAGE_BACKEND
         value: supabase
       - key: CROSSPILOT_SUPABASE_BUCKET

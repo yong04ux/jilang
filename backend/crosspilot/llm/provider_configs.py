@@ -1,9 +1,10 @@
-"""多厂商 LLM 配置（本期只做 OpenAI 兼容协议）。
+"""多厂商 LLM 配置。
 
 设计要点：
 
-1. **用 base_url + model 区分厂商**，不为每家写一个适配器；
-   Anthropic / Gemini 原生协议本期不做（非 OpenAI 兼容，需要独立适配器）。
+1. **OpenAI 兼容的那一批用 base_url + model 区分，不写适配器**；
+   Anthropic / Gemini 是原生协议，交给 LangChain 的官方适配包
+   （``llm/langchain_client.py``），对上层仍是同一个客户端契约。
 2. 一个用户可以保存**多套**配置（同一厂商也可多套，例如两把 Key），
    ``active_config_id`` 决定默认使用哪一套。
 3. API Key 加密落库（``SecretBox``），接口只返回掩码。
@@ -15,10 +16,8 @@
 from __future__ import annotations
 
 import ipaddress
-import json
-import re
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
@@ -37,29 +36,6 @@ class ProviderConfigError(ValueError):
     """配置非法（消息可直接展示）。"""
 
 
-#: 图里唯一会调用 LLM 的两个节点。给其他节点配模型不会有任何效果，
-#: 所以校验期就拒绝，避免"配了却静默不生效"。
-OVERRIDE_NODES: tuple[str, ...] = ("analyze", "listing")
-
-_MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
-
-
-def parse_task_overrides(raw: Any) -> dict[str, Any]:
-    """把库里的 TEXT/JSON 解析成对象；坏数据一律当空对象，不抛异常。
-
-    历史行可能是 ``"{}"``、空串或非 JSON 文本，列表/详情接口不该因此 500。
-    """
-    if isinstance(raw, dict):
-        return raw
-    if not raw or not isinstance(raw, str):
-        return {}
-    try:
-        value = json.loads(raw)
-    except ValueError:
-        return {}
-    return value if isinstance(value, dict) else {}
-
-
 # ---------------------------------------------------------------------------
 # 预置厂商
 # ---------------------------------------------------------------------------
@@ -74,6 +50,9 @@ class ProviderPreset:
     note: str
     #: 允许的 host 后缀；custom 为空表示由用户自填
     allowed_hosts: tuple[str, ...] = ()
+    #: **只是候选**，方便下拉里挑一个；真源是厂商的 ``GET /models``（见
+    #: ``ProviderConfigService.list_models``）。模型名各家常改，别把它当权威清单。
+    common_models: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -83,6 +62,7 @@ class ProviderPreset:
             "default_model": self.default_model,
             "note": self.note,
             "is_custom": self.key == "custom",
+            "common_models": list(self.common_models),
         }
 
 
@@ -91,45 +71,68 @@ PRESETS: tuple[ProviderPreset, ...] = (
         "deepseek", "DeepSeek", "https://api.deepseek.com", "deepseek-flash",
         "官方 API，OpenAI 兼容；按 token 计费，推荐主力生成。",
         ("api.deepseek.com",),
+        ("deepseek-flash", "deepseek-v4-pro"),
     ),
     ProviderPreset(
         "openai", "OpenAI", "https://api.openai.com/v1", "gpt-4o-mini",
         "官方 API；需要可用的付费额度。",
         ("api.openai.com",),
+        ("gpt-4o-mini", "gpt-4o"),
+    ),
+    ProviderPreset(
+        "anthropic", "Anthropic Claude", "https://api.anthropic.com", "claude-sonnet-5-5",
+        "Claude 原生协议；走 LangChain 适配包，不需要 OpenAI 兼容层。",
+        ("api.anthropic.com",),
+        ("claude-sonnet-5-5",),
+    ),
+    ProviderPreset(
+        "google", "Google Gemini", "https://generativelanguage.googleapis.com", "",
+        "Gemini 原生协议；模型名请先点「读取可用模型」获取。",
+        ("generativelanguage.googleapis.com",),
+        # Gemini 的模型名与版本更新频繁，不预设，一律现场读
+        (),
     ),
     ProviderPreset(
         "moonshot", "Moonshot / Kimi", "https://api.moonshot.cn/v1", "moonshot-v1-8k",
         "月之暗面 Kimi，OpenAI 兼容。",
         ("api.moonshot.cn",),
+        ("moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"),
     ),
     ProviderPreset(
         "zhipu", "智谱 GLM", "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash",
         "智谱 AI 开放平台，OpenAI 兼容。",
         ("open.bigmodel.cn",),
+        ("glm-4-flash", "glm-4-air", "glm-4-plus"),
     ),
     ProviderPreset(
         "dashscope", "阿里通义", "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "qwen-plus", "阿里云百炼兼容模式。",
         ("dashscope.aliyuncs.com",),
+        ("qwen-plus", "qwen-turbo", "qwen-max"),
     ),
     ProviderPreset(
         "siliconflow", "硅基流动", "https://api.siliconflow.cn/v1", "Qwen/Qwen2.5-7B-Instruct",
         "开源模型聚合，OpenAI 兼容。",
         ("api.siliconflow.cn",),
+        ("Qwen/Qwen2.5-7B-Instruct",),
     ),
     ProviderPreset(
         "openrouter", "OpenRouter", "https://openrouter.ai/api/v1",
         "openai/gpt-4o-mini", "多模型聚合网关。",
         ("openrouter.ai",),
+        ("openai/gpt-4o-mini",),
     ),
     ProviderPreset(
         "ollama", "本地 Ollama", "http://127.0.0.1:11434/v1", "llama3.1",
         "本地模型；仅部署在本机时可用，服务器端调用会失败。",
         ("127.0.0.1", "localhost"),
+        # 本地装了什么模型只有自己知道，不预设候选，一律现场读
+        (),
     ),
     ProviderPreset(
         "custom", "自定义（OpenAI 兼容）", "", "",
         "任意 OpenAI 兼容服务；请自行确认 base_url 与模型名。",
+        (),
         (),
     ),
 )
@@ -231,10 +234,6 @@ class ProviderConfigInput(BaseModel):
     api_key: str | None = Field(default=None, max_length=400)
     enabled: bool | None = None
     allow_custom_base_url: bool = False
-    #: 按步骤分配模型：``{"analyze": {"config_id"?: str, "model"?: str}, ...}``
-    #: 只有 ``analyze`` / ``listing`` 两个节点会调模型，其他键一律 400。
-    #: 传 ``None`` 表示"不修改"，传 ``{}`` 表示"清空"。
-    task_overrides: Any = None
     #: 更新已有配置时传入；新建时留空
     config_id: str | None = Field(default=None, max_length=64)
 
@@ -245,6 +244,36 @@ class ProviderConfigInput(BaseModel):
             return None
         text = value.strip()
         return text or None
+
+    @field_validator("provider")
+    @classmethod
+    def _known_provider(cls, value: str) -> str:
+        key = (value or "").strip().lower()
+        if key not in ALLOWED_PROVIDERS:
+            raise ValueError(
+                f"不支持的 provider：{key}；可选：{', '.join(ALLOWED_PROVIDERS)}"
+            )
+        return key
+
+
+class ProviderModelsInput(BaseModel):
+    """「选择模型」用：按厂商 + 地址 + Key 现场读取可用模型清单。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1, max_length=40)
+    base_url: str | None = Field(default=None, max_length=300)
+    #: 新建时填新 Key；编辑已有配置可留空，用库里已保存的那把
+    api_key: str | None = Field(default=None, max_length=400)
+    allow_custom_base_url: bool = False
+    config_id: str | None = Field(default=None, max_length=64)
+
+    @field_validator("provider", "base_url", "api_key")
+    @classmethod
+    def _clean(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
 
     @field_validator("provider")
     @classmethod
@@ -284,8 +313,8 @@ class ProviderConfigService:
             "providers": list(ALLOWED_PROVIDERS),
             "rule_provider": RULE_PROVIDER,
             "note": (
-                "本期只支持 OpenAI 兼容协议，用 base_url + model 区分厂商。"
-                "Anthropic / Gemini 原生协议未实现。"
+                "OpenAI 兼容的厂商用接口地址 + 模型名区分；"
+                "Anthropic / Google 走各自的官方协议，已由适配层接好。"
             ),
         }
 
@@ -323,8 +352,6 @@ class ProviderConfigService:
             "last_tested_at": row.get("last_tested_at"),
             "last_test_ok": None if row.get("last_test_ok") is None else bool(row["last_test_ok"]),
             "last_test_detail": row.get("last_test_detail") or "",
-            # 直接给对象，前端不必再 JSON.parse；坏数据回落 {}
-            "task_overrides": parse_task_overrides(row.get("task_overrides")),
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
         }
@@ -343,6 +370,66 @@ class ProviderConfigService:
             return self.secrets.decrypt(encrypted)
         except SecretError:
             return ""
+
+    # -- 选模型 -----------------------------------------------------------
+    def list_models(
+        self, user_id: str, payload: ProviderModelsInput
+    ) -> dict[str, Any]:
+        """现场读取该账号在这个接口下真正可用的模型名。
+
+        模型名各家常改，硬编码一份清单迟早会写错（早期就出现过填了不存在的
+        模型名）。OpenAI 兼容协议都有 ``GET /models``，直接问服务端最准。
+        """
+        from .providers import DeepSeekProvider  # 局部导入：providers 依赖本模块的预置表
+        from .llm import LLMError
+
+        provider_key = payload.provider
+        if provider_key == RULE_PROVIDER:
+            raise ProviderConfigError("规则引擎不调用模型，没有模型可选")
+
+        preset = PRESET_BY_KEY.get(provider_key)
+        existing = (
+            self.db.get_provider_config(user_id, payload.config_id)
+            if payload.config_id
+            else None
+        )
+        base_url = (
+            payload.base_url
+            or (existing or {}).get("base_url")
+            or (preset.base_url if preset else "")
+        )
+        resolved = validate_base_url(
+            provider_key, base_url, allow_custom=payload.allow_custom_base_url
+        )
+        api_key = payload.api_key or ""
+        if not api_key and existing is not None:
+            api_key = self.decrypt_key(existing)
+        if not api_key and provider_key != "ollama":
+            raise ProviderConfigError("先填入 API Key，才能读取这个账号可用的模型")
+
+        probe = DeepSeekProvider(
+            api_key=api_key or "local",
+            base_url=resolved,
+            model=(existing or {}).get("model") or (preset.default_model if preset else ""),
+            timeout=min(getattr(self.settings, "deepseek_timeout", 20.0) or 20.0, 20.0),
+            max_retries=0,
+            provider=provider_key,
+        )
+        try:
+            items = probe.list_models()
+        except LLMError as exc:
+            raise ProviderConfigError(_model_list_error(exc)) from exc
+
+        hint = ""
+        if not items:
+            hint = "这个接口没有返回模型清单，可以手动填写厂商文档里的模型名。"
+        return {
+            "provider": provider_key,
+            "base_url": resolved,
+            "items": items,
+            "count": len(items),
+            "hint": hint,
+        }
 
     # -- 写 ---------------------------------------------------------------
     def save(
@@ -395,7 +482,8 @@ class ProviderConfigService:
                     )
                 encrypted = self.secrets.encrypt(submitted)
 
-        if provider != RULE_PROVIDER and not encrypted:
+        # 本地 Ollama 跑在自己机器上，没有 API Key 这回事
+        if provider not in {RULE_PROVIDER, "ollama"} and not encrypted:
             raise ProviderConfigError("这套配置还没有 API Key，请填写后再保存")
 
         # 同一用户同一厂商下的 label 唯一：新建时若冲突则明确报错
@@ -405,12 +493,6 @@ class ProviderConfigService:
                 raise ProviderConfigError(
                     f"已存在同厂商同标签的配置（{provider} / {label}），请换一个标签"
                 )
-
-        # 按步骤分配模型：None = 不改；{} = 清空；其余走严格校验
-        override_text = (existing or {}).get("task_overrides") or "{}"
-        if payload.task_overrides is not None:
-            cleaned = self.validate_task_overrides(user_id, payload.task_overrides)
-            override_text = json.dumps(cleaned, ensure_ascii=False)
 
         record = {
             "config_id": (existing or {}).get("config_id") or uuid.uuid4().hex,
@@ -425,7 +507,8 @@ class ProviderConfigService:
             "last_tested_at": (existing or {}).get("last_tested_at"),
             "last_test_ok": (existing or {}).get("last_test_ok"),
             "last_test_detail": (existing or {}).get("last_test_detail"),
-            "task_overrides": override_text,
+            # 按步骤分配模型已下线；列保留兼容历史数据，不再修改
+            "task_overrides": (existing or {}).get("task_overrides") or "{}",
         }
         self.db.save_provider_config(record)
         active_id = self._active_config_id(user_id)
@@ -530,121 +613,32 @@ class ProviderConfigService:
     def active_config_id(self, user_id: str) -> str | None:
         return self._active_config_id(user_id)
 
-    # -- 按步骤分配模型 ----------------------------------------------------
-
-    def validate_task_overrides(
-        self, user_id: str, raw: Any
-    ) -> dict[str, dict[str, str]]:
-        """校验并规范化 ``task_overrides``；非法直接抛 ``ProviderConfigError``。
-
-        返回形如 ``{"listing": {"config_id": "...", "model": "..."}}`` 的干净对象，
-        可直接 ``json.dumps`` 落库。写入期严格，运行时才允许回落（见 ``resolve_node``）。
-        """
-        if raw is None:
-            return {}
-        if isinstance(raw, str):
-            text = raw.strip()
-            if not text:
-                return {}
-            try:
-                raw = json.loads(text)
-            except ValueError as exc:
-                raise ProviderConfigError("task_overrides 不是合法 JSON") from exc
-        if not isinstance(raw, dict):
-            raise ProviderConfigError("task_overrides 必须是对象")
-
-        cleaned: dict[str, dict[str, str]] = {}
-        for node, value in raw.items():
-            if node not in OVERRIDE_NODES:
-                raise ProviderConfigError(
-                    f"不支持为节点 {node} 指定模型；"
-                    f"只有 {', '.join(OVERRIDE_NODES)} 会调用模型"
-                )
-            if not isinstance(value, dict):
-                raise ProviderConfigError(f"{node} 的配置必须是对象")
-            unknown = set(value) - {"config_id", "model"}
-            if unknown:
-                raise ProviderConfigError(
-                    f"{node} 含未知字段：{', '.join(sorted(str(k) for k in unknown))}"
-                )
-
-            item: dict[str, str] = {}
-            config_id = str(value.get("config_id") or "").strip()
-            model = str(value.get("model") or "").strip()
-            if not config_id and not model:
-                raise ProviderConfigError(f"{node} 至少要指定 config_id 或 model")
-            if config_id:
-                row = self.db.get_provider_config(user_id, config_id)
-                if row is None:
-                    raise ProviderConfigError(
-                        f"{node} 指定的配置不存在或不属于当前账号"
-                    )
-                if not row.get("enabled"):
-                    raise ProviderConfigError(f"{node} 指定的配置已被禁用")
-                if row.get("provider") == RULE_PROVIDER:
-                    raise ProviderConfigError(
-                        f"{node} 不能指定规则引擎（rule）配置：它不调用模型"
-                    )
-                item["config_id"] = config_id
-            if model:
-                if not _MODEL_RE.match(model):
-                    raise ProviderConfigError(
-                        f"{node} 的模型名不合法（1–128 位字母数字与 . _ : / -）"
-                    )
-                item["model"] = model
-            cleaned[node] = item
-        return cleaned
-
-    def resolve_node(self, user_id: str, settings, node: str) -> tuple[Any, str]:
-        """按节点解析配置，返回 ``(EffectiveModelConfig | None, 说明)``。
-
-        优先级：配置级 ``task_overrides[node]`` > 激活配置。
-        override 指向的配置被删/禁用时**不报错**，回落激活配置并在说明里标注
-        （已排队的任务不该因为设置变更而失败）。
-        """
-        active_id = self._active_config_id(user_id)
-        active_row = (
-            self.db.get_provider_config(user_id, active_id) if active_id else None
-        )
-        overrides = parse_task_overrides((active_row or {}).get("task_overrides"))
-        spec = overrides.get(node) if isinstance(overrides, dict) else None
-
-        base = self.effective(user_id, settings)
-        if not isinstance(spec, dict):
-            return base, _config_label(base)
-
-        config = self.effective(
-            user_id,
-            settings,
-            config_id=spec.get("config_id") or None,
-            model=spec.get("model") or None,
-        )
-        if config is None:
-            return base, f"{_config_label(base)}（override 失效，已回落）"
-        return config, f"{_config_label(config)}（override）"
-
-
-def _config_label(config: Any) -> str:
-    """时间线里展示的「厂商/模型」。"""
-    if config is None:
-        return "默认配置"
-    model = getattr(config, "model", "") or ""
-    provider = getattr(config, "provider", "") or ""
-    return f"{provider}/{model}" if model else (provider or "默认配置")
+def _model_list_error(exc: Any) -> str:
+    """把读取模型清单的失败翻成能直接展示的中文。"""
+    kind = getattr(exc, "kind", "") or ""
+    if kind == "auth":
+        return "Key 无效或没有该接口的权限，没法读取模型清单。"
+    if kind == "rate_limit":
+        return "读取太频繁被限流了，稍等一会儿再试。"
+    if kind == "network":
+        return "连不上这个接口地址，检查一下地址和网络。"
+    if kind == "no_key":
+        return "先填入 API Key，才能读取这个账号可用的模型。"
+    detail = str(exc).strip()
+    return f"读取模型清单失败：{detail}" if detail else "读取模型清单失败。"
 
 
 __all__ = [
     "ALLOWED_PROVIDERS",
     "CLEAR_KEY_SENTINEL",
-    "OVERRIDE_NODES",
     "PRESETS",
     "PRESET_BY_KEY",
     "ProviderConfigError",
     "ProviderConfigInput",
     "ProviderConfigService",
+    "ProviderModelsInput",
     "ProviderPreset",
     "RULE_PROVIDER",
-    "parse_task_overrides",
     "provider_presets",
     "validate_base_url",
 ]

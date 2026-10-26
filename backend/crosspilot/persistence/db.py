@@ -525,6 +525,23 @@ class Database:
             row = connection.execute(query, params).fetchone()
         return json.loads(row["payload"]) if row else None
 
+    def _task_refs(self, refs: list[str]) -> dict[str, str]:
+        """产物 id → 产出它的任务 id。
+
+        报告/草稿本身不存 task_id，而任务侧有 ``result_ref`` 指过来。
+        一个产物可能被重试过多次，按创建时间正序覆盖即取最近那次。
+        """
+        if not refs:
+            return {}
+        marks = ", ".join("?" for _ in refs)
+        query = (
+            "SELECT result_ref, task_id FROM tasks "
+            f"WHERE result_ref IN ({marks}) ORDER BY created_at ASC"
+        )
+        with self.connect() as connection:
+            rows = connection.execute(query, list(refs)).fetchall()
+        return {row["result_ref"]: row["task_id"] for row in rows}
+
     def list_reports(
         self,
         limit: int = 50,
@@ -544,7 +561,11 @@ class Database:
         params.append(limit)
         with self.connect() as connection:
             rows = connection.execute(query, params).fetchall()
-        return [dict(row) for row in rows]
+        items = [dict(row) for row in rows]
+        task_ids = self._task_refs([item["report_id"] for item in items])
+        for item in items:
+            item["task_id"] = task_ids.get(item["report_id"])
+        return items
 
     def report_summary(self, report_id: str, tenant_id: str) -> dict[str, Any] | None:
         with self.connect() as connection:
@@ -769,6 +790,9 @@ class Database:
             item = dict(row)
             item["is_demo"] = bool(item.get("is_demo"))
             items.append(item)
+        task_ids = self._task_refs([item["listing_id"] for item in items])
+        for item in items:
+            item["task_id"] = task_ids.get(item["listing_id"])
         return items
 
     def get_listing_meta(

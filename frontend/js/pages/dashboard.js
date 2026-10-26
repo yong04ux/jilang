@@ -113,7 +113,7 @@
         `激浪不提供模型额度，竞品分析与 Listing 生成都用你自己的 Key。` +
         `Key 加密保存，只用于你的账号，随时可以删除。` +
         `<a href="/settings" data-link>去「设置 → 模型与密钥」</a> 配置后回到这里发起第一个任务。` +
-        `想先看效果？<a href="/competitors" data-link>用示例数据跑一次竞品分析</a>。</span></div>`
+        `想先看效果？<a href="/workbench" data-link>去 AI 助手用示例数据跑一次</a>。</span></div>`
       : "";
 
     const stats = data.stats || {};
@@ -141,20 +141,23 @@
         `</tr></thead><tbody>${tasks.map(taskRow).join("")}</tbody></table></div>`
       : `<div class="empty"><span class="empty-icon">${U.icon("tasks")}</span>` +
         `<p class="empty-title">还没有任务</p>` +
-        `<p class="empty-desc">在 AI 助手描述一个业务目标，或在竞品分析页手动填写参数。</p>` +
+        `<p class="empty-desc">在 AI 助手描述一个业务目标，Agent 会依次完成竞品分析、数据核对与 Listing 生成。</p>` +
         `<div class="empty-actions">` +
         `<a class="btn btn-primary btn-sm" href="/workbench" data-link>发起第一个任务</a>` +
-        `<a class="btn btn-sm" href="/competitors" data-link>手动分析竞品</a>` +
+        `<a class="btn btn-sm" href="/workbench" data-link>去 AI 助手描述目标</a>` +
         `</div></div>`;
 
+    /* 报告没有独立页面了，点进产出它的那条任务看结果 */
     const reportList = reports.length
       ? reports.map(function (r) {
+          const tag = r.task_id ? "a" : "div";
+          const link = r.task_id ? ` href="/tasks/${U.esc(r.task_id)}" data-link` : "";
           return (
-            `<a class="list-row" href="/competitors?report=${U.esc(r.report_id)}" data-link>` +
+            `<${tag} class="list-row"${link}>` +
             `<span class="grow"><span class="t-sm">${U.esc(r.product_name)}</span>` +
             `<span class="t-xs">${U.esc(window.CPLabel.platform(r.platform))} · ${U.esc(window.CPLabel.site(r.marketplace))}</span></span>` +
             (r.is_demo ? U.mockFlag() : "") +
-            `<span class="t-xs t-faint">${U.esc(U.fmtTime(r.created_at))}</span></a>`
+            `<span class="t-xs t-faint">${U.esc(U.fmtTime(r.created_at))}</span></${tag}>`
           );
         }).join("")
       : `<div class="empty" style="padding:var(--sp-5)"><span class="empty-icon">${U.icon("file")}</span>` +
@@ -163,17 +166,19 @@
 
     const listingList = listings.length
       ? listings.map(function (l) {
+          const tag = l.task_id ? "a" : "div";
+          const link = l.task_id ? ` href="/tasks/${U.esc(l.task_id)}" data-link` : "";
           return (
-            `<a class="list-row" href="/listings?listing=${U.esc(l.listing_id)}" data-link>` +
+            `<${tag} class="list-row"${link}>` +
             `<span class="grow"><span class="t-sm">${U.esc(l.product_name)}</span>` +
             `<span class="t-xs">${U.esc(window.CPLabel.site(l.marketplace))} · ${U.esc(window.CPLabel.language(l.language))}</span></span>` +
-            `<span class="t-xs t-faint">${U.esc(U.fmtTime(l.created_at))}</span></a>`
+            `<span class="t-xs t-faint">${U.esc(U.fmtTime(l.created_at))}</span></${tag}>`
           );
         }).join("")
       : `<div class="empty" style="padding:var(--sp-5)"><span class="empty-icon">${U.icon("listing")}</span>` +
         `<p class="empty-title">还没有 Listing 草稿</p>` +
         `<p class="empty-desc">基于已确认的商品事实生成，并自动做事实对齐质检。</p>` +
-        `<div class="empty-actions"><a class="btn btn-sm" href="/listings" data-link>去生成</a></div></div>`;
+        `<div class="empty-actions"><a class="btn btn-sm" href="/workbench" data-link>去生成</a></div></div>`;
 
     const sourceRows = sources.length
       ? sources.map(function (s) {

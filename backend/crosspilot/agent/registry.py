@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ..persistence.db import Database
+from ..skills import registry as skills_registry
 
 BUILTIN = ""
 
@@ -39,56 +40,9 @@ def _schema(properties: dict[str, str], required: list[str] | None = None) -> st
 # 定义数据（与代码里的真实能力一一对应）
 # ---------------------------------------------------------------------------
 
-SKILLS: list[dict[str, Any]] = [
-    {
-        "key": "data_validation",
-        "name": "数据校验与导入",
-        "summary": "解析 CSV/JSON/Excel，逐行校验字段并定位错误。",
-        "input": _schema({"file": "string", "format": "string"}, ["file"]),
-        "output": _schema({"rows": "integer", "valid": "integer", "errors": "array"}),
-        "status": "available",
-    },
-    {
-        "key": "competitor_analysis",
-        "name": "竞品分析",
-        "summary": "价格统计、卖点覆盖、评论主题与差异化机会，全部为确定性计算。",
-        "input": _schema({"product_name": "string", "competitors": "array"}, ["product_name", "competitors"]),
-        "output": _schema({"report": "object"}),
-        "status": "available",
-    },
-    {
-        "key": "review_mining",
-        "name": "评论痛点挖掘",
-        "summary": "从评论样本识别痛点、低星主题、需求与购买顾虑，附原文引用。",
-        "input": _schema({"reviews": "array"}),
-        "output": _schema({"pain_points": "array", "needs": "array"}),
-        "status": "available",
-    },
-    {
-        "key": "market_summary",
-        "name": "市场机会总结",
-        "summary": "把报告里的结构化结论归纳成机会判断，只引用已有证据，不推断销量。",
-        "input": _schema({"report": "object"}, ["report"]),
-        "output": _schema({"summary": "object"}),
-        "status": "available",
-    },
-    {
-        "key": "listing_generation",
-        "name": "Listing 生成",
-        "summary": "基于事实台账生成标题/五点/描述/Search Terms，并做事实对齐质检。",
-        "input": _schema({"product": "object", "report_id": "string"}, ["product"]),
-        "output": _schema({"listing": "object"}),
-        "status": "available",
-    },
-    {
-        "key": "keyword_layout",
-        "name": "关键词布局",
-        "summary": "无搜索量数据时只做词表整理与布局建议，不计算机会分。",
-        "input": _schema({"keywords": "array"}),
-        "output": _schema({"search_terms": "string"}),
-        "status": "dev",
-    },
-]
+# Skills 不再是这里手写的第二份清单：``skills.registry.SKILL_REGISTRY`` 是唯一真源，
+# 这里只把它摊平成写库需要的行。改一处即可，不会再出现「代码改了注册表没改」。
+SKILLS: list[dict[str, Any]] = skills_registry.seed_rows()
 
 TOOLS: list[dict[str, Any]] = [
     {
@@ -178,7 +132,7 @@ def seed_registry(db: Database) -> None:
                 "summary": skill["summary"],
                 "input_schema": skill["input"],
                 "output_schema": skill["output"],
-                "version": VERSION,
+                "version": skills_registry.VERSION,
                 "status": skill["status"],
                 "updated_at": now,
             }

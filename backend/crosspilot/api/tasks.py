@@ -63,6 +63,7 @@ async def get_task(
         "quality": output.get("quality"),
         "degraded": bool(output.get("degraded") or task.get("degraded")),
         "degraded_reason": output.get("degraded_reason") or "",
+        "engine": output.get("engine"),
         "report": None,
         "listing": None,
     }
@@ -74,6 +75,16 @@ async def get_task(
         result["listing"] = api.db.get_listing(
             output["listing_id"], user_id=user["user_id"], tenant_id=tenant.tenant_id
         )
+    if output.get("skill_key"):
+        # 技能运行：渲染方式与示例数据标记随产出一起回传，页面据此选渲染器并挂横幅。
+        # 大产出（报告 / 草稿）不进这里，完整数据仍从 result.report / result.listing 取。
+        result["skill"] = {
+            "skill_key": output.get("skill_key"),
+            "renderer": output.get("renderer") or "",
+            "is_demo": bool(output.get("is_demo")),
+            "result_ref": output.get("result_ref"),
+            "output": output.get("output"),
+        }
     return {
         "task": task,
         "steps": api.db.list_task_steps(task_id, user["user_id"], tenant.tenant_id),
@@ -160,7 +171,6 @@ async def retry_task_endpoint(
         }
 
     _active, _config, provider = api.build_user_provider(user)
-    step_providers = api.build_step_providers(user)
     conversation_id = task.get("conversation_id")
     degraded = bool(task.get("degraded"))
     title = f"重试：{task.get('title') or 'Agent 任务'}"[:120]
@@ -185,7 +195,6 @@ async def retry_task_endpoint(
                 provider=provider,
                 payload=payload,
                 resume_from=resume_from or None,
-                providers=step_providers,
             )
         except TaskCancelled:
             pass  # Runtime 已把任务落成 cancelled

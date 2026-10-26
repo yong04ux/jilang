@@ -218,3 +218,68 @@ def test_agent_run_failure_marks_task_failed(client, monkeypatch):
     assert failed
     detail = client.get(f"/api/tasks/{failed[0]['task_id']}", headers=headers).json()
     assert any(s["status"] == "failed" for s in detail["steps"])
+
+
+# ---------------------------------------------------------------------------
+# 只生成 Listing：不需要竞品数据
+# ---------------------------------------------------------------------------
+
+
+def test_listing_only_run_without_competitors(client):
+    """选好商品就能出文案：这条路径不跑竞品分析，竞品为空是合法的。
+
+    以前只要 competitors 为空就 422，用户想「给我的商品写个 Listing」
+    会被要求先填竞品，这是不合理的。
+    """
+    headers = register(client, "agent_listing_only")
+    resp = client.post(
+        "/api/agent/runs",
+        json={
+            "agent_key": "main",
+            "product_name": "EcoSip 保温杯",
+            "platform": "amazon",
+            "marketplace": "US",
+            "competitors": [],
+            "with_listing": True,
+            "listing_only": True,
+            "own_specs": {"容量": "750ml"},
+            "own_key_features": ["双层真空保温"],
+            "data_source": "manual",
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "succeeded"
+    # 计划里没有竞品分析与市场总结
+    assert body["plan"] == ["listing", "quality", "persist"]
+    assert body["report"] is None
+    assert body["listing"]["listing_id"]
+    assert body["listing"]["title"]
+
+
+def test_listing_only_still_requires_product(client):
+    """没有竞品可以，但没商品不行：要给出能照着做的提示，不是一句「缺少字段」。"""
+    headers = register(client, "agent_listing_only_none")
+    resp = client.post(
+        "/api/agent/runs",
+        json={"agent_key": "main", "competitors": [], "listing_only": True},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+    detail = resp.json()["detail"]
+    message = detail["message"] if isinstance(detail, dict) else str(detail)
+    # 前端在发请求前就会拦「还没选商品」，这里只保证不会漏出技术报错
+    assert message and "pydantic" not in message.lower() and "Traceback" not in message
+
+
+def test_normal_run_still_requires_competitors(client):
+    """反向保证：普通工作流没有竞品仍然要拦，不能被上一条放松。"""
+    headers = register(client, "agent_listing_none")
+    resp = client.post(
+        "/api/agent/runs",
+        json={"agent_key": "main", "product_name": "EcoSip", "competitors": []},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+    assert resp.json()["detail"]["missing"] == ["competitors"]

@@ -189,11 +189,12 @@ def resolve_goal(
 
     rule_spec = rule_resolve(goal)
     if client is None:
+        # ``fallback_reason`` 里是内部标识（provider=… / 已降级为 rule），只用于日志，
+        # 不能直接给用户看。这里写死一句人话。
         return GoalResolution(
             spec=rule_spec,
             degraded=True,
-            reason=fallback_reason
-            or "未配置可用模型，已用规则解析目标；商品名与参数请在参数面板确认",
+            reason="这一步要用模型读懂目标，但当前没有可用的模型，参数是按文字推测的，请核对后再执行。",
         )
 
     messages = [
@@ -212,17 +213,19 @@ def resolve_goal(
         )
         spec = GoalSpec(**data).normalized()
         return GoalResolution(spec=spec, degraded=False, reason="")
-    except (ValidationError, ValueError, TypeError) as exc:
+    except (ValidationError, ValueError, TypeError):
+        # 不把 pydantic 的校验原文（字段名、errors.pydantic.dev 链接）甩给用户，
+        # 那是开发期信息；对用户只需要知道他该做什么。
         return GoalResolution(
             spec=rule_spec,
             degraded=True,
-            reason=f"模型返回的目标不合规，已降级为规则解析：{exc}",
+            reason="没能从这句话里认出完整的目标，先按文本推测了参数，请核对后再执行。",
         )
-    except Exception as exc:  # noqa: BLE001 - 网络/限流等一律降级但必须留痕
+    except Exception:  # noqa: BLE001 - 网络/限流等一律降级但必须留痕
         return GoalResolution(
             spec=rule_spec,
             degraded=True,
-            reason=f"模型目标解析失败，已降级为规则解析：{type(exc).__name__}: {exc}",
+            reason="这一步要用模型读懂目标，但模型暂时没有响应，先按文本推测了参数，请核对后再执行。",
         )
 
 
@@ -235,11 +238,21 @@ def plan_for(with_listing: bool) -> list[str]:
     return plan
 
 
+def plan_for_listing_only() -> list[str]:
+    """只生成 Listing 的计划：不跑竞品分析与市场总结。
+
+    用户已经选好商品、只想出一份文案时走这条，不必为了走通用图
+    而凭空编竞品数据。
+    """
+    return ["listing", "quality", "persist"]
+
+
 __all__ = [
     "GoalResolution",
     "GoalSpec",
     "MARKETPLACE_LANGUAGE",
     "plan_for",
+    "plan_for_listing_only",
     "resolve_goal",
     "rule_resolve",
 ]

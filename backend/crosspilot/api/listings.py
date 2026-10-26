@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response
 
 from ..models import ListingGenerationRequest, ListingResponse
-from ..llm.providers import ProviderError, build_provider
+from ..llm.providers import ProviderError, build_provider, engine_label
 from ..services import listing_service
 from ..services.tasks import STATUS_QUEUED, STATUS_RUNNING, TaskRecorder
 from ..tenancy import ROLE_READ, ROLE_WRITE, TenantContext, require_role
@@ -103,13 +103,13 @@ async def generate(
     # Serverless 部署（force_sync_tasks）下走同步：实例在响应后被冻结，
     # 后台线程跑不完，任务会卡在 queued。
     if async_run and not api.settings.force_sync_tasks:
-        _active, config, provider = api.require_llm_provider(user)
+        _active, config, provider = api.resolve_llm_provider(user)
         recorder = _recorder(api, user, tenant, request, STATUS_QUEUED).open()
 
         def job() -> None:
             recorder.mark_running()
             report_payload = _read_report(api, user, tenant, recorder, request)
-            with recorder.step("生成文案", f"引擎 {config.provider}/{config.model}"):
+            with recorder.step("生成文案", engine_label(provider)["label"]):
                 listing = listing_service.generate(provider, request, report_payload)
             with recorder.step("质量检查", f"{len(listing.quality_check.issues)} 个问题"):
                 pass
@@ -143,6 +143,7 @@ async def generate(
             "status": STATUS_QUEUED,
             "plan": ["listing", "quality", "save_listing"],
             "async": True,
+            "engine": engine_label(provider),
         }
 
     # ---- 同步路径（脚本/测试） -----------------------------------------

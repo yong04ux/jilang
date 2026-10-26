@@ -19,13 +19,43 @@
     tenant: null,
     members: [],
     auditItems: [],
+    auditRows: "",      // 审计日志表格行，弹窗复用
     sources: [],
     activeOnly: false,
+    // 现场读取到的可用模型：{ providerKey: [model, ...] }
+    liveModels: {},
   };
+
+  /* 模型候选 = 现场读到的（优先） + 预置厂商的常用候选。
+   * 预置清单只是给个起步示例，权威来源是厂商的模型列表接口。 */
+  function modelCandidates(providerKey) {
+    const preset = ((state.providers && state.providers.presets) || [])
+      .find(function (p) { return p.key === providerKey; });
+    const live = state.liveModels[providerKey] || [];
+    const common = (preset && preset.common_models) || [];
+    const seen = {};
+    return live.concat(common).filter(function (name) {
+      if (!name || seen[name]) return false;
+      seen[name] = true;
+      return true;
+    });
+  }
+
+  function modelOptionsHtml(providerKey) {
+    return modelCandidates(providerKey).map(function (name) {
+      return `<option value="${U.esc(name)}"></option>`;
+    }).join("");
+  }
 
   function engineLabel(name) {
     if (!name) return "未配置";
     return name === "rule" ? "规则生成" : "AI 模型";
+  }
+
+  /* 顶栏那块「厂商 · 模型」状态由 shell 持有，保存/激活/测试/删除后必须让它重读，
+   * 否则顶栏一直停在切换前的那套配置上（测过了还显示上一个模型名、甚至「未验证」）。 */
+  function refreshShell() {
+    if (window.CPShell && window.CPShell.loadProvider) window.CPShell.loadProvider();
   }
 
   function canManage(tenant) {
@@ -110,7 +140,7 @@
     return (
       `<form id="prov-form" class="card card-pad" style="margin-top:var(--sp-4)">` +
       `<div class="row between"><div><div class="card-title">${editing.config_id ? "编辑配置" : "新增配置"}</div>` +
-      `<div class="card-sub">只支持 OpenAI 兼容接口；不同厂商用接口地址与模型名区分</div></div>` +
+      `<div class="card-sub">不同厂商用接口地址与模型名区分；Anthropic、Google 走各自官方协议，已自动适配</div></div>` +
       `<button type="button" class="btn-icon" id="prov-cancel" aria-label="取消">${U.icon("close")}</button></div>` +
 
       `<div class="grid-2 mt-4">` +
@@ -133,8 +163,15 @@
       `<input type="checkbox" name="allow_custom" ${customSelected ? "" : "disabled"} />` +
       `<span class="t-sm">我确认使用自定义接口地址（仅限 OpenAI 兼容服务，不能指向内网）</span></label>` +
 
-      `<label class="field mt-3"><span class="field-label">模型 <span class="t-danger">*</span></span>` +
-      `<input name="model" value="${U.esc(editing.model || "")}" placeholder="例如 deepseek-flash" /></label>` +
+      `<div class="field mt-3"><span class="field-label">模型 <span class="t-danger">*</span></span>` +
+      `<div class="row gap-2">` +
+      `<input name="model" class="grow" list="prov-model-options" autocomplete="off" ` +
+      `value="${U.esc(editing.model || "")}" placeholder="从列表里选，或直接填写模型名" />` +
+      `<button type="button" class="btn btn-sm" id="prov-fetch-models">读取可用模型</button>` +
+      `</div>` +
+      `<datalist id="prov-model-options">${modelOptionsHtml(editing.provider || "deepseek")}</datalist>` +
+      `<span class="field-help" id="prov-model-hint">列表是常用候选；点「读取可用模型」可以拉取你这个账号真正能用的模型名。</span>` +
+      `</div>` +
 
       `<p class="callout callout-danger mt-3" id="prov-error" hidden></p>` +
       `<div class="row gap-2 mt-4">` +
@@ -143,6 +180,9 @@
       `</div></form>`
     );
   }
+
+  /* 哪些厂商需要显示接口地址：预置厂商的地址是固定的，写出来只是噪音 */
+  const SHOW_BASE_URL = ["custom", "ollama"];
 
   function providerList() {
     const items = (state.providers && state.providers.items) || [];
@@ -164,10 +204,17 @@
         (c.last_test_ok === true ? `<span class="badge badge-ok">测试通过</span>`
           : c.last_test_ok === false ? `<span class="badge badge-danger">测试失败</span>` : "") +
         `</div>` +
-        `<div class="cfg-sub">${U.esc(c.model || "—")} · ${U.esc(c.base_url || "—")}<br>` +
-        `Key：${c.has_api_key ? U.esc(c.api_key_masked || "已保存") : "未保存"}` +
-        (c.last_tested_at ? ` · 测试于 ${U.esc(U.fmtTime(c.last_tested_at))}` : "") +
-        (c.last_test_detail ? `<br>${U.esc(c.last_test_detail)}` : "") +
+        // 副文本只留「用得上的」：模型名、Key 末四位、最近一次测试时间。
+        // 预置厂商的接口地址是固定的，重复显示只是噪音；只有自定义地址
+        // 和本地 Ollama 才需要看到实际地址。测试成功与否看上面的徽章，
+        // 不再把「模型 xxx 响应正常（tokens=210）」这种过程信息摊在这里。
+        `<div class="cfg-sub">${U.esc(c.model || "—")}` +
+        (SHOW_BASE_URL.indexOf(c.provider) >= 0 ? ` · ${U.esc(c.base_url || "—")}` : "") +
+        `<br>Key：${c.has_api_key ? U.esc(c.api_key_masked || "已保存") : "未保存"}` +
+        (c.last_tested_at ? ` · 最近测试 ${U.esc(U.fmtTime(c.last_tested_at))}` : "") +
+        (c.last_test_ok === false && c.last_test_detail
+          ? `<br><span class="t-danger">${U.esc(c.last_test_detail)}</span>`
+          : "") +
         `</div></div>` +
         `<div class="cfg-actions">` +
         `<button type="button" class="btn btn-sm" data-test="${U.esc(c.config_id)}">测试</button>` +
@@ -208,6 +255,8 @@
   /* ---------------- 页面 ---------------- */
   async function render(root, params, query) {
     state.editing = null;
+    state.liveModels = {};
+    closeAuditModal();
     root.innerHTML = `<div class="view"><div class="page"><div class="page-inner">` +
       `<div class="page-head"><div><h1 class="page-title">设置</h1>` +
       `<p class="page-desc">账号、模型密钥、团队成员与数据来源。</p></div>` +
@@ -254,7 +303,8 @@
       memberName[m.user_id] = m.display_name || m.username;
     });
 
-    const auditRows = state.auditItems.map(function (item) {
+    /* 行内容在这里渲染（要用到成员名映射），表格本身收在弹窗里 */
+    state.auditRows = state.auditItems.map(function (item) {
       return `<tr><td>${U.esc(auditLabel(item.action))}</td>` +
         `<td class="t-xs">${U.esc(memberName[item.actor_id] || "—")}</td>` +
         `<td class="t-xs t-muted">${U.esc(auditTarget(item))}</td>` +
@@ -302,7 +352,7 @@
       providerList() +
       (state.editing !== null ? providerForm() : "") +
       `<div class="callout callout-info mt-4">${U.icon("info")}` +
-      `<span>支持 OpenAI 兼容接口：DeepSeek、OpenAI、Moonshot、智谱、通义、硅基流动、OpenRouter、Ollama，也可以填自定义地址。</span></div>` +
+      `<span>支持 OpenAI 兼容接口：DeepSeek、OpenAI、Moonshot、智谱、通义、硅基流动、OpenRouter、Ollama，也可以填自定义地址；另有 Anthropic Claude 与 Google Gemini。</span></div>` +
       `</div></div>` +
 
       // ---- 数据源 ----
@@ -343,14 +393,11 @@
 
       // ---- 审计 ----
       (manage
-        ? `<div class="card" id="section-audit"><div class="card-head"><div>` +
-          `<div class="card-title">审计日志</div>` +
-          `<div class="card-sub">最近 20 条；记录写入后不可修改</div></div></div>` +
-          `<div class="card-body">` +
-          `<div class="table-wrap"><table class="table"><thead><tr>` +
-          `<th>动作</th><th>操作者</th><th>对象</th><th>时间</th></tr></thead><tbody>` +
-          (auditRows || '<tr><td colspan="4" class="t-muted">暂无记录</td></tr>') +
-          `</tbody></table></div></div></div>`
+        ? `<div class="card card-pad" id="section-audit"><div class="row between gap-2">` +
+          `<div><div class="card-title">审计日志</div>` +
+          `<div class="card-sub">记录谁在什么时候改了什么，写入后不可修改</div></div>` +
+          `<button type="button" class="btn btn-sm" id="btn-audit">查看</button>` +
+          `</div></div>`
         : "") +
 
       `</div></div></div></div>`;
@@ -359,16 +406,66 @@
     bind(root);
   }
 
+  /* ---------------- 审计日志弹窗 ----------------
+   * 表格一共 20 行、四列，摊在设置页上会把半个页面占满，日常又不需要常看，
+   * 所以默认收起，点「查看」再浮上来。 */
+  function openAuditModal() {
+    closeAuditModal();
+    const rows = state.auditRows || "";
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.id = "audit-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-labelledby", "audit-modal-title");
+    modal.innerHTML =
+      `<div class="modal-card is-wide">` +
+      `<div class="modal-head"><div>` +
+      `<div class="card-title" id="audit-modal-title">审计日志</div>` +
+      `<div class="card-sub">最近 20 条；记录写入后不可修改</div></div>` +
+      `<button type="button" class="btn-icon" data-audit-close aria-label="关闭">${U.icon("close")}</button>` +
+      `</div>` +
+      `<div class="modal-body"><div class="table-wrap">` +
+      `<table class="table"><thead><tr>` +
+      `<th>动作</th><th>操作者</th><th>对象</th><th>时间</th></tr></thead><tbody>` +
+      (rows || '<tr><td colspan="4" class="t-muted">暂无记录</td></tr>') +
+      `</tbody></table></div></div>` +
+      `<div class="modal-foot"><button type="button" class="btn btn-quiet" data-audit-close>关闭</button></div>` +
+      `</div>`;
+    document.body.appendChild(modal);
+    window.CPIcon.hydrate(modal);
+    modal.addEventListener("click", function (event) {
+      if (event.target === modal || event.target.closest("[data-audit-close]")) {
+        closeAuditModal();
+      }
+    });
+    document.addEventListener("keydown", onAuditKeydown);
+    const first = modal.querySelector("[data-audit-close]");
+    if (first) first.focus();
+  }
+
+  function closeAuditModal() {
+    const modal = document.getElementById("audit-modal");
+    if (modal) modal.remove();
+    document.removeEventListener("keydown", onAuditKeydown);
+  }
+
+  function onAuditKeydown(event) {
+    if (event.key === "Escape") closeAuditModal();
+  }
+
   function selectPreset(root, providerKey) {
     const preset = ((state.providers && state.providers.presets) || [])
       .find(function (p) { return p.key === providerKey; });
     const baseInput = root.querySelector('#prov-form [name="base_url"]');
     const modelInput = root.querySelector('#prov-form [name="model"]');
     const customRow = root.querySelector('#prov-custom-row input');
+    const modelList = root.querySelector("#prov-model-options");
     if (preset) {
       if (baseInput && !baseInput.value) baseInput.value = preset.base_url || "";
       if (modelInput && !modelInput.value) modelInput.value = preset.default_model || "";
     }
+    if (modelList) modelList.innerHTML = modelOptionsHtml(providerKey);
     const isCustom = providerKey === "custom";
     if (customRow) {
       customRow.disabled = !isCustom;
@@ -400,6 +497,46 @@
           if (modelInput) modelInput.value = "";
         }
         selectPreset(root, providerSelect.value);
+      });
+    }
+
+    // 读取该账号真正可用的模型清单：模型名各家常改，问服务端比抄文档可靠
+    const fetchModels = root.querySelector("#prov-fetch-models");
+    if (fetchModels) {
+      fetchModels.addEventListener("click", async function () {
+        const form = root.querySelector("#prov-form");
+        if (!form) return;
+        const providerKey = form.provider.value;
+        const hint = root.querySelector("#prov-model-hint");
+        const original = fetchModels.textContent;
+        fetchModels.disabled = true;
+        fetchModels.textContent = "读取中…";
+        try {
+          const data = await A.post("/api/settings/providers/models", {
+            provider: providerKey,
+            base_url: form.base_url.value.trim() || null,
+            api_key: form.api_key.value.trim() || null,
+            allow_custom_base_url: Boolean(form.allow_custom && form.allow_custom.checked),
+            config_id: (state.editing && state.editing.config_id) || null,
+          });
+          const items = (data && data.items) || [];
+          state.liveModels[providerKey] = items;
+          const list = root.querySelector("#prov-model-options");
+          if (list) list.innerHTML = modelOptionsHtml(providerKey);
+          if (items.length && !form.model.value) form.model.value = items[0];
+          if (hint) {
+            hint.textContent = items.length
+              ? `共 ${items.length} 个可用模型，点模型输入框即可下拉选择。`
+              : (data.hint || "这个接口没有返回模型清单，可以手动填写厂商文档里的模型名。");
+          }
+          U.toast(items.length ? `读到 ${items.length} 个可用模型` : "没有读到模型清单", items.length ? "ok" : "danger");
+        } catch (err) {
+          if (hint) hint.textContent = err.message;
+          U.toast(err.message, "danger");
+        } finally {
+          fetchModels.disabled = false;
+          fetchModels.textContent = original;
+        }
       });
     }
 
@@ -444,6 +581,7 @@
           state.providers = await A.get("/api/settings/providers");
           try { state.health = await A.get("/api/health"); } catch (err) { /* 忽略 */ }
           paint(root);
+          refreshShell();
         } catch (err) {
           state.busy = false;
           if (error) { error.hidden = false; error.textContent = err.message; }
@@ -461,6 +599,7 @@
           state.providers = await A.get("/api/settings/providers");
           try { state.health = await A.get("/api/health"); } catch (err) { /* 忽略 */ }
           paint(root);
+          refreshShell();
         } catch (err) {
           U.toast(err.message, "danger");
           btn.disabled = false;
@@ -477,7 +616,9 @@
           const result = await A.post(`/api/settings/providers/${encodeURIComponent(btn.getAttribute("data-test"))}/test`, {});
           U.toast(result.ok ? `连通正常（${result.elapsed_ms || 0} ms）` : `失败：${result.detail}`, result.ok ? "ok" : "danger");
           state.providers = await A.get("/api/settings/providers");
+          try { state.health = await A.get("/api/health"); } catch (err) { /* 忽略 */ }
           paint(root);
+          refreshShell();
         } catch (err) {
           U.toast(err.message, "danger");
           btn.disabled = false;
@@ -497,6 +638,7 @@
           state.providers = await A.get("/api/settings/providers");
           try { state.health = await A.get("/api/health"); } catch (err) { /* 忽略 */ }
           paint(root);
+          refreshShell();
         } catch (err) {
           U.toast(err.message, "danger");
           btn.disabled = false;
@@ -526,6 +668,9 @@
         if (modelInput) modelInput.value = item.model || "";
       });
     });
+
+    const auditBtn = root.querySelector("#btn-audit");
+    if (auditBtn) auditBtn.addEventListener("click", openAuditModal);
 
     const invite = root.querySelector("#btn-invite");
     if (invite) {

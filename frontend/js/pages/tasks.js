@@ -281,15 +281,8 @@
   function detailBody(task, steps, result) {
     const canCancel = ["queued", "running", "cancelling"].includes(task.status);
 
+    // 报告与草稿就在本页的结果区，不再往外跳
     const links = [];
-    if (task.type === "competitor_analysis" && task.result_ref) {
-      links.push(`<a class="btn btn-sm" href="/competitors?report=${U.esc(task.result_ref)}" data-link>` +
-        `${U.icon("external")}打开报告</a>`);
-    }
-    if (task.type === "listing_generation" && task.result_ref) {
-      links.push(`<a class="btn btn-sm" href="/listings?listing=${U.esc(task.result_ref)}" data-link>` +
-        `${U.icon("external")}打开草稿</a>`);
-    }
 
     // 失败原因直接展示服务端给的中文说明；不暴露错误码与追踪号
     const errorBlock = task.error_message
@@ -314,7 +307,9 @@
       U.statusBadge(task.status) + `</div>` +
       `<div class="t-xs t-muted mt-1">` +
       `${U.esc(typeLabel(task.type))} · ${U.esc(U.fmtTime(task.created_at))}` +
-      (task.degraded ? " · 本次未调用模型" : "") + `</div></div>` +
+      /* 如实标出这次是规则算的还是模型写的 */
+      (result && result.engine ? ` · ${U.esc(result.engine.label)}` : "") +
+      `</div></div>` +
       `<div class="row gap-2">${links.join("")}` +
       (canCancel ? `<button type="button" class="btn btn-sm" id="task-cancel">取消任务</button>` : "") +
       `</div></div>` +

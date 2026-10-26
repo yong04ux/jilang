@@ -27,7 +27,7 @@ if not INDEX.is_file():
 html = INDEX.read_text(encoding="utf-8")
 
 # 1) 资源引用必须存在
-refs = re.findall(r'(?:href|src)="(/[^"]+\.(?:css|js))"', html)
+refs = re.findall(r'(?:href|src)="(/[^"?]+\.(?:css|js))(?:\?[^"]*)?"', html)
 missing = [r for r in refs if not (WEB / r.lstrip("/")).is_file()]
 print(f"index.html 引用资源: {len(refs)} 个, 缺失: {missing or 'none'}")
 if missing:
@@ -54,11 +54,12 @@ for module, marker in (
     ("js/pages/workbench.js", "CPPageWorkbench"),
     ("js/pages/dashboard.js", "CPPageDashboard"),
     ("js/pages/tasks.js", "CPPageTasks"),
-    ("js/pages/competitors.js", "CPPageCompetitors"),
-    ("js/pages/listings.js", "CPPageListings"),
+    ("js/pages/stores.js", "CPPageStores"),
+    ("js/pages/skills.js", "CPPageSkills"),
     ("js/pages/data.js", "CPPageData"),
     ("js/pages/settings.js", "CPPageSettings"),
     ("js/pages/misc.js", "CPPages"),
+    ("js/schema-form.js", "CPSchemaForm"),
     ("js/async-run.js", "CPAsyncRun"),
 ):
     path = WEB / module

@@ -30,7 +30,11 @@ from pydantic import (
 
 
 class Platform(str, Enum):
-    """支持的目标平台。ML = Mercado Libre，为后续扩展预留。"""
+    """商品销售的平台。
+
+    这段 docstring 会随 ``model_json_schema()`` 直接出现在对外接口文档和表单提示里，
+    所以只写用户能看懂的语义，不写排期与实现说明。
+    """
 
     AMAZON = "amazon"
     EBAY = "ebay"
@@ -199,25 +203,42 @@ class KeywordMetric(BaseModel):
 
 
 class OwnProduct(BaseModel):
-    """自有商品资料。``specifications`` 与 ``certifications`` 缺失即视为待确认。"""
+    """自有商品资料。``specifications`` 与 ``certifications`` 缺失即视为待确认。
+
+    这里的 ``title`` 不只是文档：技能的输入契约直接复用这个模型，
+    ``title`` 会印在技能页的表单标签上。所以每个字段都必须有中文名，
+    否则界面上就会出现 ``Brand`` / ``Key Features`` 这种英文字段名。
+    """
 
     model_config = ConfigDict(extra="ignore")
 
-    name: str
-    brand: str | None = None
-    category: str | None = None
-    specifications: dict[str, str] = Field(default_factory=dict)
-    key_features: list[str] = Field(default_factory=list)
-    materials: list[str] = Field(default_factory=list)
-    certifications: list[str] = Field(default_factory=list)
-    target_platform: Platform = Platform.AMAZON
-    marketplace: str = Field(default="US", description="站点，例如 US / DE / JP")
-    price: float | None = Field(default=None, ge=0)
-    currency: str = "USD"
-    target_audience: str | None = None
-    brand_voice: str | None = None
-    banned_terms: list[str] = Field(default_factory=list)
-    differentiators: list[str] = Field(default_factory=list)
+    name: str = Field(title="商品名称")
+    brand: str | None = Field(default=None, title="品牌")
+    category: str | None = Field(default=None, title="类目")
+    specifications: dict[str, str] = Field(
+        default_factory=dict, title="规格参数", json_schema_extra={"x-ui": "kv-lines"}
+    )
+    key_features: list[str] = Field(
+        default_factory=list, title="核心卖点", json_schema_extra={"x-ui": "lines"}
+    )
+    materials: list[str] = Field(
+        default_factory=list, title="材质", json_schema_extra={"x-ui": "lines"}
+    )
+    certifications: list[str] = Field(
+        default_factory=list, title="认证资质", json_schema_extra={"x-ui": "lines"}
+    )
+    target_platform: Platform = Field(default=Platform.AMAZON, title="目标平台")
+    marketplace: str = Field(default="US", title="站点", description="站点，例如 US / DE / JP")
+    price: float | None = Field(default=None, ge=0, title="售价")
+    currency: str = Field(default="USD", title="币种")
+    target_audience: str | None = Field(default=None, title="目标人群")
+    brand_voice: str | None = Field(default=None, title="品牌语气")
+    banned_terms: list[str] = Field(
+        default_factory=list, title="禁用词", json_schema_extra={"x-ui": "lines"}
+    )
+    differentiators: list[str] = Field(
+        default_factory=list, title="差异化点", json_schema_extra={"x-ui": "lines"}
+    )
 
     @field_validator("name")
     @classmethod

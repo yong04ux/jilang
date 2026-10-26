@@ -43,6 +43,9 @@ class AgentRunRequest(BaseModel):
     )
     keywords: list[KeywordMetric] = Field(default_factory=list)
     with_listing: bool = True
+    #: 只生成 Listing：跳过竞品分析与市场总结，直接用商品事实写文案。
+    #: 置 true 时 ``competitors`` 可以为空——这条路径不需要竞品数据。
+    listing_only: bool = False
     listing_language: str = "en-US"
     data_source: str = "manual"
     conversation_id: str | None = Field(default=None, description="关联会话；为空则自动新建")
@@ -81,6 +84,8 @@ class AgentRunResponse(BaseModel):
     checks: dict[str, Any] | None = None
     quality: dict[str, Any] | None = None
     conversation_id: str | None = None
+    #: 本次执行用的是大模型还是规则引擎（界面必须如实标出来）
+    engine: dict[str, Any] | None = None
     degraded: bool = False
     degraded_reason: str = ""
 

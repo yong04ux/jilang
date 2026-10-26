@@ -445,7 +445,8 @@
   height: var(--h-sm);
   padding: 0 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  /* 不用胶囊形（design.md §5）：对标 LinkFox 的筛选标签，6px 圆角 */
+  border-radius: var(--radius-sm);
   background: var(--card);
   color: var(--ink-soft);
   font-size: var(--fs-xs);
@@ -684,6 +685,9 @@
   background: var(--card);
   box-shadow: var(--shadow-lg);
 }
+
+/* 表格类内容（如审计日志）需要更宽的卡片 */
+.modal-card.is-wide { max-width: 780px; }
 
 .modal-head {
   display: flex;

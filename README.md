@@ -55,7 +55,7 @@
 | **多厂商 LLM** | 只做 OpenAI 兼容协议，9 个预置（DeepSeek / OpenAI / Moonshot / 智谱 / 通义 / 硅基流动 / OpenRouter / Ollama / 自定义）；多套配置、单一激活、连通性测试、`base_url` 白名单 |
 | **数据导入** | CSV / JSON / Excel 逐行校验，列识别 + 字段映射 + 预览，错误可定位到单元格并可下载 CSV |
 | **Agent 工作流** | 目标解析（LLM）→ 确定性计划 → LangGraph 7 节点执行 → 完整性检查 → 市场机会总结 → Listing → 质检 → 落库 |
-| **注册表与自定义** | 平台内置 3 Agent / 6 Skill / 4 Tool；租户可增改停用自己的 Agent / Skill（`admin+`，软删为 `disabled`，**不能覆盖平台内置**；自定义定义为元数据，运行仍走固定工作流图） |
+| **注册表与自定义** | 平台内置 3 Agent / 7 Skill / 4 Tool；技能定义集中在 `crosspilot/skills/registry.py`，接口、执行、对话调度共用同一份；租户可增改停用自己的 Agent / Skill（`admin+`，软删为 `disabled`，**不能覆盖平台内置**；自定义定义为元数据，运行仍走固定工作流图） |
 | **市场数据 Provider** | `MockMarketplaceProvider`（确定性种子，全 `is_mock`）与 `LiveMarketplaceProvider` 骨架；商品/订单/广告/指标四类只读接口 |
 | **多租户与角色** | 个人空间自动创建、`X-Tenant-Id` 校验成员关系、viewer / editor / admin / owner |
 | **任务与执行** | 任务状态机、真实步骤与耗时、线程执行器（默认）与 arq 执行器（可选）、检查点取消、失败可追踪 |
@@ -249,8 +249,8 @@ python -m crosspilot cleanup-guests
 
 ### 对外演示上线
 
-要让别人**在线操作**（临时账号 + 自己的 Key + 模拟数据跑一遍），按
-`docs/13-demo-site-checklist.md` 执行。三个最容易漏的点：
+要让别人**在线操作**（临时账号 + 自己的 Key + 模拟数据跑一遍），看
+`docs/14-supabase-vercel-from-scratch.md`。三个最容易漏的点：
 
 1. **必须固定 `CROSSPILOT_SECRET_KEY`** —— 不设就落盘生成，免费实例重启丢文件后，
    访客已保存的 Key 全部解不开；
@@ -379,6 +379,7 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 | GET | `/api/agent/resolve` | 自然语言目标 → 结构化参数（需 Key） |
 | POST | `/api/agent/runs` | 运行 Agent（支持 `async_run`，需 Key） |
 | GET | `/api/agents` / `/api/skills` / `/api/tools` | 注册表（平台内置 + 本租户自定义） |
+| POST | `/api/skills/{key}/run` | **统一技能执行入口**：参数校验 → 依赖检查 → 执行 → 落库；同步返回产出，`?async_run=true` 转任务（正文返回 `task_id`，产出另存为结果引用） |
 | POST/PUT/DELETE | `/api/agents[...]`、`/api/skills[...]` | 租户自定义 Agent / Skill（`admin+`；软删为 `disabled`；不能改平台内置） |
 | GET | `/api/tasks`、`/api/tasks/{id}`、`POST /api/tasks/{id}/cancel`、`POST /api/tasks/{id}/retry` | 任务中心（重试仅限失败/取消的 Agent 工作流任务，默认断点续跑、`?resume=false` 整任务重跑；新建任务带 `retry_of` 血缘） |
 | GET | `/api/conversations` 及其子路由 | 会话与消息 |
@@ -509,7 +510,7 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 
 ## 13. 设计文档
 
-`docs/` 只保留**仍然有效**的四份文档，历史阶段的计划/审计/阶段记录已归档清理
+`docs/` 只保留**仍然有效**的一份文档，历史阶段的计划/审计/阶段记录已归档清理
 （本地备份在 `.workbuddy/backup/`，不入库）。完整索引见 `docs/README.md`。
 
 产品需求文档单独放在仓库根目录 [`PRD.md`](PRD.md)（**入版本库**，不随 `docs/` 一起被忽略）。
@@ -517,10 +518,8 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 | 文档 | 内容 |
 |---|---|
 | `PRD.md` | **产品需求文档 v3**：对标 LinkFox、Skill 协议层、意图路由、专家模板、功能清单与验收脚本 |
-| `docs/11-backlog.md` | 待办与已知限制清单 |
-| `docs/12-task-overrides.md` | 按步骤分配模型的配置说明 |
-| `docs/13-demo-site-checklist.md` | 演示站上线前的验收清单 |
-| `docs/14-supabase-vercel-from-scratch.md` | 零账号起步的云端部署手册（Supabase + 应用平台） |
+| `frontend/design.md` | **视觉规范唯一来源**（v2.0，shadcn/ui Nova）：Token、组件、动效、页面级细则（§13 店铺助手、§14 技能广场、§15 AI 助手首页） |
+| `docs/14-supabase-vercel-from-scratch.md` | 零账号起步的云端部署手册：重建 Supabase 库/迁移/存储桶 + 应用平台部署 |
 
 > `docs/` 在 `.gitignore` 中，不随仓库分发。阅读时以本机文件为准。
 

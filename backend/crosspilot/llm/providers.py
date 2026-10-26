@@ -14,7 +14,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from ..engine.analysis import run_analysis
 from ..engine.listing_llm import generate_listing
-from .llm import DeepSeekClient, LLMError, normalize_model
+from .llm import DEFAULT_MODEL, LLMError, create_chat_client, normalize_model
+from .provider_configs import PRESET_BY_KEY
 from ..models import AnalysisReport, CompetitorAnalysisRequest, ListingDraft, ListingGenerationRequest
 from ..engine.rules import RuleSet, get_rules
 
@@ -65,6 +66,20 @@ class ListingProvider(Protocol):
         request: ListingGenerationRequest,
         analysis_report: dict[str, Any] | None = None,
     ) -> ListingDraft: ...
+
+
+def engine_label(provider: Any) -> dict[str, Any]:
+    """本次执行到底用的是什么：大模型，还是规则引擎。
+
+    界面必须如实标出来——降级可以，但不能让人以为文案是模型写的。
+    """
+    name = str(getattr(provider, "name", "rule") or "rule")
+    model = str(getattr(provider, "model", "") or "")
+    if name == "rule" or type(provider) is RuleProvider:
+        return {"kind": "rule", "label": "规则引擎", "provider": "rule", "model": ""}
+    vendor = _provider_label(name)
+    label = f"大模型 · {vendor} {model}".strip()
+    return {"kind": "llm", "label": label, "provider": name, "model": model}
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +134,11 @@ class RuleProvider:
 
 
 class DeepSeekProvider(RuleProvider):
-    """DeepSeek 官方 API：LLM 生成 + 事实对齐质检。
+    """OpenAI 兼容接口的主力实现：LLM 生成 + 事实对齐质检。
+
+    预置的每一家（DeepSeek / OpenAI / Moonshot / 智谱 / 通义 / 硅基流动 /
+    OpenRouter / Ollama）以及「自定义」都走这里，差别只有 base_url 与 model。
+    类名沿用 DeepSeekProvider 是历史原因，别再往里加厂商专属逻辑。
 
     竞品分析仍走本地统计（统计必须可复现），LLM 只用于把统计结论组织成
     可读建议——这样"数字"永远来自计算而不是模型。
@@ -132,7 +151,7 @@ class DeepSeekProvider(RuleProvider):
         *,
         api_key: str,
         base_url: str = "https://api.deepseek.com",
-        model: str = "deepseek-flash",
+        model: str = DEFAULT_MODEL,
         timeout: float = 90.0,
         max_retries: int = 2,
         temperature: float = 0.5,
@@ -140,6 +159,7 @@ class DeepSeekProvider(RuleProvider):
         reasoning_effort: str = "",
         ruleset: RuleSet | None = None,
         engine_version: str = "0.2.0",
+        provider: str = "deepseek",
     ):
         super().__init__(ruleset=ruleset, engine_version=engine_version)
         self._api_key = api_key
@@ -150,9 +170,12 @@ class DeepSeekProvider(RuleProvider):
         self.temperature = temperature
         self.thinking = thinking
         self.reasoning_effort = reasoning_effort
+        # 展示用的厂商名：配的是通义，界面上就不能写「DeepSeek 官方接口」
+        self.name = provider or "deepseek"
 
     def info(self) -> ProviderInfo:
-        if not self._api_key:
+        label = _provider_label(self.name)
+        if not self._api_key and self.name != "ollama":
             return ProviderInfo(
                 name=self.name,
                 available=False,
@@ -164,19 +187,24 @@ class DeepSeekProvider(RuleProvider):
         return ProviderInfo(
             name=self.name,
             available=True,
-            detail=f"DeepSeek 官方接口，当前模型 {self.model}",
+            detail=f"{label}，当前模型 {self.model}" if label else f"当前模型 {self.model}",
             verified=False,  # 只有真正调用成功才算验证
             model=self.model,
             base_url=self.base_url,
         )
 
-    def _client(self) -> DeepSeekClient:
-        return DeepSeekClient(
-            api_key=self._api_key,
+    def _client(self) -> Any:
+        """按厂商拿客户端：OpenAI 兼容 / Anthropic / Gemini 对外契约一致。"""
+        return self._make_client(timeout=self.timeout, max_retries=self.max_retries)
+
+    def _make_client(self, *, timeout: float, max_retries: int) -> Any:
+        return create_chat_client(
+            self.name,
+            api_key=self._api_key or ("local" if self.name == "ollama" else ""),
             base_url=self.base_url,
             model=self.model,
-            timeout=self.timeout,
-            max_retries=self.max_retries,
+            timeout=timeout,
+            max_retries=max_retries,
             temperature=self.temperature,
             thinking=self.thinking,
             reasoning_effort=self.reasoning_effort or None,
@@ -208,13 +236,7 @@ class DeepSeekProvider(RuleProvider):
         失败时**抛异常**而不是返回 ``(False, "...")``：文案（中文提示 vs 厂商原文）
         属于 API 层的事，provider 层只负责把错误如实抛出来。
         """
-        client = DeepSeekClient(
-            api_key=self._api_key,
-            base_url=self.base_url,
-            model=self.model,
-            timeout=min(self.timeout, 20.0),
-            max_retries=0,
-        )
+        client = self._make_client(timeout=min(self.timeout, 20.0), max_retries=0)
         result = client.chat(
             [{"role": "user", "content": "reply with the single word: ok"}],
             max_tokens=8,
@@ -222,9 +244,24 @@ class DeepSeekProvider(RuleProvider):
         )
         return True, f"模型 {result.model} 响应正常（tokens={result.usage.total_tokens}）"
 
+    def list_models(self) -> list[str]:
+        """问厂商要可用模型清单：OpenAI 兼容走 ``GET /models``，
+        Anthropic / Gemini 走各自的模型接口，都交给客户端统一处理。"""
+        # Ollama 之类不校验 Key，SDK 却不接受空 key，占位值已在 _make_client 里兜住
+        client = self._make_client(timeout=min(self.timeout, 20.0), max_retries=0)
+        return client.list_models()
+
 
 # 兼容旧名
 OpenAIProvider = DeepSeekProvider
+
+
+def _provider_label(kind: str) -> str:
+    """厂商展示名。预置表是唯一来源，别在这里另写一份。"""
+    preset = PRESET_BY_KEY.get(kind)
+    if preset is not None:
+        return preset.label
+    return "OpenAI 兼容接口" if kind in {"deepseek", "openai"} else kind
 
 
 # ---------------------------------------------------------------------------
@@ -236,7 +273,7 @@ def _resolve_deepseek_settings(settings) -> tuple[str, str, str]:
     """兼容新旧变量名，返回 (api_key, base_url, model)。"""
     api_key = settings.deepseek_api_key or settings.openai_api_key
     base_url = settings.deepseek_base_url or settings.openai_base_url
-    model = settings.deepseek_model or settings.openai_model or "deepseek-flash"
+    model = settings.deepseek_model or settings.openai_model or DEFAULT_MODEL
     return api_key, base_url, model
 
 
@@ -271,29 +308,45 @@ def build_provider(settings, config=None) -> RuleProvider:
     if kind == "rule":
         return RuleProvider(engine_version=settings.engine_version)
 
-    if kind in {"deepseek", "openai"}:
-        # 用户配了 openai 兼容服务但没填模型时，给一个保守默认，避免直接 400
-        model = model or "deepseek-flash"
-        provider = DeepSeekProvider(
-            api_key=api_key,
-            base_url=base_url or "https://api.deepseek.com",
-            model=model,
-            timeout=timeout,
-            max_retries=max_retries,
-            temperature=temperature,
-            thinking=thinking,
-            reasoning_effort=reasoning_effort,
-            engine_version=settings.engine_version,
+    # 设置页能选的每一家都必须在册：只认 deepseek/openai 会让「通义」「Kimi」
+    # 这类配置测试能过、一生成就 500（历史上真出过这事）
+    preset = PRESET_BY_KEY.get(kind)
+    if kind not in {"deepseek", "openai"} and preset is None:
+        raise ProviderError(
+            "不支持的模型厂商：%s。可选：%s / rule"
+            % (kind, " / ".join(PRESET_BY_KEY))
         )
-        if not api_key:
-            fallback = RuleProvider(engine_version=settings.engine_version)
-            fallback.fallback_reason = (
-                f"provider={kind} 但未配置 API Key，已降级为 rule"
-            )
-            return fallback
-        return provider
 
-    raise ProviderError(f"未知的 provider={kind!r}，可选：deepseek / rule / openai")
+    # 自定义与本地模型没有官方默认地址，必须自己填
+    if kind in {"custom", "ollama"} and not base_url:
+        raise ProviderError(
+            "这套配置缺少接口地址：%s 需要填写 base_url"
+            % (_provider_label(kind) or kind)
+        )
+
+    model = model or (preset.default_model if preset else "") or DEFAULT_MODEL
+    base_url = base_url or (preset.base_url if preset else "") or "https://api.deepseek.com"
+
+    provider = DeepSeekProvider(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        timeout=timeout,
+        max_retries=max_retries,
+        temperature=temperature,
+        thinking=thinking,
+        reasoning_effort=reasoning_effort,
+        engine_version=settings.engine_version,
+        provider=kind,
+    )
+    # 本地 Ollama 没有 API Key 这回事，其余厂商没 Key 就降级，不静默假装能用
+    if not api_key and kind != "ollama":
+        fallback = RuleProvider(engine_version=settings.engine_version)
+        fallback.fallback_reason = (
+            f"provider={kind} 但未配置 API Key，已降级为 rule"
+        )
+        return fallback
+    return provider
 
 
 def provider_status(settings, config=None) -> dict[str, Any]:
@@ -317,5 +370,6 @@ __all__ = [
     "ProviderInfo",
     "RuleProvider",
     "build_provider",
+    "engine_label",
     "provider_status",
 ]

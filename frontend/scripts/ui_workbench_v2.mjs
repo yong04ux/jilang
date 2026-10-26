@@ -67,7 +67,12 @@ async function main() {
 
   await send('Page.enable'); await send('Runtime.enable')
   await goto('/dashboard')
-  await ev(`fetch('/api/auth/demo', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:'{}'}).then(r=>r.status)`)
+  /* 「一键体验」按 IP 限流 5 次/小时，撞上了就注册个临时账号兜底 */
+  const demoStatus = await ev(`fetch('/api/auth/demo', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:'{}'}).then(r=>r.status)`)
+  if (demoStatus !== 200) {
+    const uname = 'probe' + Date.now()
+    await ev(`fetch('/api/auth/register', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:${JSON.stringify(uname)}, password:'Probe!23456', display_name:'验收探针'})}).then(r=>r.status)`)
+  }
   await goto('/workbench')
   await waitFor('!!document.querySelector(".wb-hero-title")', 10000)
 
@@ -84,7 +89,7 @@ async function main() {
   const runMode = await waitFor('!!document.getElementById("wb-run")', 15000)
   check('进入左对话 + 右结果两栏', runMode)
   check('有右侧结果面板', await ev('!!document.getElementById("wb-res-pane")'))
-  check('结果 Tab 三个', (await ev('document.querySelectorAll("[data-res-tab]").length')) === 3)
+  check('结果 Tab 两个（步骤 / 数据）', (await ev('document.querySelectorAll("[data-res-tab]").length')) === 2)
 
   const done = await waitFor('!document.querySelector(".badge-running") && !!document.getElementById("wb-run")', 40000)
   check('执行完成', done)
@@ -96,12 +101,7 @@ async function main() {
   check('数据 Tab 渲染结果块', (await ev('document.querySelectorAll(".result-block").length')) >= 2)
   await shot('workbench-run-data')
 
-  // 切到「原始」Tab
-  await ev('document.querySelector(\'[data-res-tab="raw"]\').click()')
-  await sleep(400)
-  check('原始 Tab 显示 JSON', await ev('!!document.querySelector(".raw-pre")'))
-  await shot('workbench-run-raw')
-
+  // 切回「步骤」Tab
   await ev('document.querySelector(\'[data-res-tab="steps"]\').click()')
   await sleep(400)
   await shot('workbench-run-steps')

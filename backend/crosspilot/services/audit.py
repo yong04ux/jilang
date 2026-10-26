@@ -39,6 +39,7 @@ ACTION_AGENT_DISABLE = "agent.disable"
 ACTION_SKILL_CREATE = "skill.create"
 ACTION_SKILL_UPDATE = "skill.update"
 ACTION_SKILL_DISABLE = "skill.disable"
+ACTION_SKILL_RUN = "skill.run"
 ACTION_CONVERSATION_ARCHIVE = "conversation.archive"
 ACTION_APPROVAL_REQUEST = "approval.request"
 ACTION_APPROVAL_DECIDE = "approval.decide"
@@ -133,6 +134,7 @@ __all__ = [
     "ACTION_PASSWORD_CHANGE",
     "ACTION_REGISTER",
     "ACTION_REPORT_EXPORT",
+    "ACTION_SKILL_RUN",
     "ACTION_STORE_CREATE",
     "ACTION_STORE_CREDENTIAL",
     "ACTION_STORE_DISCONNECT",

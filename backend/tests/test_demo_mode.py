@@ -32,11 +32,11 @@ def byok_client(client, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# BYOK：没有 Key 必须 428，且不能静默降级
+# 没有 Key 也能跑完，但必须如实标出「这次是规则引擎」
 # ---------------------------------------------------------------------------
 
 
-def test_agent_run_without_key_returns_428(byok_client):
+def test_agent_run_without_key_runs_on_rules_and_says_so(byok_client):
     from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     headers = register(byok_client, "byok_agent")
@@ -54,22 +54,24 @@ def test_agent_run_without_key_returns_428(byok_client):
         },
         headers=headers,
     )
-    assert resp.status_code == 428, resp.text
-    detail = resp.json()["detail"]
-    assert detail["code"] == "api_key_required"
-    assert detail["action"] == "open_settings"
-    assert "API Key" in detail["message"]
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    # 没有 Key 不再拦：用规则引擎跑，但引擎必须如实回报
+    assert body["engine"]["kind"] == "rule"
+    assert body["engine"]["label"] == "规则引擎"
+    assert body["degraded"] is True
+    assert "大模型" in body["degraded_reason"]
 
 
-def test_listing_async_without_key_returns_428(byok_client):
+def test_listing_async_without_key_runs_on_rules_and_says_so(byok_client):
     headers = register(byok_client, "byok_listing")
     resp = byok_client.post(
         "/api/listings/generate?async_run=true",
         json=DEMO_LISTING_REQUEST,
         headers=headers,
     )
-    assert resp.status_code == 428, resp.text
-    assert resp.json()["detail"]["code"] == "api_key_required"
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["engine"]["kind"] == "rule"
 
 
 def test_analyze_still_works_without_key(byok_client):

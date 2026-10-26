@@ -4,7 +4,7 @@
 ================
 
 原来 88 个端点是 ``create_app()`` 里的嵌套函数，共享 15 个闭包变量
-（``db`` / ``require_user`` / ``audit_user`` / ``require_llm_provider``…）。
+（``db`` / ``require_user`` / ``audit_user`` / ``resolve_llm_provider``…）。
 闭包让「拆分文件」不可能：端点一旦搬出函数体，就再也看不到那些变量。
 
 这里的做法：把闭包变成**一个显式的依赖对象**（``ApiContext``），
@@ -109,51 +109,14 @@ class ApiContext:
             config = self.model_service().effective(user["user_id"], active)
         return active, config, build_provider(active, config)
 
-    def build_step_providers(self, user: dict[str, Any]):
-        """按图节点构造 Provider：``{node: (provider, 说明)}``。
+    def resolve_llm_provider(self, user: dict[str, Any]):
+        """构造本次执行要用的 Provider。
 
-        只有 ``analyze`` / ``listing`` 会真正调模型；解析顺序是
-        配置级 ``task_overrides`` > 激活配置 > 旧单套设置 > 进程默认。
+        **不再因为没有 Key 就拦下请求**：没有 Key 就用规则引擎照常跑完，
+        但调用方必须用 ``engine_label(provider)`` 把「规则 / 大模型」如实标出来，
+        不能让人误以为文案是模型写的。降级理由写进 ``provider.fallback_reason``。
         """
-        from ..llm.step_providers import build_step_providers
-
-        return build_step_providers(self.db, get_settings(), user["user_id"])
-
-    def require_llm_provider(self, user: dict[str, Any]):
-        """BYOK 强制：没有可用 Key 时 428，不静默降级成规则引擎。"""
-        active, config, provider = self.build_user_provider(user)
-        if not active.require_api_key:
-            return active, config, provider
-        if config.provider == "rule":
-            raise HTTPException(
-                status_code=428,
-                detail={
-                    "message": "需要先配置你自己的 API Key：激浪不提供模型额度。",
-                    **API_KEY_REQUIRED,
-                },
-            )
-        if not config.api_key:
-            raise HTTPException(
-                status_code=428,
-                detail={
-                    "message": (
-                        "还没有配置 API Key。请在「设置 → 模型与密钥」中"
-                        "添加一个厂商配置并激活后再运行。"
-                    ),
-                    **API_KEY_REQUIRED,
-                },
-            )
-        if isinstance(provider, RuleProvider):
-            # 有 Key 却被降级 = Provider 构造失败；明确报错，不假装在用模型
-            raise HTTPException(
-                status_code=428,
-                detail={
-                    "message": getattr(provider, "fallback_reason", "")
-                    or "当前没有可用的模型 Provider，请检查设置。",
-                    **API_KEY_REQUIRED,
-                },
-            )
-        return active, config, provider
+        return self.build_user_provider(user)
 
     # -- 演示账号与限流 ---------------------------------------------------
     def guard_demo_key_write(self, user: dict[str, Any]) -> None:

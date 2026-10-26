@@ -54,13 +54,15 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
    ========================================================================== */
 
 /* ---- 空态 ---- */
+/* 输入框常驻底部：内容短时靠 flex 撑到底，内容长时靠 sticky 贴在视口底部。
+   整页滚动交给 body（.app 是 min-height:100vh 的栅格，别在中间再造一个滚动容器）。 */
 .wb-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex: 1 1 auto;
   min-height: calc(100vh - var(--topbar-h));
-  padding: var(--sp-6) var(--sp-5) var(--sp-4);
-  overflow: hidden;
+  padding: var(--sp-6) var(--sp-5) 0;
   background: var(--background);
   position: relative;
 }
@@ -71,9 +73,7 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  overflow-y: auto;
   padding-bottom: var(--sp-4);
-  scrollbar-gutter: stable;
   position: relative;
   z-index: 1;
 }
@@ -82,45 +82,124 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
   content: none;
 }
 
-.wb-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-3);
-  text-align: center;
-  padding-top: var(--sp-5);
-}
-
 .wb-hero-title {
   font-size: var(--fs-hero);
   font-weight: 700;
   letter-spacing: -.025em;
   line-height: 1.2;
   color: var(--ink);
+  text-align: center;
 }
 
-.wb-hero-sub {
-  max-width: 640px;
-  font-size: var(--fs-md);
-  color: var(--muted);
-  line-height: 1.65;
+/* ---- 首页：标题 → 三段入口 → 卡片区 → 底部输入框 ---- */
+.wb-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-5);
+  width: 100%;
+  max-width: 880px;
+  padding-top: var(--sp-5);
 }
+
+/* 分段控件：底槽 + 圆角滑块，激活项白底描边，不用阴影 */
+.wb-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
+
+.wb-seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  transition:
+    background var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+.wb-seg-item .icon { width: 15px; height: 15px; }
+.wb-seg-item:hover { color: var(--ink); }
+.wb-seg-item.is-active {
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--ink);
+}
+.wb-seg-item.is-active .icon { color: var(--brand); }
+
+/* 引导区跟着标题一起居中对齐；卡片网格自己铺满，不受影响 */
+.wb-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+}
+
+.wb-start-lead {
+  max-width: 660px;
+  font-size: var(--fs-base);
+  color: var(--muted-foreground);
+  line-height: 1.75;
+  text-align: center;
+}
+
+.wb-start-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--muted-foreground);
+  letter-spacing: .02em;
+  text-align: center;
+}
+
+.wb-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: 100%;
+  max-width: 720px;
+}
+
+.wb-prompt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 11px var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  text-align: left;
+  transition: border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.wb-prompt:hover { border-color: var(--border-strong); color: var(--ink); }
+.wb-prompt .icon { width: 15px; height: 15px; color: var(--brand); flex-shrink: 0; }
 
 .wb-skills { width: 100%; max-width: 820px; margin-top: var(--sp-5); }
 
-.wb-skills-tabs {
-  display: flex;
-  gap: var(--sp-5);
-  margin-bottom: var(--sp-3);
-  border-bottom: 1px solid var(--line);
-}
-
-.wb-chips { margin-bottom: var(--sp-4); }
+/* 分类与「查看全部」并排：首页一屏就那么大，多一行就把卡片顶到输入框底下 */
+.wb-chips { margin-bottom: var(--sp-4); flex-wrap: wrap; }
 
 .skill-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--sp-4);
+  width: 100%;
 }
 
 .skill-card {
@@ -200,7 +279,107 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
   flex-wrap: wrap;
 }
 
+/* 卡片右上角的动作提示（开始 / 选它 / 已选） */
+.skill-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: var(--fs-xs);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.skill-go .icon { width: 13px; height: 13px; }
+.skill-card:hover .skill-go { color: var(--brand); }
+
+.skill-card.is-selected { border-color: var(--brand); background: var(--brand-soft); }
+
 .wb-skills-more { display: flex; justify-content: center; margin-top: var(--sp-4); }
+
+.tag-warn { background: var(--warn-soft); color: var(--warn); }
+
+.wb-hint {
+  padding: var(--sp-5) 0;
+  font-size: var(--fs-sm);
+  color: var(--muted-foreground);
+}
+
+/* 最近的会话：首页底部的弱化入口 */
+/* 参数确认卡：首页里的一段「助手输出」，不是另一张页面 */
+.wb-inline {
+  width: 100%;
+  max-width: 880px;
+  margin: var(--sp-5) auto 0;
+  /* 滚到卡片时把顶栏让出来，别被它压住 */
+  scroll-margin-top: calc(var(--topbar-h) + var(--sp-3));
+}
+
+.wb-recent { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
+
+.wb-recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.wb-recent .conv-list { display: flex; flex-direction: column; gap: 1px; overflow: visible; }
+
+/* 输入框右下角的助手选择器 */
+.wb-assistant-wrap { position: relative; }
+
+.wb-assistant {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.wb-assistant:hover,
+.wb-assistant[aria-expanded="true"] { background: var(--surface-hover); color: var(--ink); }
+.wb-assistant .icon { width: 14px; height: 14px; }
+.wb-assistant .icon:last-child { width: 12px; height: 12px; color: var(--faint); }
+
+.wb-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  width: 300px;
+  padding: var(--sp-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  z-index: 40;
+}
+
+.wb-menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px var(--sp-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+}
+.wb-menu-item:hover { background: var(--surface-hover); }
+.wb-menu-item.is-active { background: var(--surface-sunken); }
+
+.wb-menu-name { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+
+.wb-menu-desc {
+  font-size: var(--fs-xs);
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
 
 /* 小屏声明 */
 .narrow-note {
@@ -220,13 +399,63 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
 
 /* ---- Composer ---- */
 .composer {
-  position: relative;
+  position: sticky;
+  bottom: 0;
   flex-shrink: 0;
   width: 100%;
-  max-width: 820px;
-  padding-top: var(--sp-3);
-  z-index: 2;
+  max-width: 880px;
+  padding: var(--sp-3) 0 var(--sp-4);
+  background: var(--background);
+  z-index: 3;
 }
+
+/* 选中技能后浮在输入框上方的一句说明——比整页跳表单轻，也更像对话 */
+.wb-echo {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  padding: 10px var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.wb-echo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.wb-echo-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+
+.wb-echo-title { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+
+.wb-echo-text { font-size: var(--fs-xs); color: var(--muted-foreground); line-height: 1.55; }
+
+.wb-echo-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+}
+.wb-echo-x:hover { background: var(--surface-hover); color: var(--ink); }
+.wb-echo-x .icon { width: 14px; height: 14px; }
 
 .composer-box {
   border: 1px solid var(--border);
@@ -1066,8 +1295,10 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
 }
 
 @media (max-width: 760px) {
-  .wb-hero { padding-top: var(--sp-3); }
+  .wb-home { padding-top: var(--sp-3); gap: var(--sp-4); }
   .wb-hero-title { font-size: var(--fs-2xl); }
+  .wb-seg { align-self: stretch; }
+  .wb-seg-item { flex: 1 1 0; justify-content: center; }
   .skill-grid { grid-template-columns: minmax(0, 1fr); }
   .composer { padding: 0 var(--sp-2) var(--sp-3); }
   .composer-tools .composer-tool span { display: none; }

@@ -66,15 +66,20 @@ def test_llm_invalid_output_falls_back_and_is_marked_degraded():
     client = FakeClient({"marketplace": "US"})  # 缺 product_name
     resolution = resolve_goal("分析 EcoSip 保温杯", client=client)
     assert resolution.degraded is True
-    assert "不合规" in resolution.reason
+    assert resolution.reason  # 要有一句能看懂的说明
     assert resolution.spec.product_name
 
 
-def test_llm_failure_falls_back_and_reports_reason():
+def test_llm_failure_falls_back_with_user_facing_reason():
+    """降级原因要给人看：不能把 SDK 异常原文、字段名、校验链接甩到界面上。"""
     client = FakeClient(RuntimeError("network down"))
     resolution = resolve_goal("分析 EcoSip 保温杯", client=client)
     assert resolution.degraded is True
-    assert "network down" in resolution.reason
+    assert resolution.reason
+    assert "network down" not in resolution.reason
+    assert "RuntimeError" not in resolution.reason
+    # 有提示，用户才知道该核对参数
+    assert "核对" in resolution.reason
 
 
 def test_goal_is_scrubbed_before_sending_to_model():
@@ -98,7 +103,11 @@ def test_resolve_endpoint_without_llm_is_explicitly_degraded(client):
     assert body["degraded"] is True
     assert body["spec"]["product_name"] == "EcoSip Bottle"
     assert body["spec"]["marketplace"] == "JP"
-    assert "规则解析" in body["reason"]
+    assert body["reason"]
+    # 给用户看的原因里不能有内部标识（provider=… / rule / 降级原因原文）
+    assert "provider=" not in body["reason"]
+    assert "rule" not in body["reason"].lower()
+    assert "核对" in body["reason"]
 
 
 def test_run_with_goal_without_competitors_explains_what_is_missing(client):

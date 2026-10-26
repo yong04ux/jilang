@@ -30,7 +30,6 @@ from .config import get_settings
 from .persistence.db import Database
 from .llm.model_settings import ModelSettingsService
 from .llm.providers import build_provider
-from .llm.step_providers import build_step_providers
 from .persistence.secrets import SecretBox
 from .services import conversations
 from .services.tasks import TaskCancelled, TaskRecorder
@@ -71,14 +70,11 @@ async def run_task(ctx, task_id: str) -> dict[str, str]:
     )
     try:
         provider = _provider_for(db, task["user_id"])
-        # 与 HTTP 路径共用同一套解析：analyze / listing 可能各用不同配置
-        step_providers = build_step_providers(db, get_settings(), task["user_id"])
         execute_agent(
             recorder,
             db=db,
             provider=provider,
             payload=dict(task.get("input") or {}),
-            providers=step_providers,
         )
     except TaskCancelled:
         logger.info("arq: 任务在检查点取消 %s", task_id)

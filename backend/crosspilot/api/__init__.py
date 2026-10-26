@@ -24,8 +24,8 @@ from . import (
     listings,
     marketplace,
     meta,
-    profit,
     settings,
+    skills,
     stores,
     tasks,
 )
@@ -41,9 +41,9 @@ ALL_ROUTERS = (
     tasks.router,
     dashboard.router,
     agents.router,
+    skills.router,
     marketplace.router,
     stores.router,
-    profit.router,
 )
 
 __all__ = ["ALL_ROUTERS"]

@@ -40,6 +40,7 @@
     listing_generation: "Listing 生成",
     data_import: "数据导入",
     agent_workflow: "Agent 工作流",
+    skill_run: "技能运行",
     publish_listing: "发布审批",
     report_export: "报告导出",
     store_sync: "店铺同步",
@@ -50,6 +51,7 @@
     competitor_analysis: "报告",
     listing_generation: "草稿",
     agent_workflow: "报告",
+    skill_run: "产出",
     publish_listing: "草稿",
     data_import: "批次",
     store_sync: "同步批次",
@@ -106,7 +108,58 @@
     user_input: "你填写的内容",
     manual: "你填写的内容",
     import: "导入文件",
+    /* 能力参数：技能页的表单标签由接口 schema 的 title 给出，
+       这里只兜住那些没有 title 的嵌套字段 */
+    report_id: "分析报告",
+    listing_id: "Listing 草稿",
+    target_platform: "平台",
+    own_specs: "你的规格",
+    own_key_features: "你的卖点",
+    own_price: "你的价格",
+    filename: "文件名",
+    content_base64: "文件",
+    allow_partial_rows: "允许部分行出错",
+    selling_price: "单件售价",
+    purchase_cost: "采购成本",
+    shipping_cost: "头程运费",
+    packaging_cost: "包装耗材",
+    fulfillment_fee: "履约配送费",
+    other_cost: "其他成本",
+    ad_cost_per_order: "广告摊销（每单）",
+    commission_rate: "平台佣金率",
+    return_rate: "退货率",
+    return_handling_cost: "退货处理成本",
+    fixed_cost: "一次性投入",
+    target_margin: "目标毛利率",
+    fulfillment: "履约方式",
+    tone: "语气",
+    locale: "站点语言",
+    target_length_hint: "篇幅要求",
+    data_source: "数据来源",
   };
+
+  /* 枚举值的叫法：接口里是 short / fba 这类原值，界面必须说人话 */
+  const VALUE = {
+    "zh-CN": "中文",
+    "en-US": "英文（美国）",
+    short: "短",
+    medium: "中",
+    long: "长",
+    fba: "平台仓配",
+    fbm: "自发货",
+    self: "国内直发",
+    manual: "手动填写",
+    demo: "示例数据",
+    import: "导入文件",
+  };
+
+  function value(raw) {
+    if (raw === null || raw === undefined || raw === "") return "—";
+    const key = String(raw);
+    // 枚举里既有 zh-CN 这类码，也有 amazon / fba 这类平台与履约方式的码，
+    // 都走一遍才能保证下拉里不出现原始英文小写值。
+    return VALUE[key] || LANGUAGE[key] || SITE[key.toUpperCase()] || PLATFORM[key.toLowerCase()] || key;
+  }
 
   /* 优先级 / 置信度：接口传 high / medium / low */
   const LEVEL = { high: "高", medium: "中", low: "低" };
@@ -211,6 +264,7 @@
     platform: platform,
     level: level,
     field: field,
+    value: value,
     taskType: taskType,
     taskResult: taskResult,
     orderStatus: orderStatus,

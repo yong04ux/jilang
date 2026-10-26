@@ -88,7 +88,13 @@ def test_missing_url_falls_back_to_preset_default():
 def test_list_providers_returns_presets(client):
     headers = register(client, "prov_list")
     body = client.get("/api/settings/providers", headers=headers).json()
-    assert len(body["presets"]) == 9
+    keys = {preset["key"] for preset in body["presets"]}
+    # OpenAI 兼容那批 + 走原生协议的两家 + 自定义
+    assert keys == {
+        "deepseek", "openai", "anthropic", "google",
+        "moonshot", "zhipu", "dashscope", "siliconflow", "openrouter",
+        "ollama", "custom",
+    }
     assert body["items"] == []
     assert body["active_config_id"] is None
     assert "rule" in body["providers"]
@@ -335,3 +341,87 @@ def test_provider_test_failure_shows_chinese_hint_not_vendor_raw():
     # 未知类型也要给一句能看懂的兜底
     hint2, _ = _test_failure(ValueError("boom"))
     assert hint2 and "boom" not in hint2
+
+
+# ---------------------------------------------------------------------------
+# 选模型：预置候选 + 现场读取可用模型
+# ---------------------------------------------------------------------------
+
+
+def test_presets_expose_common_models():
+    """预置表要带上候选模型名，设置页的下拉才有货。"""
+    from crosspilot.llm.provider_configs import PRESET_BY_KEY, provider_presets
+
+    presets = provider_presets()
+    deepseek = next(p for p in presets if p["key"] == "deepseek")
+    assert deepseek["default_model"] == "deepseek-flash"
+    assert "deepseek-flash" in deepseek["common_models"]
+    # 每个预置厂商都要有 common_models 字段（哪怕是空列表），前端不用判空
+    assert all("common_models" in p for p in presets)
+    # 本地 Ollama 装了什么模型只有用户自己知道，不该预设
+    assert PRESET_BY_KEY["ollama"].common_models == ()
+
+
+def test_list_models_requires_key(client):
+    headers = register(client, "model_list_nokey")
+    resp = client.post(
+        "/api/settings/providers/models",
+        json={"provider": "deepseek"},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+    assert "Key" in resp.json()["detail"]
+
+
+def test_list_models_rejects_rule_provider(client):
+    headers = register(client, "model_list_rule")
+    resp = client.post(
+        "/api/settings/providers/models",
+        json={"provider": "rule"},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+    assert "规则引擎" in resp.json()["detail"]
+
+
+def test_list_models_returns_provider_catalog(client, monkeypatch):
+    """拿到的是服务端返回的清单，不是本地硬编码那份。"""
+    from crosspilot.llm.providers import DeepSeekProvider
+
+    monkeypatch.setattr(
+        DeepSeekProvider,
+        "list_models",
+        lambda self: ["deepseek-flash", "deepseek-v4-pro"],
+    )
+    headers = register(client, "model_list_ok")
+    resp = client.post(
+        "/api/settings/providers/models",
+        json={"provider": "deepseek", "api_key": "sk-fake-1234567890"},
+        headers=headers,
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["provider"] == "deepseek"
+    assert body["items"] == ["deepseek-flash", "deepseek-v4-pro"]
+    assert body["count"] == 2
+
+
+def test_list_models_reports_auth_failure_in_chinese(client, monkeypatch):
+    """读取失败要给中文原因，不能把 SDK 异常原文甩给访客。"""
+    from crosspilot.llm.llm import LLMError
+    from crosspilot.llm.providers import DeepSeekProvider
+
+    def boom(self):
+        raise LLMError("Error code: 401 - invalid_api_key", kind="auth")
+
+    monkeypatch.setattr(DeepSeekProvider, "list_models", boom)
+    headers = register(client, "model_list_auth")
+    resp = client.post(
+        "/api/settings/providers/models",
+        json={"provider": "openai", "api_key": "sk-fake-1234567890"},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+    detail = resp.json()["detail"]
+    assert "Key" in detail
+    assert "401" not in detail and "invalid_api_key" not in detail
