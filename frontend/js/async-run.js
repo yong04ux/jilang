@@ -68,15 +68,44 @@
     );
   }
 
+  // 计划骨架的步骤名 → 用户看得懂的说法。
+  // Phase 5 起主图收敛为「校验 → 分派 → 收尾」+ 子图内部步骤，
+  // 节点名以 task_steps.node 为准；这里漏一个就会在时间线上露出英文键名。
   const PLAN_LABELS = {
-    resolve: "解析目标",
-    analyze: "竞品分析",
-    integrity: "数据完整性检查",
-    summary: "生成市场机会总结",
-    persist: "保存报告与任务记录",
-    listing: "生成 Listing",
-    quality: "质量检查",
-    save_listing: "保存草稿",
+    // 主图三阶段
+    validate: "校验任务输入",
+    dispatch: "分派工作流",
+    finalize: "收尾并落任务状态",
+    // 竞品分析子图
+    validate_input: "校验分析输入",
+    resolve_data_provider: "确定数据来源",
+    fetch_competitors: "获取竞品数据",
+    normalize_data: "归一化与去重",
+    check_data_sufficiency: "检查样本充分性",
+    analyze_market: "计算价格与卖点结论",
+    validate_analysis: "校验分析结果",
+    summarize_opportunities: "归纳市场机会",
+    persist_result: "保存报告",
+    // 组合工作流
+    validate_request: "校验组合请求",
+    run_analysis: "竞品分析",
+    prepare_confirmation: "整理待确认信息",
+    confirm_partial: "等待用户确认",
+    cancel_flow: "按用户要求取消",
+    check_listing_facts: "检查商品事实",
+    needs_user_input: "等待补充商品资料",
+    run_listing: "生成 Listing 草稿",
+    settle: "保存结果",
+    // Listing 子图
+    resolve_product_facts: "整理商品事实",
+    load_brand_rules: "加载站点规则",
+    load_market_insights: "读取竞品洞察",
+    check_required_facts: "检查关键事实",
+    generate_listing: "生成 Listing 草稿",
+    validate_listing: "质检草稿",
+    revise_listing: "按质检问题修订",
+    persist_draft: "保存草稿",
+    needs_review: "等待人工复核",
   };
 
   function planLabel(name) {

@@ -33,12 +33,14 @@ ACTION_INVITE_CREATE = "invite.create"
 ACTION_TASK_CANCEL = "task.cancel"
 ACTION_TASK_RUN = "task.run"
 ACTION_TASK_RETRY = "task.retry"
+ACTION_TASK_CONFIRM = "task.confirm"
 ACTION_AGENT_CREATE = "agent.create"
 ACTION_AGENT_UPDATE = "agent.update"
 ACTION_AGENT_DISABLE = "agent.disable"
 ACTION_SKILL_CREATE = "skill.create"
 ACTION_SKILL_UPDATE = "skill.update"
 ACTION_SKILL_DISABLE = "skill.disable"
+ACTION_SKILL_RUN = "skill.run"
 ACTION_CONVERSATION_ARCHIVE = "conversation.archive"
 ACTION_APPROVAL_REQUEST = "approval.request"
 ACTION_APPROVAL_DECIDE = "approval.decide"
@@ -133,11 +135,13 @@ __all__ = [
     "ACTION_PASSWORD_CHANGE",
     "ACTION_REGISTER",
     "ACTION_REPORT_EXPORT",
+    "ACTION_SKILL_RUN",
     "ACTION_STORE_CREATE",
     "ACTION_STORE_CREDENTIAL",
     "ACTION_STORE_DISCONNECT",
     "ACTION_STORE_SYNC",
     "ACTION_TASK_CANCEL",
+    "ACTION_TASK_CONFIRM",
     "ACTION_TASK_RUN",
     "list_logs",
     "record",

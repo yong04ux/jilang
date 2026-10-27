@@ -109,11 +109,14 @@
     }
 
     const rows = items.map(function (s) {
+      // 状态以「有没有执行器」为准：注册成功不等于能跑。
+      // 老接口没有 executable 字段时退回按 status 判断。
+      const runnable = typeof s.executable === "boolean" ? s.executable : s.status === "available";
       return `<tr><td><strong>${U.esc(s.name)}</strong>` +
         `<div class="t-xs t-muted">${U.esc(s.summary)}</div>` +
         `<div class="t-xs t-faint t-mono">${U.esc(s.skill_key)}</div></td>` +
         `<td class="t-mono" style="white-space:nowrap">v${U.esc(s.version)}</td>` +
-        `<td>${s.status === "available"
+        `<td>${runnable
           ? '<span class="badge badge-ok">可用</span>'
           : '<span class="badge">开发中</span>'}</td></tr>`;
     }).join("");

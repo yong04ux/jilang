@@ -19,6 +19,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import telemetry
+
 # 官方文档给出的当前模型名
 DEFAULT_MODEL = "deepseek-flash"
 MODEL_ALIASES = {
@@ -145,6 +147,8 @@ class DeepSeekClient:
         self.reasoning_effort = reasoning_effort
         self.usage = Usage()
         self._client = None
+        # 遥测用的厂商标识；由 Provider 在构造后按需覆盖
+        self.provider_kind = "deepseek"
 
     def _sdk(self):
         if self._client is not None:
@@ -206,6 +210,7 @@ class DeepSeekClient:
                 kwargs["reasoning_effort"] = self.reasoning_effort
 
         last_error: LLMError | None = None
+        started = time.perf_counter()
         for attempt in range(self.max_retries + 1):
             try:
                 response = client.chat.completions.create(**kwargs)
@@ -215,17 +220,43 @@ class DeepSeekClient:
                 prompt_tokens = int(getattr(usage_obj, "prompt_tokens", 0) or 0)
                 completion_tokens = int(getattr(usage_obj, "completion_tokens", 0) or 0)
                 self.usage.add(prompt_tokens, completion_tokens)
+                telemetry.record(
+                    provider=self.provider_kind,
+                    model=getattr(response, "model", self.model),
+                    started=started,
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    attempts=attempt + 1,
+                    ok=True,
+                )
                 return ChatResult(
                     content=content,
                     usage=Usage(prompt_tokens, completion_tokens, prompt_tokens + completion_tokens, 1),
                     model=getattr(response, "model", self.model),
                     finish_reason=getattr(choice, "finish_reason", None),
                 )
-            except LLMError:
+            except LLMError as exc:
+                # 调用方自己抛的错（例如配置缺失）：如实记一次失败
+                telemetry.record(
+                    provider=self.provider_kind,
+                    model=self.model,
+                    started=started,
+                    attempts=attempt + 1,
+                    ok=False,
+                    error_code=getattr(exc, "kind", "") or "llm_error",
+                )
                 raise
             except Exception as exc:  # noqa: BLE001 - 统一分类
                 last_error = self._classify(exc)
                 if not last_error.retryable or attempt >= self.max_retries:
+                    telemetry.record(
+                        provider=self.provider_kind,
+                        model=self.model,
+                        started=started,
+                        attempts=attempt + 1,
+                        ok=False,
+                        error_code=last_error.kind,
+                    )
                     raise last_error from exc
                 time.sleep(min(2 ** attempt * 0.8, 6.0))
         raise last_error or LLMError("LLM 调用失败")

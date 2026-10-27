@@ -23,21 +23,27 @@ def read_data_asset(
 ) -> list[dict[str, Any]]:
     """读取竞品数据资产。
 
-    优先级：显式传入的行 > 导入批次。批次必须属于当前租户，否则当作不存在。
+    实现已下沉到 ``market.competitor_provider``（计划 §9）：数据来源的判断
+    （显式行 / 导入批次 / 租户归属）只应有一处。这里保留原签名与返回类型，
+    因为既有调用方与测试按「返回行数组」编写。
+
     没有数据时返回空列表，由调用方决定是报错还是询问——这里不编造数据。
     """
-    if competitors:
-        return competitors
-    if not batch_id:
-        return []
-    batch = db.get_import_batch(batch_id, tenant_id)
-    if batch is None:
-        return []
-    rows = batch.get("competitors")
-    if isinstance(rows, list):
-        return rows
-    # 兼容旧批次结构：payload 直接是行数组
-    return batch if isinstance(batch, list) else []
+    from ..market.competitor_provider import (
+        MODE_IMPORTED,
+        CompetitorQuery,
+        build_competitor_provider,
+    )
+
+    provider = build_competitor_provider(MODE_IMPORTED, db=db, tenant_id=tenant_id)
+    data = provider.fetch(
+        CompetitorQuery(
+            product_name="",
+            batch_id=batch_id,
+            rows=competitors or None,
+        )
+    )
+    return data.rows
 
 
 def run_competitor_analysis(provider, request: CompetitorAnalysisRequest) -> AnalysisReport:

@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 
+from crosspilot.agent.planner import plan_for
 from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
@@ -48,34 +49,30 @@ def test_async_run_completes_and_exposes_result(client):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["status"] == "queued"
-    assert body["plan"] == ["analyze", "integrity", "summary", "persist"]
+    assert body["plan"] == plan_for(False)
 
     detail = wait_status(client, body["task_id"], headers, {"succeeded", "failed"})
     assert detail["task"]["status"] == "succeeded"
     assert detail["result"]["report"]["product_name"] == "EcoSip Insulated Water Bottle"
     assert detail["result"]["summary"]["points"]
     assert detail["result"]["checks"]["metrics"]["competitors"] >= 2
-    names = [s["name"] for s in detail["steps"]]
-    assert names == [
-        "生成执行计划",
-        "竞品分析",
-        "数据完整性检查",
-        "生成市场机会总结",
-        "保存报告与任务记录",
-    ]
+    nodes = [s["node"] for s in detail["steps"]]
+    assert nodes[0] == "validate" and nodes[1] == "dispatch"
+    assert nodes[-1] == "finalize"
 
 
 def test_cancel_running_task_takes_effect_at_checkpoint(client, monkeypatch):
     headers = register(client, "async_cancel")
-    from crosspilot.agent import tools
+    from crosspilot.engine import analysis as engine_analysis
 
-    original = tools.run_competitor_analysis
+    original = engine_analysis.run_analysis
 
     def slow_analysis(*args, **kwargs):
         time.sleep(1.0)
         return original(*args, **kwargs)
 
-    monkeypatch.setattr("crosspilot.agent.tools.run_competitor_analysis", slow_analysis)
+    # 打桩在引擎层：竞品子图通过 engine.analysis.run_analysis 做统计
+    monkeypatch.setattr("crosspilot.engine.analysis.run_analysis", slow_analysis)
 
     resp = client.post(
         "/api/agent/runs",
@@ -85,15 +82,18 @@ def test_cancel_running_task_takes_effect_at_checkpoint(client, monkeypatch):
     assert resp.status_code == 200, resp.text
     task_id = resp.json()["task_id"]
 
-    # 等竞品分析节点真正开始，确保取消发生在执行中而不是排队阶段
+    # 等统计节点真正开始，确保取消发生在执行中而不是排队阶段
     deadline = time.time() + 5
     while time.time() < deadline:
         detail = client.get(f"/api/tasks/{task_id}", headers=headers).json()
-        if any(step["name"] == "竞品分析" and step["status"] == "running" for step in detail["steps"]):
+        if any(
+            step["node"] == "analyze_market" and step["status"] == "running"
+            for step in detail["steps"]
+        ):
             break
         time.sleep(0.05)
     else:
-        raise AssertionError("竞品分析步骤未开始")
+        raise AssertionError("竞品统计步骤未开始")
 
     started = time.time()
     cancel = client.post(f"/api/tasks/{task_id}/cancel", json={}, headers=headers)

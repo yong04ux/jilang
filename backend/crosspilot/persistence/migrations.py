@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -481,6 +482,93 @@ def _task_step_io(connection) -> None:
     _add_column(connection, "task_steps", "output", "TEXT")
 
 
+def _clean_task_overrides(connection) -> None:
+    """0014：清掉 ``task_overrides`` 里已不支持的节点键。
+
+    2026-10-27 起 ``OVERRIDE_NODES`` 只剩 ``listing``：``analyze`` 是纯统计
+    （``engine.analysis.run_analysis``），从不调模型，给它配的模型永远不会生效。
+    旧配置留在库里制造两种错觉：用户以为它生效，以及下次保存该配置被 400 拒绝。
+
+    只删不支持的键，其余原样保留。坏 JSON **不动**——读取端本来就容忍
+    （``parse_task_overrides`` 当空对象处理），删掉反而可能丢掉可修复的数据。
+
+    ``supported`` 刻意硬编码而不是 import 应用常量：迁移记录的是"执行当时"的事实，
+    不该随将来 ``OVERRIDE_NODES`` 的变化改变自己的行为。
+    """
+    if not _has_column(connection, "user_provider_configs", "task_overrides"):
+        return
+    supported = {"listing"}
+    rows = connection.execute(
+        "SELECT config_id, task_overrides FROM user_provider_configs "
+        "WHERE task_overrides IS NOT NULL AND task_overrides <> ''"
+    ).fetchall()
+    for row in rows:
+        config_id = _value(row, 0, "config_id")
+        text = _value(row, 1, "task_overrides")
+        try:
+            data = json.loads(text)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        cleaned = {key: value for key, value in data.items() if key in supported}
+        if len(cleaned) == len(data):
+            continue
+        connection.execute(
+            "UPDATE user_provider_configs SET task_overrides = ? WHERE config_id = ?",
+            (json.dumps(cleaned, ensure_ascii=False), config_id),
+        )
+
+
+def _task_reuse_guards(connection) -> None:
+    """0015：断点复用的两道闸——输入指纹与工作流版本。
+
+    重试时 ``resume_from`` 会直接复用上次的节点输出。如果这次请求的输入
+    已经变了（换了商品规格、换了竞品），复用旧结论就是**拿旧答案回答新问题**，
+    而且从界面上完全看不出来。两个字段就是判据：
+
+    - ``input_fingerprint``：工作流相关输入的指纹；
+    - ``workflow_version``：节点结构/语义的版本号，改名或改顺序就要变。
+
+    两列都为 NULL 表示"历史任务，无法判断" → 一律不复用（宁可重算）。
+    """
+    _add_column(connection, "tasks", "input_fingerprint", "TEXT")
+    _add_column(connection, "tasks", "workflow_version", "TEXT")
+
+
+def _llm_calls(connection) -> None:
+    """0016：模型调用遥测表（Phase 7）。
+
+    只存元数据，**不存 prompt / 响应正文**：里面可能有租户的商品资料，
+    而且日志会无限膨胀。排查需要的是"哪个节点、哪个模型、几秒、多少 token、
+    报什么错"，这些字段足够定位问题。
+
+    不存金额：仓库没有维护厂商价目表，凭空算出来的钱会被当成真数据引用。
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS llm_calls (
+            call_id TEXT PRIMARY KEY,
+            tenant_id TEXT,
+            user_id TEXT,
+            task_id TEXT,
+            node TEXT,
+            provider TEXT,
+            model TEXT,
+            latency_ms INTEGER,
+            prompt_tokens INTEGER,
+            completion_tokens INTEGER,
+            attempts INTEGER,
+            ok INTEGER,
+            error_code TEXT,
+            created_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_llm_calls_task
+            ON llm_calls (task_id, created_at);
+        """
+    )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001", "baseline", _baseline),
     Migration("0002", "conversations_and_messages", _conversations),
@@ -495,6 +583,9 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("0011", "seed_demo_flags", _demo_seed_flag),
     Migration("0012", "tasks_retry_of", _retry_of_column),
     Migration("0013", "task_steps_node_output", _task_step_io),
+    Migration("0014", "clean_task_overrides", _clean_task_overrides),
+    Migration("0015", "tasks_reuse_guards", _task_reuse_guards),
+    Migration("0016", "llm_calls", _llm_calls),
 )
 
 

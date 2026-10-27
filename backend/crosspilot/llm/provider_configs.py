@@ -37,9 +37,15 @@ class ProviderConfigError(ValueError):
     """配置非法（消息可直接展示）。"""
 
 
-#: 图里唯一会调用 LLM 的两个节点。给其他节点配模型不会有任何效果，
-#: 所以校验期就拒绝，避免"配了却静默不生效"。
-OVERRIDE_NODES: tuple[str, ...] = ("analyze", "listing")
+#: 图里唯一**真正调用 LLM** 的节点。
+#
+# 为什么只有 ``listing``：``analyze`` 曾经也在这里，但 ``DeepSeekProvider``
+# 从未重写 ``analyze``——它继承的是 ``RuleProvider.analyze``，走
+# ``engine.analysis.run_analysis`` 的纯统计计算，**零网络调用**。
+# 也就是说给 analyze 配模型永远不生效，而校验文案还反着说"会调用模型"。
+# 按用户决定（2026-10-27）不把统计改成调模型，而是把这个无效配置入口去掉，
+# 让「配了就有用」重新成立。给其他节点配模型仍在校验期拒绝。
+OVERRIDE_NODES: tuple[str, ...] = ("listing",)
 
 _MODEL_RE = re.compile(r"^[A-Za-z0-9._:/-]{1,128}$")
 

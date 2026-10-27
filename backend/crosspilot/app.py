@@ -49,6 +49,16 @@ def create_app() -> FastAPI:
             "CROSSPILOT_AUTO_MIGRATE=false：跳过启动期迁移，请先运行 crosspilot migrate"
         )
 
+    # checkpoint 表由 langgraph 的 setup() 建（幂等），和业务 schema 分开处理：
+    # 生产的 AUTO_MIGRATE=false 会跳过 _init_schema，但**暂停/恢复照样要能用**，
+    # 所以这里独立建一次。失败只降级不阻断启动（见 agent/checkpoint.py）。
+    try:
+        from .agent.checkpoint import setup_checkpointer
+
+        setup_checkpointer()
+    except Exception as exc:  # noqa: BLE001 - 见上
+        logger.warning("checkpoint 表初始化失败：%s", exc)
+
     app = FastAPI(
         title="激浪 API",
         version=__version__,

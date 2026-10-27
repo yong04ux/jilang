@@ -1,7 +1,9 @@
 """按图节点解析 Provider。
 
-图里只有 ``analyze``（竞品分析）和 ``listing``（文案生成）会真正调用模型，
-``integrity`` / ``summary`` / ``quality`` 都是确定性规则，给它们配模型没有意义。
+图里只有 ``listing``（文案生成）会真正调用模型。``analyze`` **不调模型**——
+它是 ``engine.analysis.run_analysis`` 的纯统计计算，所以 2026-10-27 起已从
+``OVERRIDE_NODES`` 移除，不再支持给它单独配模型（之前的配置项永远不生效）。
+``integrity`` / ``summary`` / ``quality`` 同样是确定性规则。
 
 这里把「某用户某节点该用哪个 Provider」收敛成一个函数，HTTP 请求、后台线程、
 arq worker 三条执行路径共用，避免各写一份解析逻辑导致行为不一致。

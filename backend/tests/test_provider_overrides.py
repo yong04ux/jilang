@@ -1,7 +1,9 @@
 """按步骤分配模型（task_overrides）：校验、读取形状、按节点解析、运行时生效。
 
 设计约束（见 docs/12-task-overrides.md）：
-- 只有 ``analyze`` / ``listing`` 会调 LLM，其他节点配了也要拒绝；
+- 只有 ``listing`` 会调 LLM，其他节点配了也要拒绝。
+  （``analyze`` 2026-10-27 起也归入"其他节点"：它是纯统计，从不调模型，
+  原来的配置入口永远不生效，已按用户决定移除。）
 - override 指向同用户的另一套配置，Key / base_url 复用，不新增密钥副本；
 - override 失效（配置被删/禁用）时回落激活配置，不抛错。
 """
@@ -237,11 +239,12 @@ def test_step_providers_resolve_override(client):
     providers = build_step_providers(
         client.app.state.db, get_settings(), ident["user_id"]
     )
-    analyze_provider, analyze_note = providers["analyze"]
     listing_provider, listing_note = providers["listing"]
 
-    assert analyze_provider.model != listing_provider.model
-    assert "override" not in analyze_note
+    # 只有 listing 会按节点取模型。analyze 不调模型，2026-10-27 起不再支持覆盖，
+    # 因此它压根不该出现在结果里。
+    assert "analyze" not in providers
+    assert listing_provider.model
     assert "override" in listing_note
 
 
@@ -270,9 +273,11 @@ def test_override_falls_back_when_target_disabled(client):
         client.app.state.db, get_settings(), ident["user_id"]
     )
     listing_provider, listing_note = providers["listing"]
+    # 「已回落」这个标注本身就是回落分支产出的，断言它等于断言回落发生了
     assert "已回落" in listing_note
-    # 回落后与激活配置一致
-    assert listing_provider.model == providers["analyze"][0].model
+    # 回落后拿到的是激活配置（便宜档）的模型，不是被删掉的那套
+    assert listing_provider.model
+    assert "analyze" not in providers
 
 
 class RecordingProvider:
@@ -292,8 +297,14 @@ class RecordingProvider:
         return self.inner.generate(request, report_payload)
 
 
-def test_execute_agent_uses_per_node_provider(client):
-    """端到端：analyze 与 listing 各自拿到自己的 Provider，且时间线标注模型。"""
+def test_execute_agent_uses_listing_provider_only(client):
+    """端到端：只有 listing 会取按节点配置的 Provider。
+
+    ``analyze`` 是纯统计（``engine.analysis.run_analysis``），从不调模型，
+    所以给它传 Provider 必须**没有任何效果**。这条断言是 2026-10-27
+    「不给 analyze 配模型」这一决定的回归保护——一旦有人把 analyze 改回
+    "调模型"而没同步这里，测试会立刻失败。
+    """
     headers = register(client, "ov_runtime")
     ident = identity(client, headers)
     db = client.app.state.db
@@ -306,6 +317,9 @@ def test_execute_agent_uses_per_node_provider(client):
         "product_name": "EcoSip Insulated Water Bottle",
         "platform": "amazon",
         "marketplace": "US",
+        # 没有事实就会被 Phase 3 的子图拦在"等待补充资料"，生成根本不会发生
+        "own_specs": {"容量": "750ml"},
+        "own_key_features": ["双层真空保温"],
         "competitors": DEMO_ANALYSIS_REQUEST["competitors"],
         "with_listing": True,
         "data_source": "demo",
@@ -325,16 +339,17 @@ def test_execute_agent_uses_per_node_provider(client):
         providers={"analyze": (analyze_fake, "A"), "listing": (listing_fake, "B")},
     )
 
-    assert analyze_fake.calls == ["analyze"]
+    assert analyze_fake.calls == []  # 传了也不会被调用
     assert listing_fake.calls == ["generate"]
 
     detail = client.get(f"/api/tasks/{recorder.task_id}", headers=headers).json()
     steps = {step.get("node"): step for step in detail["steps"]}
-    assert "A" in steps["analyze"]["detail"]
-    assert "B" in steps["listing"]["detail"]
-    # 不调模型的节点不该带模型标注
-    assert "A" not in (steps["summary"]["detail"] or "")
-    assert "B" not in (steps["quality"]["detail"] or "")
+    # 统计节点（竞品分析）不该带模型标注
+    assert "A" not in (steps["run_analysis"]["detail"] or "")
+    # 生成节点带上了按节点分配的那套配置说明
+    assert "B" in steps["run_listing"]["detail"]
+    # 其它节点不该带 Listing 的模型标注
+    assert "B" not in (steps["settle"]["detail"] or "")
 
 
 def test_a_service_rejects_non_object_overrides(client):

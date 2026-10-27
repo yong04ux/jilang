@@ -83,6 +83,8 @@ class AgentRunResponse(BaseModel):
     conversation_id: str | None = None
     degraded: bool = False
     degraded_reason: str = ""
+    #: 组合工作流暂停时的待确认内容（Phase 5）。非暂停时为 None。
+    pending: dict[str, Any] | None = None
 
 
 class TaskResult(BaseModel):
@@ -98,10 +100,108 @@ class TaskResult(BaseModel):
     degraded_reason: str = ""
 
 
+class CombinedRunRequest(BaseModel):
+    """组合工作流请求（Phase 5）：竞品分析 → （partial 时确认）→ Listing。
+
+    与 ``AgentRunRequest`` 的区别：这里**只服务组合工作流**，不接自然语言目标，
+    也不接受 ``agent_key``。字段与 ``AgentRunRequest`` 的同名项语义一致。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    product_name: str = Field(min_length=1, max_length=200)
+    platform: Platform = Platform.AMAZON
+    marketplace: str = Field(default="US", max_length=16)
+    brand: str | None = Field(default=None, max_length=120)
+    category: str | None = Field(default=None, max_length=120)
+    own_specs: dict[str, str] = Field(default_factory=dict)
+    own_key_features: list[str] = Field(default_factory=list)
+    certifications: list[str] = Field(default_factory=list)
+    own_price: float | None = Field(default=None, ge=0)
+    target_audience: str | None = None
+    banned_terms: list[str] = Field(default_factory=list)
+    competitors: list[CompetitorProduct] = Field(min_length=1)
+    keywords: list[KeywordMetric] = Field(default_factory=list)
+    listing_language: str = "en-US"
+    data_source: str = "manual"
+
+
+class CombinedRunResponse(BaseModel):
+    task_id: str
+    status: str
+    plan: list[str] = Field(default_factory=list)
+    #: 暂停时有值：缺什么、影响哪些结论、继续的风险、确认令牌
+    pending: dict[str, Any] | None = None
+    analysis_outcome: str | None = None
+    message: str = ""
+
+
+#: 重试时允许覆盖的字段。刻意**不含** ``product_name``：
+#: 换商品就是另一个业务请求，应该新建任务，而不是在老任务上改题。
+RETRY_OVERRIDABLE_FIELDS = frozenset(
+    {
+        "marketplace",
+        "listing_language",
+        "own_specs",
+        "own_key_features",
+        "certifications",
+        "own_price",
+        "target_audience",
+        "banned_terms",
+        "competitors",
+        "keywords",
+    }
+)
+
+
+class RetryRequest(BaseModel):
+    """重试时补充/修改输入（可选）。
+
+    存在的理由：``waiting_for_input`` 的任务本来就是"缺资料、补完再来"。
+    如果只能原样重试，用户补了规格也得重新发起一次任务，
+    既丢掉任务历史，也要重新填一遍其它参数。
+
+    只允许改「资料类」字段（见 ``RETRY_OVERRIDABLE_FIELDS``）；
+    改了之后输入指纹会变，重试**不会**复用上次的中间结果——
+    这正是要的：资料变了，旧结论就不作数。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    overrides: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check_fields(self) -> "RetryRequest":
+        unknown = sorted(set(self.overrides) - RETRY_OVERRIDABLE_FIELDS)
+        if unknown:
+            raise ValueError(
+                "以下字段不允许在重试时覆盖：" + "、".join(unknown)
+            )
+        return self
+
+
+class ConfirmRequest(BaseModel):
+    """暂停点的用户确认。
+
+    ``confirmation_token`` 必填：它把"确认的是哪一次暂停"绑定住，
+    避免界面拿着过期的缺失清单去确认另一次暂停。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: str = Field(description="continue 或 cancel")
+    confirmation_token: str = Field(min_length=1)
+
+
 __all__ = [
+    "RETRY_OVERRIDABLE_FIELDS",
     "AgentRunRequest",
     "AgentRunResponse",
+    "CombinedRunRequest",
+    "CombinedRunResponse",
+    "ConfirmRequest",
     "GoalResolveRequest",
     "GoalResolveResponse",
+    "RetryRequest",
     "TaskResult",
 ]

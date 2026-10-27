@@ -18,6 +18,9 @@ psycopg[binary]>=3.2
 
 # ---- 业务与 Agent ---------------------------------------------------------
 langgraph>=1.0,<2.0
+# 暂停/恢复的 checkpoint 持久化（Phase 6）。没有它只能放进程内存，
+# 进程重启后等待确认的任务就无法恢复。
+langgraph-checkpoint-postgres>=3.2,<4.0
 openpyxl>=3.1,<4.0
 openai>=1.40
 

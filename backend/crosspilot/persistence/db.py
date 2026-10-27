@@ -298,6 +298,18 @@ class Database:
             self._migrate(connection)
             # 版本化迁移：只执行尚未应用的 revision（详见 migrations.py）
             apply_migrations(connection)
+        # checkpoint 表由 langgraph 自己的 setup() 建（幂等）。放在迁移之后：
+        # 它不属于业务 schema，但必须在服务开始跑工作流之前就绪。
+        self._setup_checkpointer()
+
+    def _setup_checkpointer(self) -> None:
+        """建/校验 checkpoint 表。失败不阻断启动（恢复能力降级，但服务可用）。"""
+        try:
+            from ..agent.checkpoint import setup_checkpointer
+
+            setup_checkpointer()
+        except Exception:  # noqa: BLE001 - 见 docstring
+            pass
 
     def migration_status(self) -> list[dict[str, Any]]:
         """返回迁移版本表，供 ``python -m crosspilot migrate`` 使用。"""
@@ -650,6 +662,54 @@ class Database:
         with self.connect() as connection:
             row = connection.execute(query, params).fetchone()
         return json.loads(row["payload"]) if row else None
+
+    def find_report_by_task(self, task_id: str, tenant_id: str) -> dict[str, Any] | None:
+        """取某任务已保存的报告（产物幂等用）。
+
+        同一个任务重跑（重试 / 断点续跑）应当更新原报告，而不是再插一条——
+        否则报告列表里会并排出现两份内容相同、id 不同的结果，
+        用户无法判断哪份算数，统计数据也会翻倍。
+        """
+        if not task_id or not tenant_id:
+            # 空值会匹配到历史脏数据（task_id 为空的种子数据），直接当"没有"
+            return None
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT report_id, payload FROM competitor_reports "
+                "WHERE task_id = ? AND tenant_id = ? "
+                "ORDER BY created_at ASC LIMIT 1",
+                (task_id, tenant_id),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = json.loads(row["payload"])
+        payload.setdefault("report_id", row["report_id"])
+        return payload
+
+    def find_listing_by_task(
+        self, task_id: str, tenant_id: str
+    ) -> dict[str, Any] | None:
+        """取某任务已保存的草稿（幂等用）。
+
+        同一个任务重跑 persist 时应当更新原草稿，而不是新建一条——
+        否则界面上会出现两条一模一样的草稿，用户无法判断哪条算数。
+        只返回 ``listing_id`` 与 ``payload``，够 persist 复用。
+        """
+        if not task_id or not tenant_id:
+            # 空值会让下面的 SQL 匹配到历史脏数据，直接当"没有"
+            return None
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT listing_id, payload FROM listing_drafts "
+                "WHERE task_id = ? AND tenant_id = ? "
+                "ORDER BY created_at ASC LIMIT 1",
+                (task_id, tenant_id),
+            ).fetchone()
+        if row is None:
+            return None
+        payload = json.loads(row["payload"])
+        payload.setdefault("listing_id", row["listing_id"])
+        return payload
 
     def list_listings(
         self,
@@ -1224,6 +1284,9 @@ class Database:
         "tenant_id",
         "conversation_id",
         "degraded",
+        # 断点复用的两道闸（迁移 0015）：输入变了或工作流版本变了就不复用
+        "input_fingerprint",
+        "workflow_version",
     )
 
     def create_task(self, task: dict[str, Any]) -> None:
@@ -1240,10 +1303,87 @@ class Database:
                 tuple(payload[name] for name in self._TASK_COLUMNS),
             )
 
+    def claim_task_review(
+        self,
+        task_id: str,
+        *,
+        tenant_id: str,
+        from_status: str = "waiting_for_review",
+        to_status: str = "running",
+    ) -> bool:
+        """把"等待确认"的任务**原子地**抢到执行态，返回是否抢到。
+
+        为什么不是"先查状态再更新"：两次调用之间隔着网络往返，用户双击
+        确认按钮就会起两个恢复任务，同一份 checkpoint 被跑两遍。
+        这里用 ``UPDATE ... WHERE status = ?`` 让数据库做比较并交换（CAS），
+        只有第一个请求能拿到 ``rowcount == 1``。
+        """
+        with self._lock, self.connect() as connection:
+            cursor = connection.execute(
+                "UPDATE tasks SET status = ?, started_at = ? "
+                "WHERE task_id = ? AND tenant_id = ? AND status = ?",
+                (to_status, datetime.now(timezone.utc).isoformat(), task_id, tenant_id, from_status),
+            )
+            return cursor.rowcount == 1
+
+    def add_llm_calls(self, rows: list[dict[str, Any]]) -> None:
+        """批量写入模型调用记录（Phase 7 遥测）。
+
+        只记元数据，不记文本。失败不抛：遥测写不进去不该让任务失败。
+        """
+        if not rows:
+            return
+        import uuid as _uuid
+
+        fields = (
+            "call_id",
+            "tenant_id",
+            "user_id",
+            "task_id",
+            "node",
+            "provider",
+            "model",
+            "latency_ms",
+            "prompt_tokens",
+            "completion_tokens",
+            "attempts",
+            "ok",
+            "error_code",
+            "created_at",
+        )
+        created_at = datetime.now(timezone.utc).isoformat()
+        payload = []
+        for row in rows:
+            item = {name: row.get(name) for name in fields}
+            item["call_id"] = row.get("call_id") or _uuid.uuid4().hex
+            item["ok"] = 1 if row.get("ok", True) else 0
+            item["created_at"] = row.get("created_at") or created_at
+            payload.append(tuple(item[name] for name in fields))
+        placeholders = ", ".join("?" for _ in fields)
+        statement = f"INSERT INTO llm_calls ({', '.join(fields)}) VALUES ({placeholders})"
+        with self._lock, self.connect() as connection:
+            # 逐条插入：连接适配层只暴露 execute，没有必要为几行数据引入 executemany
+            for params in payload:
+                connection.execute(statement, params)
+
+    def list_llm_calls(
+        self, task_id: str, tenant_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """按任务取模型调用记录（执行链追踪用）。"""
+        sql = "SELECT * FROM llm_calls WHERE task_id = ?"
+        params: list[Any] = [task_id]
+        if tenant_id is not None:
+            sql += " AND tenant_id = ?"
+            params.append(tenant_id)
+        sql += " ORDER BY created_at ASC"
+        with self.connect() as connection:
+            return [dict(row) for row in connection.execute(sql, tuple(params)).fetchall()]
+
     def update_task(self, task_id: str, **fields: Any) -> None:
         allowed = {
             "status", "output", "error_code", "error_message", "result_ref",
             "started_at", "finished_at", "conversation_id", "degraded",
+            "input_fingerprint", "workflow_version",
         }
         updates = {k: v for k, v in fields.items() if k in allowed}
         if not updates:

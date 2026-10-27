@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 
-from crosspilot.agent.planner import resolve_goal, rule_resolve
+from crosspilot.agent.planner import plan_for, resolve_goal, rule_resolve
 from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
@@ -119,11 +119,15 @@ def test_run_with_goal_and_data_uses_resolved_parameters(client):
     headers = _register(client, "plan_run")
     resp = client.post(
         "/api/agent/runs",
-        json={
-            "goal": "分析“EcoSip Insulated Bottle”在美国的竞品并生成英文 Listing",
-            "competitors": DEMO_ANALYSIS_REQUEST["competitors"],
-            "data_source": "demo",
-        },
+            json={
+                "goal": "分析“EcoSip Insulated Bottle”在美国的竞品并生成英文 Listing",
+                # Phase 3 起：要生成 Listing 就必须有可引用的事实，
+                # 否则会停在"等待补充资料"而不是产出一份编造出来的草稿。
+                "own_specs": {"容量": "750ml"},
+                "own_key_features": ["双层真空保温"],
+                "competitors": DEMO_ANALYSIS_REQUEST["competitors"],
+                "data_source": "demo",
+            },
         headers=headers,
     )
     assert resp.status_code == 200, resp.text
@@ -131,14 +135,8 @@ def test_run_with_goal_and_data_uses_resolved_parameters(client):
     assert body["degraded"] is True
     assert body["report"]["product_name"] == "EcoSip Insulated Bottle"
     assert body["listing"] is not None
-    assert body["plan"] == [
-        "analyze",
-        "integrity",
-        "summary",
-        "listing",
-        "quality",
-        "persist",
-    ]
+    # 要生成 Listing 就走组合工作流，计划随之变成主图三阶段 + 组合步骤
+    assert body["plan"] == plan_for(True)
 
 
 def test_degraded_flag_is_persisted_on_the_task(client):
