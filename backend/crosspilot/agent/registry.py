@@ -39,6 +39,15 @@ def _schema(properties: dict[str, str], required: list[str] | None = None) -> st
 # ---------------------------------------------------------------------------
 # 定义数据（与代码里的真实能力一一对应）
 # ---------------------------------------------------------------------------
+#
+# ``SKILLS`` **不再单独维护**：它从 ``agent/definitions.SKILL_DEFINITIONS``
+# 派生。改造前这里是手写的静态 JSON，和 ``agent/skills.py`` 的函数对不上
+# （两个有元数据没实现、两个有实现没元数据），导致「技能库」页面把跑不了的
+# 技能列成可用。现在唯一真源是 definitions，本表只负责落库与租户覆盖。
+#
+# ``status`` 的语义也收敛了：``available`` 表示"有实现"，``dev`` 表示"只有声明"。
+# 真正的可执行判定是 ``SkillDefinition.executable``（见 contracts.py），
+# 接口会把两者一起返回。
 
 # Skills 不再是这里手写的第二份清单：``skills.registry.SKILL_REGISTRY`` 是唯一真源，
 # 这里只把它摊平成写库需要的行。改一处即可，不会再出现「代码改了注册表没改」。

@@ -67,3 +67,6 @@ def test_reinitializing_preserves_data(pg_url):
     tenant = again.get_tenant("tenant-keep")
     assert tenant is not None
     assert tenant["name"] == "保留租户"
+
+
+

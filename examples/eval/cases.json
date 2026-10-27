@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "note": "固定评估集：同一批输入喂两个工作流，用确定性断言比较结果结构。全部使用本地规则引擎（provider=rule），不依赖任何模型，因此结果可复现。这里衡量的是编排与规则引擎的结构性质量，不代表大模型生成质量。",
+  "cases": [
+    {
+      "id": "combined-rich",
+      "title": "资料齐全 + 3 个竞品",
+      "kind": "combined",
+      "input": {
+        "product_name": "EcoSip Insulated Water Bottle",
+        "platform": "amazon",
+        "marketplace": "US",
+        "own_specs": { "容量": "750ml", "材质": "304 不锈钢", "重量": "420g" },
+        "own_key_features": ["双层真空保温", "防漏翻盖"],
+        "own_price": 22.9,
+        "data_source": "demo"
+      },
+      "expect": {
+        "outcome": "succeeded",
+        "has_listing": true,
+        "bullets": [1, 5],
+        "demo_flagged": true
+      }
+    },
+    {
+      "id": "combined-thin-sample",
+      "title": "资料齐全但只有 1 个竞品（应暂停后标 partial）",
+      "kind": "combined",
+      "input": {
+        "product_name": "EcoSip Insulated Water Bottle",
+        "platform": "amazon",
+        "marketplace": "US",
+        "own_specs": { "容量": "750ml" },
+        "own_key_features": ["双层真空保温"],
+        "own_price": 22.9,
+        "data_source": "demo",
+        "competitors_limit": 1
+      },
+      "expect": {
+        "pauses": true,
+        "outcome": "partial",
+        "has_listing": true,
+        "never_silently_succeeds": true
+      }
+    },
+    {
+      "id": "combined-no-facts",
+      "title": "有竞品但没有任何商品事实（必须拦住）",
+      "kind": "combined",
+      "input": {
+        "product_name": "未提供规格的杯子",
+        "platform": "amazon",
+        "marketplace": "US",
+        "own_specs": {},
+        "own_key_features": [],
+        "data_source": "demo"
+      },
+      "expect": {
+        "outcome": "needs_user_input",
+        "has_listing": false
+      }
+    },
+    {
+      "id": "competitor-only",
+      "title": "只做竞品分析（不生成 Listing）",
+      "kind": "competitor",
+      "input": {
+        "product_name": "EcoSip Insulated Water Bottle",
+        "platform": "amazon",
+        "marketplace": "US",
+        "own_specs": { "容量": "750ml" },
+        "own_key_features": ["双层真空保温"],
+        "own_price": 22.9,
+        "data_source": "demo"
+      },
+      "expect": {
+        "outcome": "succeeded",
+        "has_listing": false,
+        "has_report": true
+      }
+    }
+  ],
+  "checks": {
+    "banned_terms": ["best seller", "100%", "#1", "cheapest"],
+    "must_have_evidence": true
+  }
+}

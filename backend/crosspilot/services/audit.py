@@ -33,6 +33,7 @@ ACTION_INVITE_CREATE = "invite.create"
 ACTION_TASK_CANCEL = "task.cancel"
 ACTION_TASK_RUN = "task.run"
 ACTION_TASK_RETRY = "task.retry"
+ACTION_TASK_CONFIRM = "task.confirm"
 ACTION_AGENT_CREATE = "agent.create"
 ACTION_AGENT_UPDATE = "agent.update"
 ACTION_AGENT_DISABLE = "agent.disable"
@@ -140,6 +141,7 @@ __all__ = [
     "ACTION_STORE_DISCONNECT",
     "ACTION_STORE_SYNC",
     "ACTION_TASK_CANCEL",
+    "ACTION_TASK_CONFIRM",
     "ACTION_TASK_RUN",
     "list_logs",
     "record",

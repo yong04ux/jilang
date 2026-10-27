@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -512,6 +513,55 @@ def _business_reports(connection) -> None:
     )
 
 
+def _task_reuse_guards(connection) -> None:
+    """0015：断点复用的两道闸——输入指纹与工作流版本。
+
+    重试时 ``resume_from`` 会直接复用上次的节点输出。如果这次请求的输入
+    已经变了（换了商品规格、换了竞品），复用旧结论就是**拿旧答案回答新问题**，
+    而且从界面上完全看不出来。两个字段就是判据：
+
+    - ``input_fingerprint``：工作流相关输入的指纹；
+    - ``workflow_version``：节点结构/语义的版本号，改名或改顺序就要变。
+
+    两列都为 NULL 表示"历史任务，无法判断" → 一律不复用（宁可重算）。
+    """
+    _add_column(connection, "tasks", "input_fingerprint", "TEXT")
+    _add_column(connection, "tasks", "workflow_version", "TEXT")
+
+
+def _llm_calls(connection) -> None:
+    """0016：模型调用遥测表（Phase 7）。
+
+    只存元数据，**不存 prompt / 响应正文**：里面可能有租户的商品资料，
+    而且日志会无限膨胀。排查需要的是"哪个节点、哪个模型、几秒、多少 token、
+    报什么错"，这些字段足够定位问题。
+
+    不存金额：仓库没有维护厂商价目表，凭空算出来的钱会被当成真数据引用。
+    """
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS llm_calls (
+            call_id TEXT PRIMARY KEY,
+            tenant_id TEXT,
+            user_id TEXT,
+            task_id TEXT,
+            node TEXT,
+            provider TEXT,
+            model TEXT,
+            latency_ms INTEGER,
+            prompt_tokens INTEGER,
+            completion_tokens INTEGER,
+            attempts INTEGER,
+            ok INTEGER,
+            error_code TEXT,
+            created_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_llm_calls_task
+            ON llm_calls (task_id, created_at);
+        """
+    )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001", "baseline", _baseline),
     Migration("0002", "conversations_and_messages", _conversations),
@@ -527,6 +577,9 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("0012", "tasks_retry_of", _retry_of_column),
     Migration("0013", "task_steps_node_output", _task_step_io),
     Migration("0014", "business_reports", _business_reports),
+
+    Migration("0015", "tasks_reuse_guards", _task_reuse_guards),
+    Migration("0016", "llm_calls", _llm_calls),
 )
 
 

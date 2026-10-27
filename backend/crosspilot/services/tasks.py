@@ -25,13 +25,31 @@ from ..persistence.db import Database
 STATUS_QUEUED = "queued"
 STATUS_RUNNING = "running"
 STATUS_AWAITING_APPROVAL = "awaiting_approval"
+#: 缺少关键事实，等用户补充后重跑（Phase 3）。**不是**失败：
+#: 任务已经跑到"能判断缺什么"的程度了。
+STATUS_WAITING_INPUT = "waiting_for_input"
+#: 工作流停在中断点，等用户确认是否继续（Phase 5）。
+#: 与 ``waiting_for_input`` 的区别：这个**可以原地恢复**（checkpoint 还在），
+#: 不需要从头重跑；而 ``waiting_for_input`` 只能重试。
+STATUS_WAITING_REVIEW = "waiting_for_review"
+#: 部分完成：有产物但没通过质量门禁，需要人工复核（Phase 3）。
+STATUS_PARTIAL = "partial"
 STATUS_SUCCEEDED = "succeeded"
 STATUS_FAILED = "failed"
 STATUS_CANCELLING = "cancelling"
 STATUS_CANCELLED = "cancelled"
 
-TERMINAL_STATUSES = {STATUS_SUCCEEDED, STATUS_FAILED, STATUS_CANCELLED}
+#: 终态：不再有后台执行，也不会自己变化。
+TERMINAL_STATUSES = {
+    STATUS_SUCCEEDED,
+    STATUS_FAILED,
+    STATUS_CANCELLED,
+    STATUS_WAITING_INPUT,
+    STATUS_PARTIAL,
+}
 CANCELLABLE_STATUSES = {STATUS_QUEUED, STATUS_RUNNING, STATUS_CANCELLING}
+#: 可以原地恢复的状态（有 checkpoint 可续）。
+RESUMABLE_STATUSES = {STATUS_WAITING_REVIEW}
 
 
 class TaskCancelled(Exception):
@@ -259,6 +277,51 @@ class TaskRecorder:
             finished_at=_now(),
         )
 
+    def await_input(self, *, output: dict[str, Any] | None = None) -> None:
+        """缺少关键事实，等用户补充。
+
+        **不是失败**：图已经跑到"能判断缺什么"的程度，并且把缺什么写进了
+        ``output["missing"]``。用户可以补资料后重试，任务不该显示成红叉。
+        """
+        if self._finished:
+            return
+        self._finished = True
+        self.db.update_task(
+            self.task_id,
+            status=STATUS_WAITING_INPUT,
+            output=output or {},
+            finished_at=_now(),
+        )
+
+    def partial(self, *, result_ref: str | None = None, output: dict[str, Any] | None = None) -> None:
+        """有产物但没通过质量门禁：产物保留，状态标成需人工复核。"""
+        if self._finished:
+            return
+        self._finished = True
+        self.db.update_task(
+            self.task_id,
+            status=STATUS_PARTIAL,
+            result_ref=result_ref,
+            output=output or {},
+            finished_at=_now(),
+        )
+
+    def await_review(self, *, output: dict[str, Any] | None = None) -> None:
+        """工作流停在中断点，等用户确认。
+
+        **不是终态、也不设 finished_at**：这条任务还会被恢复。
+        ``output`` 里放的是给用户看的待确认内容（缺什么、影响什么、确认令牌），
+        不影响 checkpointer 里的图状态——两者职责不同，不要混。
+        """
+        if self._finished:
+            return
+        self._finished = True
+        self.db.update_task(
+            self.task_id,
+            status=STATUS_WAITING_REVIEW,
+            output=output or {},
+        )
+
     def cancel(self, *, reason: str = "用户取消") -> None:
         """把任务落成 cancelled，并留下一个取消步骤。"""
         if self._finished:
@@ -308,6 +371,15 @@ class TaskRecorder:
         )
         recorder.trace_id = task.get("trace_id") or recorder.trace_id
         recorder._opened = True
+        # 恢复时接着已有的步骤序号往下排。不重置的话 seq 会从 1 重新开始，
+        # 时间线里新旧步骤会交错（ORDER BY seq 会按 1,1,2,2… 排出来）。
+        try:
+            steps = db.list_task_steps(
+                task["task_id"], task["user_id"], task.get("tenant_id")
+            )
+            recorder._seq = max((int(s.get("seq") or 0) for s in steps), default=0)
+        except Exception:  # noqa: BLE001 - 序号读不到也不能让恢复失败
+            recorder._seq = 0
         return recorder
 
 
@@ -343,6 +415,17 @@ def cancel_task(
     if status == STATUS_QUEUED:
         db.update_task(task_id, status=STATUS_CANCELLED, finished_at=_now())
         return "ok", "排队任务已取消"
+    if status == STATUS_WAITING_REVIEW:
+        # 暂停中的工作流没有正在跑的东西，可以直接落终态。
+        # checkpoint 顺手清掉：这条任务已经不会再被恢复，留着只是死数据。
+        db.update_task(task_id, status=STATUS_CANCELLED, finished_at=_now())
+        try:
+            from ..agent.checkpoint import cleanup_thread
+
+            cleanup_thread(tenant_id or "", task_id)
+        except Exception:  # noqa: BLE001 - 清理失败不影响取消
+            pass
+        return "ok", "已取消等待确认的任务"
     if status == STATUS_RUNNING:
         managed = bool(queue is not None and queue.is_active(task_id))
         if not managed:
@@ -365,18 +448,25 @@ def _status_label(status: str) -> str:
         STATUS_QUEUED: "排队",
         STATUS_CANCELLING: "正在取消",
         STATUS_AWAITING_APPROVAL: "等待审批",
+        STATUS_WAITING_INPUT: "等待补充资料",
+        STATUS_WAITING_REVIEW: "等待确认",
+        STATUS_PARTIAL: "待复核",
     }.get(status, status)
 
 
 __all__ = [
     "CANCELLABLE_STATUSES",
+    "RESUMABLE_STATUSES",
     "STATUS_AWAITING_APPROVAL",
     "STATUS_CANCELLED",
     "STATUS_CANCELLING",
     "STATUS_FAILED",
+    "STATUS_PARTIAL",
     "STATUS_QUEUED",
     "STATUS_RUNNING",
     "STATUS_SUCCEEDED",
+    "STATUS_WAITING_INPUT",
+    "STATUS_WAITING_REVIEW",
     "TERMINAL_STATUSES",
     "TaskCancelled",
     "TaskRecorder",

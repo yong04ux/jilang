@@ -321,6 +321,10 @@ class ListingGenerationRequest(BaseModel):
     banned_terms: list[str] = Field(default_factory=list)
     target_length_hint: Literal["short", "medium", "long"] = "medium"
     data_source: str = "manual"
+    #: 质检修订用的附加约束（Phase 3 的质量修订循环）。
+    #: 由子图在重试生成时填入上一版的具体问题，**不是**给外部调用方的常规参数；
+    #: 留成普通字段而不是单开一个方法，是因为它最终只影响提示词，不改变产出结构。
+    revision_notes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _require_analysis(self) -> "ListingGenerationRequest":

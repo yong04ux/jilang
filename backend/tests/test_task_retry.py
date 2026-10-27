@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 
+from crosspilot.agent import workflows
 from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
@@ -29,6 +30,16 @@ def create_failed_agent_task(
     """直接落一条 failed 的 Agent 任务（模拟执行中途失败），用于验证重试。"""
     db = client.app.state.db
     task_id = uuid.uuid4().hex
+    input_payload = {
+        "product_name": "EcoSip Insulated Water Bottle",
+        "platform": "amazon",
+        "marketplace": "US",
+        "own_specs": {"容量": "750ml", "材质": "304 不锈钢"},
+        "own_key_features": ["双层真空保温"],
+        "competitors": DEMO_ANALYSIS_REQUEST["competitors"],
+        "with_listing": with_listing,
+        "data_source": "demo",
+    }
     db.create_task(
         {
             "task_id": task_id,
@@ -38,14 +49,7 @@ def create_failed_agent_task(
             "type": "agent_workflow",
             "title": "失败任务",
             "status": "failed",
-            "input": {
-                "product_name": "EcoSip Insulated Water Bottle",
-                "platform": "amazon",
-                "marketplace": "US",
-                "competitors": DEMO_ANALYSIS_REQUEST["competitors"],
-                "with_listing": with_listing,
-                "data_source": "demo",
-            },
+            "input": input_payload,
             "output": None,
             "error_code": "agent_step_failed",
             "error_message": "boom",
@@ -55,12 +59,18 @@ def create_failed_agent_task(
             "started_at": None,
             "finished_at": "2026-10-21T00:00:01+00:00",
             "degraded": 0,
+            # 真实运行会记下这两项；没有它们，Phase 6 的复用闸门会（正确地）拒绝复用
+            "input_fingerprint": workflows.fingerprint(input_payload),
+            "workflow_version": workflows.WORKFLOW_VERSION,
         }
     )
     return task_id
 
 
-RESUMABLE_NODES = ("plan", "analyze", "integrity", "summary")
+#: 断点复用覆盖的节点（Phase 5 收敛后的节点名，组合工作流路径）。
+#: 只取到竞品分析结束：其后的落库与收尾节点**不允许复用**，
+#: 否则重试既不保存结果也不落任务状态。
+RESUMABLE_NODES = ("validate", "dispatch", "validate_request", "run_analysis")
 
 
 def run_reference_task(client, headers: dict[str, str]) -> str:
@@ -72,6 +82,10 @@ def run_reference_task(client, headers: dict[str, str]) -> str:
             "product_name": "EcoSip Insulated Water Bottle",
             "platform": "amazon",
             "marketplace": "US",
+            # Phase 3 起：没有可引用事实就不生成文案（会停在 waiting_for_input），
+            # 所以这里必须给规格与卖点，否则这条"参考成功任务"根本不成立。
+            "own_specs": {"容量": "750ml", "材质": "304 不锈钢"},
+            "own_key_features": ["双层真空保温"],
             "competitors": DEMO_ANALYSIS_REQUEST["competitors"],
             "with_listing": True,
             "data_source": "demo",

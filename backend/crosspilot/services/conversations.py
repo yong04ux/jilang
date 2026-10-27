@@ -167,17 +167,36 @@ def record_task_result(
         if output.get("listing_id"):
             parts.append("Listing 草稿已保存。")
         content = " ".join(parts)
+        content_type = "result_ref"
+    elif status == "partial":
+        # 有产物但没过质检：既不是"完成"，也不是"失败"
+        content = "结果已生成，但未通过质量检查，需要人工复核后再使用。"
+        content_type = "result_ref"
+    elif status == "waiting_for_input":
+        # 缺资料不是错误，别用"任务失败"的口气
+        missing = output.get("missing") or []
+        detail = f"（缺：{'、'.join(missing)}）" if missing else ""
+        content = f"任务已暂停：商品资料不足{detail}，补充后可以重试。"
+        content_type = "text"
+    elif status == "waiting_for_review":
+        # 暂停等确认：还没结束，也谈不上失败
+        reasons = ((output.get("pending") or {}).get("reasons")) or []
+        detail = f"（{reasons[0]}）" if reasons else ""
+        content = f"竞品数据不足{detail}，已暂停等待确认是否继续生成 Listing。"
+        content_type = "text"
     elif status == "cancelled":
         content = "任务已取消，未产生新结果。"
+        content_type = "error"
     else:
         content = f"任务失败：{task.get('error_message') or '未知错误'}"
+        content_type = "error"
     append_message(
         db,
         ctx,
         conversation_id,
         role=ROLE_ASSISTANT,
         content=content,
-        content_type="result_ref" if status == "succeeded" else "error",
+        content_type=content_type,
         task_id=task_id,
         meta={
             "status": status,

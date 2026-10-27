@@ -401,6 +401,18 @@ def _build_prompts(
         differentiation=diff_block,
         keywords=keyword_block,
     )
+    # 质量修订（Phase 3）：带着上一版的具体问题重新生成，而不是让它自由发挥。
+    # 只在提示词层面加约束——产出结构与首次生成完全一致，因此下游质检不用改。
+    revision_notes = [
+        str(note).strip() for note in (request.revision_notes or []) if str(note).strip()
+    ]
+    if revision_notes:
+        user += (
+            "\n\n【上一版未通过质检，以下问题必须逐条修正】\n"
+            + "\n".join(f"- {note}" for note in revision_notes[:8])
+            + "\n修正时不得引入事实台账之外的新事实、数字或认证；"
+            "无法在不编造的前提下修正的，宁可不写。"
+        )
     return system, user
 
 

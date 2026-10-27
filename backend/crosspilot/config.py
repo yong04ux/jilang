@@ -154,6 +154,15 @@ class Settings(BaseSettings):
     # 任务永远停在 running。打开后忽略 async_run，在本次请求内跑完再返回。
     force_sync_tasks: bool = False
 
+    # ---- 工作流 Checkpoint ----------------------------------------------
+    # 暂停/恢复的状态存在哪：
+    #   auto     —— 有数据库就落库，连不上退内存并记警告（默认）
+    #   postgres —— 强制落库，连不上就直接报错（生产建议）
+    #   memory   —— 只放进程内存，重启即丢（单测常用）
+    # 落库后**进程重启仍能恢复**暂停中的工作流；memory 后端不具备这个能力，
+    # 接口会通过 ``/api/tasks/{id}`` 的 pending.checkpoint_backend 如实告知。
+    checkpoint_backend: str = "auto"
+
     # ---- 加密主密钥 ------------------------------------------------------
     # 用户 API Key 的加密主密钥。留空时回退到 data/.secret_key 文件（本地开发）。
     # Serverless（Vercel 等）文件系统只读，无法持久化密钥文件，**必须显式设置**，

@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 
-from crosspilot.agent import registry
+from crosspilot.agent import registry, workflows
+from crosspilot.agent.planner import plan_for
 from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
@@ -98,7 +99,8 @@ def test_agent_run_without_listing(client):
 
     assert body["task_id"]
     assert body["status"] == "succeeded"
-    assert body["plan"] == ["analyze", "integrity", "summary", "persist"]
+    # Phase 5：主图收敛为 validate → dispatch → 收尾，中间是竞品分析子图的步骤
+    assert body["plan"] == plan_for(False)
     assert body["report"]["product_name"]
     assert body["listing"] is None
     assert body["summary"]["points"]
@@ -110,8 +112,22 @@ def test_agent_run_task_records_every_node(client):
     body = client.post("/api/agent/runs", json=agent_payload(), headers=headers).json()
 
     detail = client.get(f"/api/tasks/{body['task_id']}", headers=headers).json()
-    names = [s["name"] for s in detail["steps"]]
-    assert names == ["生成执行计划", "竞品分析", "数据完整性检查", "生成市场机会总结", "保存报告与任务记录"]
+    # 用稳定的节点键断言，而不是展示文案——文案会改，键是契约
+    nodes = [s["node"] for s in detail["steps"]]
+    assert nodes == [
+        "validate",
+        "dispatch",
+        "validate_input",
+        "resolve_data_provider",
+        "fetch_competitors",
+        "normalize_data",
+        "check_data_sufficiency",
+        "analyze_market",
+        "validate_analysis",
+        "summarize_opportunities",
+        "persist_result",
+        "finalize",
+    ]
     assert all(s["status"] == "succeeded" for s in detail["steps"])
     assert all(s["duration_ms"] is not None for s in detail["steps"])
     assert detail["task"]["type"] == "agent_workflow"
@@ -126,20 +142,22 @@ def test_agent_run_with_listing(client):
     body = resp.json()
 
     assert body["listing"] is not None
-    assert body["plan"] == ["analyze", "integrity", "summary", "listing", "quality", "persist"]
+    assert body["plan"] == plan_for(True)
     assert body["quality"]["passed"] in (True, False)
     assert body["listing"]["analysis_report_id"] == body["report"]["report_id"]
 
     detail = client.get(f"/api/tasks/{body['task_id']}", headers=headers).json()
-    names = [s["name"] for s in detail["steps"]]
-    assert names == [
-        "生成执行计划",
-        "竞品分析",
-        "数据完整性检查",
-        "生成市场机会总结",
-        "生成 Listing 草稿",
-        "质量检查",
-        "保存报告与任务记录",
+    nodes = [s["node"] for s in detail["steps"]]
+    # 样本充足时不出现确认节点
+    assert nodes == [
+        "validate",
+        "dispatch",
+        "validate_request",
+        "run_analysis",
+        "check_listing_facts",
+        "run_listing",
+        "settle",
+        "finalize",
     ]
 
 
@@ -202,21 +220,33 @@ def test_market_summary_does_not_invent_numbers(client):
 
 
 def test_agent_run_failure_marks_task_failed(client, monkeypatch):
-    """执行期异常必须落成 failed 任务，并保留失败步骤。"""
+    """执行期异常必须落成 failed 任务，并保留失败步骤。
+
+    状态码与错误码由统一分类决定（2026-10-27）：节点里的未知异常属于
+    ``internal_error`` → 500（不是 502，502 是上游返回异常，这里是本进程出错）。
+    """
     headers = register(client, "agent_run7")
 
     def boom(*args, **kwargs):
         raise RuntimeError("skill exploded")
 
-    # 让图里的竞品分析节点失败（比 provider 构造失败更贴近真实故障）
-    monkeypatch.setattr("crosspilot.agent.skills.run_competitor_analysis", boom)
+    # 让图里的竞品分析节点失败（比 provider 构造失败更贴近真实故障）。
+    # Phase 5 起竞品子图直接调 engine.analysis.run_analysis，打桩点随之改变。
+    monkeypatch.setattr("crosspilot.engine.analysis.run_analysis", boom)
     resp = client.post("/api/agent/runs", json=agent_payload(), headers=headers)
-    assert resp.status_code == 502
+    assert resp.status_code == 500
+    payload = resp.json()["detail"]
+    assert payload["category"] == "internal_error"
+    # 面向用户的文案里不能出现 Python 异常类名
+    assert "RuntimeError" not in payload["message"]
+    assert "skill exploded" not in payload["message"]
 
     tasks = client.get("/api/tasks", headers=headers).json()["items"]
     failed = [t for t in tasks if t["status"] == "failed"]
     assert failed
     detail = client.get(f"/api/tasks/{failed[0]['task_id']}", headers=headers).json()
+    # 任务记录里的错误码是**分类**，不是异常类名
+    assert detail["task"]["error_code"] == "internal_error"
     assert any(s["status"] == "failed" for s in detail["steps"])
 
 
@@ -251,8 +281,8 @@ def test_listing_only_run_without_competitors(client):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["status"] == "succeeded"
-    # 计划里没有竞品分析与市场总结
-    assert body["plan"] == ["listing", "quality", "persist"]
+    # 计划里没有竞品分析与市场总结（Phase 5 起计划 = 主图三阶段 + 所选工作流步骤）
+    assert body["plan"] == workflows.choose({"listing_only": True}).plan()
     assert body["report"] is None
     assert body["listing"]["listing_id"]
     assert body["listing"]["title"]
