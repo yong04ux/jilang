@@ -185,6 +185,24 @@ crosspilot migrate
 docker compose up -d
 ```
 
+### 多环境配置（本地 / 线上）
+
+配置文件由 `CROSSPILOT_ENV_FILE` 定位，默认 `backend/.env`。CLI 提供 `--env` 简写：
+
+| 命令 | 使用的文件 | 典型用途 |
+|---|---|---|
+| `python -m crosspilot serve` | `backend/.env` | 本地 PostgreSQL + 本地上传目录 |
+| `python -m crosspilot serve --env cloud` | `backend/.env.cloud` | 本地连线上 Supabase |
+| `python -m crosspilot migrate --env cloud` | `backend/.env.cloud` | 对线上库跑迁移 |
+
+`--env local` 与不带参数等价——「本地」就是 `.env` 本身，不再复制第二份内容，
+避免两个文件各自演化。`--env X` 找不到 `.env.X` 时**直接报错**，不会静默退回默认配置
+（那种失败最难发现：以为连着线上库，实际写进了本地库）。
+
+`--env` 对所有子命令生效（`serve` / `demo` / `check` / `migrate` / `seed-demo` /
+`cleanup-guests`），写在子命令**后面**。启动时会把实际使用的配置文件与
+`用户@主机:端口/库名` 打出来（不含密码），省得反复确认"我现在连的是哪个库"。
+
 ### 服务
 
 本地开发（等价于生产入口，含 `/health`；在 `backend/` 下执行）：

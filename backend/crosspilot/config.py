@@ -40,6 +40,32 @@ def find_config_dir() -> Path:
 CONFIG_DIR = find_config_dir()
 
 
+def resolve_env_file() -> str:
+    """定位配置文件路径（默认 ``backend/.env``）。
+
+    ``CROSSPILOT_ENV_FILE`` 可以用三种写法：
+    - 不设：用 ``backend/.env``（本地开发默认）；
+    - 文件名（如 ``.env.cloud``）：按 ``backend/`` 工程根解析，**与当前工作目录无关**；
+    - 绝对路径：原样使用。
+
+    文件不存在时**直接报错，不退回默认值**。静默回退是这个场景里最坏的失败方式：
+    想连线上库却写错了文件名，服务照样启动、接口照样通，数据却写进了本地库，
+    等发现时已经对不上账。
+    """
+    raw = (os.environ.get("CROSSPILOT_ENV_FILE") or "").strip()
+    if not raw:
+        return str(BACKEND_ROOT / ".env")
+    path = Path(raw)
+    if not path.is_absolute():
+        path = BACKEND_ROOT / path
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"CROSSPILOT_ENV_FILE 指向的配置文件不存在: {path}"
+            "（可用 --env local / --env cloud，或写完整路径）"
+        )
+    return str(path)
+
+
 class Settings(BaseSettings):
     """运行配置。字段名与环境变量一一对应（前缀 CROSSPILOT_）。"""
 
@@ -52,8 +78,10 @@ class Settings(BaseSettings):
     )
 
     def __init__(self, **values: Any):
-        env_file = os.environ.get("CROSSPILOT_ENV_FILE") or str(BACKEND_ROOT / ".env")
-        super().__init__(_env_file=env_file, **values)
+        # 配置文件在实例化时才计算（不是模块导入时），这样：
+        #   1) CLI 的 --env 参数来得及先设置 CROSSPILOT_ENV_FILE；
+        #   2) 测试可以把配置指向临时文件，完全隔离真实 .env。
+        super().__init__(_env_file=resolve_env_file(), **values)
 
     # 服务
     host: str = "127.0.0.1"
@@ -222,4 +250,5 @@ __all__ = [
     "Settings",
     "get_settings",
     "load_json_config",
+    "resolve_env_file",
 ]

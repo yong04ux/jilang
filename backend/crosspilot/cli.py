@@ -10,13 +10,58 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
-from .config import get_settings
+from .config import BACKEND_ROOT, get_settings, resolve_env_file
 from .demo.demo_data import DEMO_ANALYSIS_REQUEST, DEMO_LISTING_REQUEST
 from .models import CompetitorAnalysisRequest, ListingGenerationRequest
 from .version import __version__
+
+# ``--env local`` 就是默认的 backend/.env，其余按 backend/.env.<name> 查找。
+# 这样「本地」不需要额外文件，不会出现 .env 与 .env.local 两份内容各自演化的局面。
+_ENV_ALIASES = {"local": ".env"}
+
+
+def _add_env_option(parser: argparse.ArgumentParser) -> None:
+    """给子命令加 ``--env``（写在子命令后面：``crosspilot serve --env cloud``）。"""
+    parser.add_argument(
+        "--env",
+        metavar="NAME",
+        default=None,
+        help="选择配置文件：local（默认，backend/.env）/ cloud（backend/.env.cloud）/ 其他 .env.NAME",
+    )
+
+
+def _apply_env_choice(name: str | None) -> Path | None:
+    """把 ``--env cloud`` 翻译成 ``CROSSPILOT_ENV_FILE=backend/.env.cloud``。
+
+    必须在任何 ``Settings()`` 实例化**之前**调用（``get_settings`` 带 lru_cache，
+    一旦取过就固定了）。``Settings.__init__`` 会重新读这个环境变量，所以这里
+    只负责把值写进 ``os.environ``。
+    """
+    if not name:
+        current = (os.environ.get("CROSSPILOT_ENV_FILE") or "").strip()
+        return Path(current) if current else None
+
+    key = name.strip()
+    filename = _ENV_ALIASES.get(key, key if key.startswith(".env") else f".env.{key}")
+    path = Path(filename)
+    if not path.is_absolute():
+        path = BACKEND_ROOT / path
+    if not path.is_file():
+        available = sorted(
+            p.name
+            for p in BACKEND_ROOT.glob(".env*")
+            if p.is_file() and p.name != ".env.example"
+        )
+        raise SystemExit(
+            f"找不到配置文件: {path}\n可用: {', '.join(available) or '（无）'}"
+        )
+    os.environ["CROSSPILOT_ENV_FILE"] = str(path)
+    return path
 
 
 def _configure_console() -> None:
@@ -28,13 +73,32 @@ def _configure_console() -> None:
             pass
 
 
+def _db_label(settings) -> str:
+    """把连接串显示成 ``用户@主机:端口/库名``，**不打印密码**。
+
+    有了本地/线上两套配置，"我这会儿连的是哪个库"变成高频疑问，
+    启动时打一行出来最省事。
+    """
+    url = (settings.database_url or "").strip()
+    if not url:
+        return "（未配置，将使用默认值）"
+    parsed = urlparse(url)
+    if not parsed.hostname:
+        return "（无法解析连接串）"
+    user = f"{parsed.username}@" if parsed.username else ""
+    return f"{user}{parsed.hostname}:{parsed.port or 5432}{parsed.path or ''}"
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     import uvicorn
 
     settings = get_settings()
     host = args.host or settings.host
     port = args.port or settings.port
-    print(f"CrossPilot v{__version__} 启动: http://{host}:{port}")
+    # 必须 flush：uvicorn.run 会一直阻塞，stdout 重定向到文件时是块缓冲，
+    # 不主动刷这两行要等进程退出才看得见（等于白打印）。
+    print(f"CrossPilot v{__version__} 启动: http://{host}:{port}", flush=True)
+    print(f"配置文件: {Path(resolve_env_file()).name}  数据库: {_db_label(settings)}", flush=True)
     uvicorn.run("crosspilot.app:app", host=host, port=port, reload=args.reload)
     return 0
 
@@ -166,8 +230,10 @@ def _cmd_check(args: argparse.Namespace) -> int:
     print(f"CrossPilot v{__version__}")
     print(f"包目录: {PACKAGE_DIR}")
     print(f"backend 根目录: {BACKEND_ROOT}")
+    print(f"配置文件: {resolve_env_file()}")
     print(f"规则目录: {CONFIG_DIR}")
-    print(f"数据库: {settings.database_url or '（未配置 CROSSPILOT_DATABASE_URL）'}")
+    # 只显示 用户@主机/库，不打印密码（这行输出经常被贴进 issue 和聊天记录）
+    print(f"数据库: {_db_label(settings)}")
     try:
         from .persistence.db import Database
 
@@ -240,10 +306,15 @@ def main(argv: list[str] | None = None) -> int:
     cleanup = sub.add_parser("cleanup-guests", help="删除过期的一键体验临时账号及其数据")
     cleanup.set_defaults(func=_cmd_cleanup_guests)
 
+    for command in (serve, demo, check, migrate, seed, cleanup):
+        _add_env_option(command)
+
     args = parser.parse_args(argv)
     if not getattr(args, "func", None):
         parser.print_help()
         return 0
+    # 必须在 args.func(...) 之前落定，否则 get_settings() 已经取过缓存
+    _apply_env_choice(getattr(args, "env", None))
     return args.func(args)
 
 
