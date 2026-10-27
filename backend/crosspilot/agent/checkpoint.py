@@ -128,6 +128,17 @@ def get_checkpointer() -> Any:
         return _memory_saver()
 
     _SAVERS[key] = saver
+    # 建完立刻建表（幂等，每个 URL 只做一次）。
+    # 为什么不能只依赖启动时的 setup_checkpointer()：进程生命周期里 schema 可能被
+    # 别的东西重建（测试的 reset_schema、运维手工 DROP），那时缓存里的 saver
+    # 会对着"没有表的库"写，报错位置在 LangGraph 内部，非常难查。
+    # 放在这里等于加了一层自愈：新连接一定先保证表存在。
+    if key not in _READY:
+        try:
+            saver.setup()
+            _READY.add(key)
+        except Exception as exc:  # noqa: BLE001 - 建表失败仍返回 saver，让它自己报错
+            logger.warning("checkpoint 表初始化失败：%s", exc)
     return saver
 
 
