@@ -50,18 +50,20 @@ def _set_session_cookie(ctx: ApiContext, response: Response, token: str) -> None
 
 
 @router.get("/api/auth/status")
-async def auth_status(
+def auth_status(
     request: Request, ctx: ApiContext = Depends(get_ctx)
 ) -> dict[str, Any]:
     """前端启动时调用：是否需要初始化、当前是否已登录。"""
     token = extract_token(request)
     user = resolve_session(ctx.db, token) if token else None
     settings = ctx.settings
+    # 只查一次：旧实现 needs_setup 与 user_count 各查一遍
+    user_count = ctx.db.count_users()
     return {
-        "needs_setup": ctx.db.count_users() == 0,
+        "needs_setup": user_count == 0,
         "authenticated": user is not None,
         "user": public_user(user) if user else None,
-        "user_count": ctx.db.count_users(),
+        "user_count": user_count,
         "allow_registration": settings.allow_open_registration,
         "demo_account": settings.is_demo_account_enabled,
         "guest_ttl_hours": settings.guest_ttl_hours,
@@ -203,7 +205,7 @@ async def auth_logout(
 
 
 @router.get("/api/auth/me")
-async def auth_me(
+def auth_me(
     ctx: ApiContext = Depends(get_ctx),
     user: dict[str, Any] = Depends(require_user),
 ) -> dict[str, Any]:

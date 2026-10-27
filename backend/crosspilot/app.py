@@ -15,7 +15,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -25,6 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from .version import __version__
+from . import perf
 from .agent import registry as agent_registry
 from .api import ALL_ROUTERS
 from .api.deps import ApiContext, make_secret_box
@@ -58,7 +62,11 @@ def create_app() -> FastAPI:
     """装配 FastAPI 应用：构造共享上下文，挂载全部 router 与静态资源。"""
     settings = get_settings()
     # 生产建议 CROSSPILOT_AUTO_MIGRATE=false，由 `python -m crosspilot migrate` 显式迁移
-    db = Database(settings.database_url, auto_migrate=bool(settings.auto_migrate))
+    db = Database(
+        settings.database_url,
+        auto_migrate=bool(settings.auto_migrate),
+        pool_size=int(getattr(settings, "db_pool_size", 8) or 8),
+    )
     if not settings.auto_migrate:
         logger.info(
             "CROSSPILOT_AUTO_MIGRATE=false：跳过启动期迁移，请先运行 crosspilot migrate"
@@ -74,6 +82,11 @@ def create_app() -> FastAPI:
     except Exception as exc:  # noqa: BLE001 - 见上
         logger.warning("checkpoint 表初始化失败：%s", exc)
 
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        yield
+        db.close()
+
     app = FastAPI(
         title="激浪 API",
         version=__version__,
@@ -81,9 +94,45 @@ def create_app() -> FastAPI:
             "激浪：跨境电商 AI 运营演示站（MVP）。竞品分析 Agent、Listing 生成 Agent、"
             "数据导入与审批。平台数据来自可替换的 Provider（默认 Mock，全部带 is_mock 标记）。"
         ),
+        lifespan=lifespan,
     )
     app.state.db = db
     app.state.settings = settings
+
+    # 性能观测：只在 CROSSPILOT_PROFILE=1 时启用，默认零开销。
+    if bool(getattr(settings, "profile", False)):
+
+        @app.middleware("http")
+        async def profile_middleware(request: Request, call_next):
+            state = perf.start()
+            started = time.perf_counter()
+            try:
+                response = await call_next(request)
+            except Exception:
+                total_ms = (time.perf_counter() - started) * 1000
+                payload = perf.snapshot(state, total_ms=total_ms)
+                logger.info(
+                    "perf %s %s %s",
+                    request.method,
+                    request.url.path,
+                    perf.log_line(payload, state),
+                )
+                perf.stop()
+                raise
+            total_ms = (time.perf_counter() - started) * 1000
+            payload = perf.snapshot(state, total_ms=total_ms)
+            logger.info(
+                "perf %s %s %s",
+                request.method,
+                request.url.path,
+                perf.log_line(payload, state),
+            )
+            perf.stop()
+            response.headers["Server-Timing"] = perf.server_timing(payload)
+            response.headers["X-Perf"] = json.dumps(
+                payload, ensure_ascii=False, separators=(",", ":")
+            )
+            return response
 
     try:
         storage = build_storage(settings)

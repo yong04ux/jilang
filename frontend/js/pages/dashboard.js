@@ -88,6 +88,13 @@
       `<div class="skeleton" style="height:220px;margin-bottom:24px"></div>` +
       `</div></div></div>`;
 
+    // 三个请求互不依赖：一起发出，别串成瀑布。
+    // 健康状态与顶栏共用 CPShell.getHealth() 的缓存，首屏只发一次。
+    const healthPromise = (window.CPShell && window.CPShell.getHealth)
+      ? window.CPShell.getHealth().catch(function () { return null; })
+      : A.get("/api/health").catch(function () { return null; });
+    const providerPromise = A.get("/api/settings/providers").catch(function () { return null; });
+
     let data;
     try {
       data = await A.get("/api/dashboard");
@@ -102,8 +109,8 @@
 
     // 进站第一屏就要说清「还差一步：配自己的 Key」，
     // 否则访客看到全空的报告/任务，不知道下一步该做什么。
-    const providerInfo = await A.get("/api/settings/providers").catch(function () { return null; });
-    const health = await A.get("/api/health").catch(function () { return null; });
+    const providerInfo = await providerPromise;
+    const health = await healthPromise;
     const needsKey = Boolean(providerInfo) &&
       !providerInfo.active_config_id &&
       !(health && health.requires_api_key === false);

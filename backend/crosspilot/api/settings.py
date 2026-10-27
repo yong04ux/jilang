@@ -16,6 +16,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from .. import perf
 from ..llm.llm import LLMError
 from ..llm.model_settings import ModelSettingsError, ModelSettingsUpdate
 from ..llm.provider_configs import (
@@ -189,10 +190,11 @@ def _ping_provider(provider, model: str) -> dict[str, Any]:
 
 
 @router.get("/api/settings/providers")
-async def list_provider_configs(
+def list_provider_configs(
     user: dict[str, Any] = Depends(require_user), api: ApiContext = Depends(get_ctx)
 ) -> dict[str, Any]:
-    return api.provider_service().list_public(user["user_id"])
+    with perf.timed("settings.providers"):
+        return api.provider_service().list_public(user["user_id"])
 
 
 @router.post("/api/settings/providers")

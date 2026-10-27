@@ -305,6 +305,34 @@ def test_paused_task_survives_saver_restart(client):
     assert resp.json()["status"] == "partial"
 
 
+def test_paused_task_detail_exposes_everything_the_ui_needs(client):
+    """界面确认卡片读的就是这份数据，字段缺一个按钮就没法用。
+
+    前端在 ``/api/tasks/{id}`` **顶层**的 ``pending`` 上渲染：问题、原因、
+    受影响结论、以及提交确认用的 token。这里把它们钉成契约。
+    """
+    headers = register(client, "cw_ui_pending")
+    out = run_combined(client, headers, competitors=FEW_COMPETITORS)
+    assert out["status"] == "waiting_for_review"
+
+    detail = client.get(f"/api/tasks/{out['task_id']}", headers=headers).json()
+    pending = detail["pending"]
+    assert pending["question"]
+    assert pending["reasons"], "确认卡片要说明为什么停"
+    assert pending["affected_conclusions"]
+    assert pending["confirmation_token"]
+
+    # 界面上点「继续生成」走的就是这条链路
+    resp = confirm(client, headers, out["task_id"], "continue", pending["confirmation_token"])
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "partial"
+
+    after = client.get(f"/api/tasks/{out['task_id']}", headers=headers).json()
+    assert after["task"]["status"] == "partial"
+    # 确认过后不该再有待确认内容，否则界面会一直弹
+    assert after["pending"] is None
+
+
 def test_checkpoint_loss_still_allows_cancel(client):
     """真丢掉 checkpoint 也要能收尾：取消分支不依赖它。"""
     headers = register(client, "cw_lost_cancel")

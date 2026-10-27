@@ -25,6 +25,7 @@ from typing import Any, Callable
 from fastapi import Depends, HTTPException, Request
 
 from ..config import Settings, get_settings
+from .. import perf
 from ..persistence.db import Database
 from ..auth import extract_token, resolve_session
 from ..demo.demo_mode import (
@@ -87,7 +88,8 @@ class ApiContext:
         """解析租户上下文；无权访问统一 403，不区分"不存在"与"不是成员"。"""
         requested = request.headers.get("X-Tenant-Id")
         try:
-            ctx = resolve_tenant(self.db, user, requested)
+            with perf.timed("tenant"):
+                ctx = resolve_tenant(self.db, user, requested)
         except TenantError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
         request.state.tenant = ctx
@@ -209,7 +211,8 @@ def require_user(
 ) -> dict[str, Any]:
     """解析会话得到当前用户；未登录 401。"""
     token = extract_token(request)
-    user = resolve_session(ctx.db, token) if token else None
+    with perf.timed("auth"):
+        user = resolve_session(ctx.db, token) if token else None
     if user is None:
         raise HTTPException(
             status_code=401,

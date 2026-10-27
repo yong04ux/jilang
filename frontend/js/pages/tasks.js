@@ -281,7 +281,7 @@
     return drawer;
   }
 
-  function detailBody(task, steps, result) {
+  function detailBody(task, steps, result, pending) {
     const canCancel = ["queued", "running", "cancelling"].includes(task.status);
 
     // 报告与草稿就在本页的结果区，不再往外跳
@@ -292,6 +292,29 @@
       ? `<div class="callout callout-danger mt-3">${U.icon("alert")}<div>` +
         `<strong>这个任务没有完成</strong><br>${U.esc(task.error_message)}` +
         `</div></div>`
+      : "";
+
+    // 暂停点确认：只在状态是 waiting_for_review 且服务端给了待确认内容时出现。
+    // 组合工作流在竞品样本不足时会停在这里等用户决定——界面若没有这一步，
+    // 任务就会卡在「等待确认」永远走不下去（既不完成也不失败）。
+    // 待确认内容由详情接口的顶层 ``pending`` 给出（不在 result 里）；
+    // 为兼容直接拿 output 的场景也兜一层。
+    const pendingInfo = pending || result.pending || (task.output || {}).pending || null;
+    const confirmBlock = task.status === "waiting_for_review" && pendingInfo
+      ? `<div class="callout callout-warn mt-3">${U.icon("info")}` +
+        `<div><strong>需要你确认是否继续</strong><br>${U.esc(pendingInfo.question || "是否继续？")}` +
+        (pendingInfo.reasons && pendingInfo.reasons.length
+          ? `<ul class="t-xs t-muted mt-2 mb-0">` +
+            pendingInfo.reasons.map(function (r) { return `<li>${U.esc(r)}</li>`; }).join("") +
+            `</ul>`
+          : "") +
+        (pendingInfo.affected_conclusions && pendingInfo.affected_conclusions.length
+          ? `<div class="t-xs t-muted mt-2">受影响：${U.esc(pendingInfo.affected_conclusions.join("；"))}</div>`
+          : "") +
+        `<div class="row gap-2 mt-2">` +
+        `<button type="button" class="btn btn-sm btn-primary" data-confirm="continue">继续生成</button>` +
+        `<button type="button" class="btn btn-sm" data-confirm="cancel">取消</button>` +
+        `</div></div></div>`
       : "";
 
     const approvalId = (task.output || {}).approval_id;
@@ -316,7 +339,7 @@
       `<div class="row gap-2">${links.join("")}` +
       (canCancel ? `<button type="button" class="btn btn-sm" id="task-cancel">取消任务</button>` : "") +
       `</div></div>` +
-      errorBlock + approvalBlock +
+      errorBlock + approvalBlock + confirmBlock +
       (["queued", "running"].includes(task.status)
         ? `<div class="callout callout-info mt-3">${U.icon("info")}` +
           `<div>任务正在执行。取消会在当前步骤结束后生效，进度会自动刷新。</div></div>`
@@ -368,7 +391,7 @@
     const body = drawer.querySelector("#task-drawer-body");
     if (!body) return;
     const task = data.task || {};
-    body.innerHTML = detailBody(task, data.steps || [], data.result || {});
+    body.innerHTML = detailBody(task, data.steps || [], data.result || {}, data.pending || null);
     window.CPIcon.hydrate(body);
 
     body.querySelectorAll("[data-decide]").forEach(function (button) {
@@ -380,6 +403,27 @@
           await A.post(`/api/approvals/${encodeURIComponent(approvalId)}/decide`, { decision: decision });
           U.toast(decision === "approved" ? "已通过（未实际发布）" : "已拒绝", "ok");
           closeDrawer();
+        } catch (err) {
+          U.toast(err.message, "danger");
+          button.disabled = false;
+        }
+      });
+    });
+
+    body.querySelectorAll("[data-confirm]").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        button.disabled = true;
+        const decision = button.getAttribute("data-confirm");
+        try {
+          // token 把「确认的是哪一次暂停」绑定住，防止拿着过期清单去确认
+          const pendingNow = (task.output || {}).pending || {};
+          await A.post(
+            `/api/tasks/${encodeURIComponent(task.task_id)}/confirm`,
+            { decision: decision, confirmation_token: pendingNow.confirmation_token || "" }
+          );
+          U.toast(decision === "continue" ? "已继续生成" : "已取消", "ok");
+          closeDrawer();
+          load(root);
         } catch (err) {
           U.toast(err.message, "danger");
           button.disabled = false;

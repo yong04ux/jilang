@@ -12,6 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
+from .. import perf
 from ..config import get_settings
 from ..version import __version__
 from ..auth import extract_token, resolve_session
@@ -141,21 +142,24 @@ if FRONTEND_INDEX.is_file():
 
 
 @router.get("/api/health")
-async def health(request: Request, api: ApiContext = Depends(get_ctx)) -> dict[str, Any]:
+def health(request: Request, api: ApiContext = Depends(get_ctx)) -> dict[str, Any]:
     """公开接口：只报服务状态；已登录时顺带反映该用户的模型配置。"""
     active = api.settings
     token = extract_token(request)
-    user = resolve_session(api.db, token) if token else None
+    with perf.timed("health.session"):
+        user = resolve_session(api.db, token) if token else None
     model_config = None
     if user is not None:
         try:
-            model_config = api.provider_service().effective(user["user_id"], active)
-            if model_config is None:
-                model_config = api.model_service().effective(user["user_id"], active)
+            with perf.timed("health.provider_config"):
+                model_config = api.provider_service().effective(user["user_id"], active)
+                if model_config is None:
+                    model_config = api.model_service().effective(user["user_id"], active)
         except Exception:  # noqa: BLE001 - 探针不能让健康检查失败
             model_config = None
     try:
-        provider_info = provider_status(active, model_config)
+        with perf.timed("health.provider_status"):
+            provider_info = provider_status(active, model_config)
     except ProviderError as exc:
         name = model_config.provider if model_config else active.provider
         provider_info = {"name": name, "available": False, "detail": str(exc)}
@@ -175,6 +179,9 @@ async def health(request: Request, api: ApiContext = Depends(get_ctx)) -> dict[s
         except Exception:  # noqa: BLE001 - 探针不能让健康检查失败
             pass
 
+    with perf.timed("health.worker"):
+        worker_info = worker_health(active)
+
     return {
         "status": "ok",
         "version": __version__,
@@ -190,7 +197,7 @@ async def health(request: Request, api: ApiContext = Depends(get_ctx)) -> dict[s
             if model_config
             else None
         ),
-        "worker": worker_health(active),
+        "worker": worker_info,
         "marketplace_mode": active.marketplace_mode,
         "demo_data": "所有示例数据标记为示例/Mock，不代表真实商品/销量/排名",
         "db": str(api.db.path),
@@ -261,15 +268,18 @@ async def ban_lists() -> dict[str, Any]:
 
 
 @router.get("/api/providers")
-async def providers(
+def providers(
     user: dict[str, Any] = Depends(require_user), api: ApiContext = Depends(get_ctx)
 ) -> dict[str, Any]:
-    model_config = api.model_service().effective(user["user_id"], api.settings)
+    with perf.timed("providers.config"):
+        model_config = api.model_service().effective(user["user_id"], api.settings)
+    with perf.timed("providers.status"):
+        status = provider_status(api.settings, model_config)
     return {
         "active": model_config.provider,
         "model": model_config.model,
         "source": model_config.source,
-        "status": provider_status(api.settings, model_config),
+        "status": status,
         "models": list(KNOWN_MODELS),
         "note": "deepseek-flash 是官方文档的当前模型名；deepseek-v4-flash 等旧名仍可用但已退役",
     }

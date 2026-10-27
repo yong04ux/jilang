@@ -105,11 +105,31 @@ def issue_session(db: Database, user_id: str, ttl_hours: int = SESSION_TTL_HOURS
     return token
 
 
+#: 会话表字段；JOIN 查回后要把这些从"用户"字典里剔除
+_SESSION_FIELDS = ("token_hash", "expires_at", "last_seen_at", "session_created_at")
+
+#: ``last_seen_at`` 的更新间隔。每次请求都写一次会让只读页面也产生写入，
+#: 并且多一次数据库往返；60 秒粒度对"最后活跃"语义足够。
+TOUCH_INTERVAL_SECONDS = 60
+
+
+def _should_touch(last_seen_at: Any) -> bool:
+    if not last_seen_at:
+        return True
+    try:
+        seen = datetime.fromisoformat(str(last_seen_at))
+    except (ValueError, TypeError):
+        return True
+    if seen.tzinfo is None:
+        seen = seen.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - seen).total_seconds() >= TOUCH_INTERVAL_SECONDS
+
+
 def resolve_session(db: Database, token: str) -> dict[str, Any] | None:
     """令牌 -> 用户。过期、无效、用户不存在都返回 None。"""
     if not token:
         return None
-    record = db.get_session(_hash_token(token))
+    record = db.get_session_user(_hash_token(token))
     if record is None:
         return None
     try:
@@ -121,11 +141,11 @@ def resolve_session(db: Database, token: str) -> dict[str, Any] | None:
     if expires < datetime.now(timezone.utc):
         db.delete_session(record["token_hash"])
         return None
-    user = db.get_user(record["user_id"])
-    if user is None:
-        db.delete_session(record["token_hash"])
+    user = {key: value for key, value in record.items() if key not in _SESSION_FIELDS}
+    if not user.get("user_id"):
         return None
-    db.touch_session(record["token_hash"])
+    if _should_touch(record.get("last_seen_at")):
+        db.touch_session(record["token_hash"])
     return user
 
 

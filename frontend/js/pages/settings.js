@@ -579,7 +579,8 @@
           );
           state.editing = null;
           state.providers = await A.get("/api/settings/providers");
-          try { state.health = await A.get("/api/health"); } catch (err) { /* 忽略 */ }
+          if (window.CPShell && window.CPShell.invalidateHealth) window.CPShell.invalidateHealth();
+          try { state.health = await (window.CPShell && window.CPShell.getHealth ? window.CPShell.getHealth(true) : A.get("/api/health")); } catch (err) { /* 忽略 */ }
           paint(root);
           refreshShell();
         } catch (err) {
@@ -597,7 +598,8 @@
           await A.post(`/api/settings/providers/${encodeURIComponent(btn.getAttribute("data-activate"))}/activate`, {});
           U.toast("已切换当前使用的配置", "ok");
           state.providers = await A.get("/api/settings/providers");
-          try { state.health = await A.get("/api/health"); } catch (err) { /* 忽略 */ }
+          if (window.CPShell && window.CPShell.invalidateHealth) window.CPShell.invalidateHealth();
+          try { state.health = await (window.CPShell && window.CPShell.getHealth ? window.CPShell.getHealth(true) : A.get("/api/health")); } catch (err) { /* 忽略 */ }
           paint(root);
           refreshShell();
         } catch (err) {
@@ -636,7 +638,8 @@
           await A.del(`/api/settings/providers/${encodeURIComponent(id)}`);
           U.toast("配置已删除", "ok");
           state.providers = await A.get("/api/settings/providers");
-          try { state.health = await A.get("/api/health"); } catch (err) { /* 忽略 */ }
+          if (window.CPShell && window.CPShell.invalidateHealth) window.CPShell.invalidateHealth();
+          try { state.health = await (window.CPShell && window.CPShell.getHealth ? window.CPShell.getHealth(true) : A.get("/api/health")); } catch (err) { /* 忽略 */ }
           paint(root);
           refreshShell();
         } catch (err) {

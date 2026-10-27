@@ -11,14 +11,24 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import threading
+import time
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator
 
+from .. import perf
 from .migrations import apply_migrations, migration_status
+
+logger = logging.getLogger(__name__)
+
+#: 按 DSN 复用的连接池。测试与 create_app() 会多次构造 Database，
+#: 共用同一个池才不会把 PostgreSQL 的连接数打满。
+_POOLS: dict[str, Any] = {}
+_POOLS_LOCK = threading.Lock()
 
 
 class DatabaseError(RuntimeError):
@@ -36,7 +46,18 @@ class _PgConnection:
         self._connection = connection
 
     def execute(self, sql: str, params: Any = ()):
-        return self._connection.execute(sql.replace("?", "%s"), params or ())
+        if not perf.active():
+            return self._connection.execute(sql.replace("?", "%s"), params or ())
+        started = time.perf_counter()
+        try:
+            return self._connection.execute(sql.replace("?", "%s"), params or ())
+        finally:
+            perf.incr("db.queries")
+            perf.add(
+                "db.sql",
+                (time.perf_counter() - started) * 1000,
+                stmt=" ".join(sql.split())[:80],
+            )
 
     def executescript(self, script: str) -> None:
         for statement in script.split(";"):
@@ -80,6 +101,38 @@ def _connect_kwargs(dsn: str) -> dict[str, Any]:
         kwargs["prepare_threshold"] = None
     return kwargs
 
+
+def _pool_kwargs(dsn: str) -> dict[str, Any]:
+    from psycopg.rows import dict_row
+
+    kwargs = {"row_factory": dict_row, "autocommit": False, **_connect_kwargs(dsn)}
+    # 连接会在池里长期复用，而迁移与测试会重建 schema。禁用预编译语句，
+    # 避免旧执行计划在表结构变化后报 "cached plan must not change result type"，
+    # 也避免 PgBouncer transaction 模式下跨后端的 statement 冲突。
+    kwargs["prepare_threshold"] = None
+    return kwargs
+
+
+def _get_pool(dsn: str, size: int):
+    with _POOLS_LOCK:
+        pool = _POOLS.get(dsn)
+        if pool is not None and not pool.closed:
+            return pool
+        from psycopg_pool import ConnectionPool
+
+        pool = ConnectionPool(
+            conninfo=dsn,
+            min_size=0,
+            max_size=max(1, int(size)),
+            timeout=10,
+            max_idle=120,
+            kwargs=_pool_kwargs(dsn),
+            name="crosspilot",
+            open=False,
+        )
+        pool.open(wait=False)
+        _POOLS[dsn] = pool
+        return pool
 
 
 _SCHEMA = """
@@ -241,9 +294,11 @@ CREATE INDEX IF NOT EXISTS idx_steps_task ON task_steps(task_id, seq);
 
 
 class Database:
-    """线程安全的 PostgreSQL 封装（每次操作使用独立连接）。"""
+    """线程安全的 PostgreSQL 封装（连接由进程内连接池复用）。"""
 
-    def __init__(self, database_url: str, *, auto_migrate: bool = True):
+    def __init__(
+        self, database_url: str, *, auto_migrate: bool = True, pool_size: int = 8
+    ):
         self._dsn = (database_url or "").strip()
         if not self._dsn:
             raise DatabaseError(
@@ -261,6 +316,15 @@ class Database:
         self.path = _redact_dsn(self._dsn)
         self.auto_migrate = auto_migrate
         self._lock = threading.Lock()
+        self._pool = None
+        try:
+            import psycopg_pool  # noqa: F401
+
+            self._pool = _get_pool(self._dsn, pool_size)
+        except ImportError:
+            logger.warning(
+                "未安装 psycopg_pool：每次数据库操作都会新建连接，首屏会明显变慢。"
+            )
         if auto_migrate:
             self._init_schema()
 
@@ -270,16 +334,44 @@ class Database:
 
     @contextmanager
     def connect(self) -> Iterator[Any]:
+        if self._pool is None:
+            with self._connect_direct() as connection:
+                yield connection
+            return
+
+        started = time.perf_counter()
+        try:
+            raw = self._pool.getconn(timeout=10)
+        except Exception as exc:  # noqa: BLE001 - 池等待超时同样是数据库不可用
+            raise DatabaseError(f"等待数据库连接超时：{exc}") from exc
+        perf.add("db.pool_wait", (time.perf_counter() - started) * 1000)
+        perf.incr("db.connections")
+        connection = _PgConnection(raw)
+        try:
+            yield connection
+            raw.commit()
+        except Exception:
+            raw.rollback()
+            raise
+        finally:
+            self._pool.putconn(raw)
+
+    @contextmanager
+    def _connect_direct(self) -> Iterator[Any]:
+        """没有 psycopg_pool 时的退路：每次新建连接（行为与改造前一致）。"""
         import psycopg
         from psycopg.rows import dict_row
 
         try:
+            started = time.perf_counter()
             raw = psycopg.connect(
                 self._dsn,
                 row_factory=dict_row,
                 autocommit=False,
                 **_connect_kwargs(self._dsn),
             )
+            perf.incr("db.connections")
+            perf.add("db.connect", (time.perf_counter() - started) * 1000)
         except Exception as exc:  # noqa: BLE001 - 启动失败要明确
             raise DatabaseError(f"无法连接 PostgreSQL：{exc}") from exc
         connection = _PgConnection(raw)
@@ -291,6 +383,28 @@ class Database:
             raise
         finally:
             connection.close()
+
+    def close(self) -> None:
+        """关闭本实例对应的共享连接池（应用退出时调用）。"""
+        pool = self._pool
+        if pool is None:
+            return
+        with _POOLS_LOCK:
+            if _POOLS.get(self._dsn) is pool:
+                _POOLS.pop(self._dsn, None)
+        pool.close()
+
+    @contextmanager
+    def _using(self, connection: Any = None) -> Iterator[Any]:
+        """复用调用方已持有的连接；没有则按正常路径获取。
+
+        用途：一次请求里要跑多条 SQL 时，把连接传进来，避免反复检出/归还。
+        """
+        if connection is not None:
+            yield connection
+            return
+        with self.connect() as connection:
+            yield connection
 
     def _init_schema(self) -> None:
         with self._lock, self.connect() as connection:
@@ -434,6 +548,25 @@ class Database:
                 ).fetchone()
         return dict(row) if row else None
 
+    def get_membership_with_tenant(
+        self, user_id: str, tenant_id: str | None = None
+    ) -> dict[str, Any] | None:
+        """成员关系 + 租户名一次查回：解析租户上下文的两次往返合并为一次。"""
+        sql = (
+            "SELECT m.tenant_id, m.user_id, m.role, m.joined_at, "
+            "       t.name AS tenant_name, t.slug "
+            "FROM tenant_members m JOIN tenants t ON t.tenant_id = m.tenant_id "
+            "WHERE m.user_id = ?"
+        )
+        params: list[Any] = [user_id]
+        if tenant_id is not None:
+            sql += " AND m.tenant_id = ?"
+            params.append(tenant_id)
+        sql += " ORDER BY m.joined_at LIMIT 1"
+        with self.connect() as connection:
+            row = connection.execute(sql, params).fetchone()
+        return dict(row) if row else None
+
     def list_memberships(self, user_id: str) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
@@ -559,6 +692,8 @@ class Database:
         limit: int = 50,
         user_id: str | None = None,
         tenant_id: str | None = None,
+        *,
+        connection: Any = None,
     ) -> list[dict[str, Any]]:
         query = """SELECT report_id, product_name, platform, marketplace, data_source, is_demo, created_at
                    FROM competitor_reports"""
@@ -571,8 +706,8 @@ class Database:
             params.append(user_id)
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
-        with self.connect() as connection:
-            rows = connection.execute(query, params).fetchall()
+        with self._using(connection) as conn:
+            rows = conn.execute(query, params).fetchall()
         items = [dict(row) for row in rows]
         task_ids = self._task_refs([item["report_id"] for item in items])
         for item in items:
@@ -830,6 +965,8 @@ class Database:
         limit: int = 50,
         user_id: str | None = None,
         tenant_id: str | None = None,
+        *,
+        connection: Any = None,
     ) -> list[dict[str, Any]]:
         query = """SELECT listing_id, product_name, platform, marketplace, language, report_id,
                           is_demo, created_at, version, parent_listing_id
@@ -843,8 +980,8 @@ class Database:
             params.append(user_id)
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
-        with self.connect() as connection:
-            rows = connection.execute(query, params).fetchall()
+        with self._using(connection) as conn:
+            rows = conn.execute(query, params).fetchall()
         items: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
@@ -1123,6 +1260,22 @@ class Database:
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT * FROM auth_sessions WHERE token_hash = ?", (token_hash,)
+            ).fetchone()
+        return dict(row) if row else None
+
+    def get_session_user(self, token_hash: str) -> dict[str, Any] | None:
+        """会话 + 用户一次查回：认证路径上少一次数据库往返。
+
+        返回的 dict 同时含会话字段（``token_hash`` / ``expires_at`` /
+        ``last_seen_at``）与用户字段；调用方用 ``_SESSION_FIELDS`` 区分。
+        """
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT u.*, s.token_hash, s.expires_at, s.last_seen_at, "
+                "       s.created_at AS session_created_at "
+                "FROM auth_sessions s JOIN users u ON u.user_id = s.user_id "
+                "WHERE s.token_hash = ?",
+                (token_hash,),
             ).fetchone()
         return dict(row) if row else None
 
@@ -1559,6 +1712,7 @@ class Database:
         query: str | None = None,
         limit: int = 50,
         tenant_id: str | None = None,
+        connection: Any = None,
     ) -> list[dict[str, Any]]:
         if tenant_id is not None:
             sql = "SELECT * FROM tasks WHERE tenant_id = ?"
@@ -1575,8 +1729,8 @@ class Database:
             params.extend([like, like, like])
         sql += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
-        with self.connect() as connection:
-            rows = connection.execute(sql, params).fetchall()
+        with self._using(connection) as conn:
+            rows = conn.execute(sql, params).fetchall()
         return [self._task_row(row) for row in rows]
 
     def add_task_step(self, step: dict[str, Any]) -> None:
@@ -1660,7 +1814,9 @@ class Database:
                 continue
         return result
 
-    def task_stats(self, user_id: str, tenant_id: str | None = None) -> dict[str, int]:
+    def task_stats(
+        self, user_id: str, tenant_id: str | None = None, *, connection: Any = None
+    ) -> dict[str, int]:
         if tenant_id is not None:
             sql = "SELECT status, COUNT(*) AS n FROM tasks WHERE tenant_id = ?"
             params: list[Any] = [tenant_id]
@@ -1668,12 +1824,17 @@ class Database:
             sql = "SELECT status, COUNT(*) AS n FROM tasks WHERE user_id = ?"
             params: list[Any] = [user_id]
         sql += " GROUP BY status"
-        with self.connect() as connection:
-            rows = connection.execute(sql, params).fetchall()
+        with self._using(connection) as conn:
+            rows = conn.execute(sql, params).fetchall()
         return {row["status"]: int(row["n"]) for row in rows}
 
     def daily_task_counts(
-        self, user_id: str, *, days: int = 14, tenant_id: str | None = None
+        self,
+        user_id: str,
+        *,
+        days: int = 14,
+        tenant_id: str | None = None,
+        connection: Any = None,
     ) -> list[dict[str, Any]]:
         """近 N 天每日新建任务数（缺失日期补 0，供趋势图直接使用）。"""
         from datetime import timedelta
@@ -1693,8 +1854,8 @@ class Database:
                 "WHERE user_id = ? AND substr(created_at, 1, 10) >= ? GROUP BY day"
             )
             params = [user_id, start.isoformat()]
-        with self.connect() as connection:
-            rows = connection.execute(sql, params).fetchall()
+        with self._using(connection) as conn:
+            rows = conn.execute(sql, params).fetchall()
         counts = {row["day"]: int(row["n"]) for row in rows}
         series: list[dict[str, Any]] = []
         for offset in range(span):
@@ -1702,31 +1863,40 @@ class Database:
             series.append({"date": day, "count": counts.get(day, 0)})
         return series
 
-    def count_records(self, user_id: str, tenant_id: str | None = None) -> dict[str, int]:
+    def count_records(
+        self, user_id: str, tenant_id: str | None = None, *, connection: Any = None
+    ) -> dict[str, int]:
         """报告 / Listing / 店铺 / 待审批的计数（工作台 KPI 用）。
 
+        四个计数合并成一条 SQL：在远端数据库上，一次往返比四次便宜得多。
         部分表没有 ``user_id`` 列（店铺、审批只有 ``tenant_id`` /
         ``requested_by``），因此按表分别指定回退列，避免生成非法 SQL。
         """
-
-        def _count(table: str, user_column: str, extra: str = "") -> int:
-            if tenant_id is not None:
-                sql = f"SELECT COUNT(*) AS n FROM {table} WHERE tenant_id = ?{extra}"
-                params: list[Any] = [tenant_id]
-            else:
-                sql = f"SELECT COUNT(*) AS n FROM {table} WHERE {user_column} = ?{extra}"
-                params = [user_id]
-            with self.connect() as connection:
-                row = connection.execute(sql, params).fetchone()
-            return int(row["n"]) if row else 0
-
+        if tenant_id is not None:
+            sql = (
+                "SELECT "
+                "(SELECT COUNT(*) FROM competitor_reports WHERE tenant_id = ?) AS reports, "
+                "(SELECT COUNT(*) FROM listing_drafts WHERE tenant_id = ?) AS listings, "
+                "(SELECT COUNT(*) FROM store_connections WHERE tenant_id = ?) AS stores, "
+                "(SELECT COUNT(*) FROM approval_requests "
+                " WHERE tenant_id = ? AND status = 'pending') AS approvals"
+            )
+            params: list[Any] = [tenant_id] * 4
+        else:
+            sql = (
+                "SELECT "
+                "(SELECT COUNT(*) FROM competitor_reports WHERE user_id = ?) AS reports, "
+                "(SELECT COUNT(*) FROM listing_drafts WHERE user_id = ?) AS listings, "
+                "(SELECT COUNT(*) FROM store_connections WHERE tenant_id = ?) AS stores, "
+                "(SELECT COUNT(*) FROM approval_requests "
+                " WHERE requested_by = ? AND status = 'pending') AS approvals"
+            )
+            params = [user_id] * 4
+        with self._using(connection) as conn:
+            row = conn.execute(sql, params).fetchone()
         return {
-            "reports": _count("competitor_reports", "user_id"),
-            "listings": _count("listing_drafts", "user_id"),
-            "stores": _count("store_connections", "tenant_id"),
-            "approvals": _count(
-                "approval_requests", "requested_by", " AND status = 'pending'"
-            ),
+            name: int(row[name]) if row and row[name] is not None else 0
+            for name in ("reports", "listings", "stores", "approvals")
         }
 
     # -- 会话与消息 ---------------------------------------------------------
@@ -2107,9 +2277,11 @@ class Database:
             ).fetchone()
         return self._store_row(row) if row else None
 
-    def list_store_connections(self, tenant_id: str) -> list[dict[str, Any]]:
-        with self.connect() as connection:
-            rows = connection.execute(
+    def list_store_connections(
+        self, tenant_id: str, *, connection: Any = None
+    ) -> list[dict[str, Any]]:
+        with self._using(connection) as conn:
+            rows = conn.execute(
                 "SELECT * FROM store_connections WHERE tenant_id = ? ORDER BY created_at",
                 (tenant_id,),
             ).fetchall()

@@ -231,8 +231,13 @@ def _decorate(connection: dict[str, Any]) -> dict[str, Any]:
     return connection
 
 
-def list_connections(db: Database, ctx: TenantContext) -> list[dict[str, Any]]:
-    return [_decorate(item) for item in db.list_store_connections(ctx.tenant_id)]
+def list_connections(
+    db: Database, ctx: TenantContext, *, connection: Any = None
+) -> list[dict[str, Any]]:
+    return [
+        _decorate(item)
+        for item in db.list_store_connections(ctx.tenant_id, connection=connection)
+    ]
 
 
 def get_connection(

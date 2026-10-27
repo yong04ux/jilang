@@ -43,6 +43,31 @@
     );
   }
 
+  /* 健康状态在首屏会被顶栏和工作台各要一次：共享同一个 Promise，
+     避免同一份数据发两次请求。TTL 内复用，配置变更时主动失效。 */
+  const HEALTH_TTL_MS = 15000;
+  let healthPromise = null;
+  let healthFetchedAt = 0;
+
+  function getHealth(force) {
+    const now = Date.now();
+    if (!force && healthPromise && now - healthFetchedAt < HEALTH_TTL_MS) {
+      return healthPromise;
+    }
+    healthFetchedAt = now;
+    healthPromise = window.CPApi.get("/api/health").catch(function (err) {
+      healthPromise = null;
+      healthFetchedAt = 0;
+      throw err;
+    });
+    return healthPromise;
+  }
+
+  function invalidateHealth() {
+    healthPromise = null;
+    healthFetchedAt = 0;
+  }
+
   function isExpanded() {
     if (UI) return UI.getState().expanded;
     try { return localStorage.getItem(EXPAND_KEY) === "1"; } catch (err) { return false; }
@@ -182,7 +207,7 @@
     const flag = document.getElementById("provider-flag");
     if (!flag) return;
     try {
-      const health = await window.CPApi.get("/api/health");
+      const health = await getHealth();
       const p = health.provider || {};
       const worker = health.worker || {};
       let name;
@@ -415,6 +440,6 @@
 
   window.CPShell = {
     mount, setNavKey, openDrawer, closeDrawer, loadProvider, loadUser, LABELS,
-    setExpanded, mountBanner,
+    setExpanded, mountBanner, getHealth, invalidateHealth,
   };
 })();

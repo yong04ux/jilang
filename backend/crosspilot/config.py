@@ -123,6 +123,12 @@ class Settings(BaseSettings):
     # 注册策略：关闭后除首个用户外，注册必须携带租户邀请令牌
     allow_open_registration: bool = True
 
+    # ---- 性能观测与数据库连接池 ------------------------------------------
+    # 打开后响应带 Server-Timing / X-Perf，并把分段明细写日志。默认关闭。
+    profile: bool = False
+    # 每个进程对同一 DSN 复用的连接数上限。免费实例内存小，别开太大。
+    db_pool_size: int = 8
+
     # ---- 演示站机制 ------------------------------------------------------
     # BYOK：没有可用 Key 时，需要模型的任务返回 428（不静默降级）
     require_api_key: bool = True

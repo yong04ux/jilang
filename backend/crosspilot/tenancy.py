@@ -72,21 +72,18 @@ def resolve_tenant(db: Database, user: dict, requested: str | None = None) -> Te
     """
     user_id = user["user_id"]
     if requested:
-        membership = db.get_membership(user_id, requested)
+        membership = db.get_membership_with_tenant(user_id, requested)
         if membership is None:
             # 不区分"租户不存在"与"你不是成员"，避免探测他人租户
             raise TenantError("无权访问该租户")
-        tenant = db.get_tenant(requested)
-        if tenant is None:
-            raise TenantError("无权访问该租户")
         return TenantContext(
             tenant_id=requested,
-            tenant_name=tenant["name"],
+            tenant_name=membership.get("tenant_name") or "",
             user_id=user_id,
             role=membership["role"],
         )
 
-    membership = db.get_membership(user_id)
+    membership = db.get_membership_with_tenant(user_id)
     if membership is None:
         # 兜底：历史用户可能在迁移后仍无租户，这里补建而不是报错
         tenant_id = create_personal_tenant(db, user_id, user.get("username") or user_id)
@@ -96,10 +93,9 @@ def resolve_tenant(db: Database, user: dict, requested: str | None = None) -> Te
             user_id=user_id,
             role="owner",
         )
-    tenant = db.get_tenant(membership["tenant_id"])
     return TenantContext(
         tenant_id=membership["tenant_id"],
-        tenant_name=tenant["name"] if tenant else "",
+        tenant_name=membership.get("tenant_name") or "",
         user_id=user_id,
         role=membership["role"],
     )

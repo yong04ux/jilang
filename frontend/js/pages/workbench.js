@@ -821,6 +821,9 @@
        一次轮询抖动都会把结果徽章翻成「失败」。 */
     const failed = state.taskStatus === "failed" || (!state.taskId && Boolean(state.error) && !running);
     const cancelled = state.taskStatus === "cancelled";
+    /* 暂停等确认**不是**完成：少了这一档，停在 waiting_for_review 的任务会被
+       显示成绿色「已完成」，用户以为跑完了，其实它还在等一个决定。 */
+    const waiting = state.taskStatus === "waiting_for_review";
     const tab = state.resTab;
 
     return (
@@ -829,6 +832,7 @@
       (running ? `<span class="badge badge-running">${state.taskStatus === "queued" ? "排队中" : "运行中"}</span>`
         : cancelled ? `<span class="badge">已取消</span>`
         : failed ? `<span class="badge badge-danger">失败</span>`
+        : waiting ? `<span class="badge badge-warn">等待确认</span>`
         : state.taskId ? `<span class="badge badge-ok">已完成</span>` : "") +
       (state.engine
         ? `<span class="badge ${state.engine.kind === "rule" ? "badge-warn" : "badge-ok"}">` +
@@ -846,6 +850,10 @@
       (state.degraded
         ? `<div class="callout callout-warn">${U.icon("alert")}<div><strong>执行参数是按文字推断的</strong><br>` +
           `${U.esc(state.degradedReason || "结果仍然完整，但文案可能需要你再润色一遍。")}</div></div>`
+        : "") +
+      (waiting
+        ? `<div class="callout callout-warn">${U.icon("info")}<div><strong>任务暂停，等你决定</strong><br>` +
+          `竞品数据不足以支撑完整结论。打开「任务详情」可以选择继续生成，或取消这条任务。</div></div>`
         : "") +
       (tab === "steps"
         ? AR.stepList(state.steps, state.plan)

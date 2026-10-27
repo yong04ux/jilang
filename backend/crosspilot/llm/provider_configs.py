@@ -568,14 +568,16 @@ class ProviderConfigService:
         ``config_id`` / ``model`` 让「按步骤分配模型」复用同一套合并逻辑：
         前者换配置（连带 key / base_url），后者只换模型名。
         """
-        active_id = config_id or self._active_config_id(user_id)
+        # 模型设置行同时提供 active_config_id 与温度/超时等参数：只查一次，
+        # 避免旧实现里 "取 active id" 和 "取模型参数" 各查一遍。
+        model_row = self.db.get_model_settings(user_id) or {}
+        active_id = config_id or model_row.get("active_config_id")
         if not active_id:
             return None
         row = self.db.get_provider_config(user_id, active_id)
         if row is None or not row.get("enabled"):
             return None
         provider = row["provider"]
-        model_row = self.db.get_model_settings(user_id) or {}
         return EffectiveModelConfig(
             provider=provider,
             model=model or row.get("model") or "",

@@ -11,6 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from .. import perf
 from ..market.marketplace_provider import (
     MockMarketplaceProvider,
     ProviderNotConfigured,
@@ -71,7 +72,7 @@ async def data_source_status(
 
 
 @router.get("/api/marketplace/overview")
-async def marketplace_overview(
+def marketplace_overview(
     connection_id: str | None = None,
     range: str = "30d",
     api: ApiContext = Depends(get_ctx),
@@ -81,6 +82,14 @@ async def marketplace_overview(
     connection = _marketplace_connection(api, ctx, connection_id)
     provider = _provider_for(connection)
     store_id = connection["connection_id"]
+    with perf.timed("marketplace.products"):
+        products = provider.list_products(store_id, limit=8)
+    with perf.timed("marketplace.orders"):
+        orders = provider.list_orders(store_id, since="30d")
+    with perf.timed("marketplace.ads"):
+        ads = provider.list_ads(store_id)
+    with perf.timed("marketplace.metrics"):
+        metrics = provider.metrics(store_id, range=range)
     return {
         "connection": {
             "connection_id": store_id,
@@ -91,10 +100,10 @@ async def marketplace_overview(
             "is_mock": connection.get("is_mock", connection["mode"] == "mock"),
         },
         "provider": {"name": provider.name, "mode": provider.mode},
-        "products": provider.list_products(store_id, limit=8),
-        "orders": provider.list_orders(store_id, since="30d"),
-        "ads": provider.list_ads(store_id),
-        "metrics": provider.metrics(store_id, range=range),
+        "products": products,
+        "orders": orders,
+        "ads": ads,
+        "metrics": metrics,
     }
 
 
@@ -157,7 +166,7 @@ async def marketplace_ads(
 
 
 @router.get("/api/marketplace/metrics")
-async def marketplace_metrics(
+def marketplace_metrics(
     connection_id: str | None = None,
     range: str = "30d",
     api: ApiContext = Depends(get_ctx),
@@ -166,7 +175,8 @@ async def marketplace_metrics(
     require_role(ctx, ROLE_READ)
     connection = _marketplace_connection(api, ctx, connection_id)
     provider = _provider_for(connection)
-    payload = provider.metrics(connection["connection_id"], range=range)
+    with perf.timed("marketplace.metrics"):
+        payload = provider.metrics(connection["connection_id"], range=range)
     return {
         **payload,
         "mode": provider.mode,
