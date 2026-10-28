@@ -208,7 +208,7 @@ export function paintChart(host: HTMLElement, skillKey: string, payload: Dict): 
   if (!target) return
   const out = payload.output || {}
   const series = (out.cost_breakdown || []).map((c: Dict) => ({ label: c.label, value: c.amount }))
-  window.CPChart.bars(target, {
+  window.CPChart.bars(target as HTMLElement, {
     series,
     categories: true,
     label: '成本构成',

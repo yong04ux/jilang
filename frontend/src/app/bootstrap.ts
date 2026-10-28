@@ -11,6 +11,7 @@ import { go, normalize, renderPath, installRouterListeners } from './router'
 import { getHealth, invalidateHealth, useHealthStore } from '@/features/health/health'
 import { loadAuth, loadMe, logout, showGate, useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
+import { chartApi } from '@/lib/charts'
 
 function navLabels(): Record<string, string> {
   const labels: Record<string, string> = {}
@@ -20,6 +21,10 @@ function navLabels(): Record<string, string> {
 }
 
 export function installLegacyGlobals(): void {
+  /* 图表统一走 TS 实现（S7 迁入）：旧页面的 `window.CPChart.xxx` 都是调用时查全局，
+     所以覆盖一次即全站生效，不存在两套并存。 */
+  window.CPChart = chartApi
+
   window.CPAuth = {
     load: (silent?: boolean) => loadAuth(Boolean(silent)),
     logout,

@@ -80,12 +80,13 @@ declare global {
     }
     /** 图表：仍是旧实现（S3 决定等首个消费页面再迁），React 页面通过 ref 挂宿主元素 */
     CPChart?: {
-      line(host: Element, spec: Record<string, unknown>): void
-      bars(host: Element, spec: Record<string, unknown>): void
+      line(host: HTMLElement, spec: Record<string, unknown>): void
+      bars(host: HTMLElement, spec: Record<string, unknown>): void
       money(value: unknown): string
       moneyFull(value: unknown, currency?: string): string
       num(value: unknown): string
       pct(value: unknown): string
+      format(value: unknown, kind?: string, code?: string): string
     }
     /** 任务步骤时间线：仍是旧实现（S3 只迁了状态机），产出 HTML 字符串 */
     CPAsyncRun?: {
