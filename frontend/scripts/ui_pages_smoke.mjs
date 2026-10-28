@@ -307,6 +307,48 @@ async function main() {
   check(dp.sources && dp.resultPanel, '结果区与数据集区都在')
   check(dp.emptyText === '还没有导入结果', '未导入时是空态', dp.emptyText)
 
+  /* ---------------- 技能：慢能力必须走后台任务 + 轮询 ----------------
+     不用「DOM 上是否看到 loading」来断言：规则引擎跑得快时那个状态只存在一两百毫秒，
+     采样必然漏（ui_skills_shot 就是这么误报的）。这里直接看网络调用。 */
+  console.log('\n/skills（慢能力走异步）')
+  await ev(`window.CPRouter.go('/skills?skill=competitor_analysis', { force: true })`)
+  const skillFormReady = await waitFor(`!!document.querySelector('#sk-form')`)
+  check(skillFormReady, '技能详情表单已渲染')
+  const skillRun = await ev(`(async () => {
+    window.__net = [];
+    const f = window.fetch;
+    window.fetch = async (...a) => {
+      const u = typeof a[0] === 'string' ? a[0] : a[0].url;
+      const r = await f.apply(window, a);
+      window.__net.push(r.status + ' ' + u);
+      return r;
+    };
+    const set = (sel, v) => { const el = document.querySelector(sel); if (!el) return false;
+      el.value = v; el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true })); return true };
+    set('input[data-path="product_name"]', 'EcoSip 保温杯 750ml');
+    set('input[data-path="own_price"]', '22.9');
+    set('textarea[data-type="competitors"]', 'AquaPeak | 25.99 | 4.4 | 1842 | lid leaked');
+    const btn = document.querySelector('#sk-run');
+    if (!btn) return 'no-run';
+    btn.click();
+    const t0 = Date.now();
+    while (Date.now() - t0 < 120000) {
+      if (document.querySelector('#sk-result .report-block') && !document.querySelector('#sk-result .sk-loading')) {
+        return JSON.stringify({ ok: true, net: window.__net.filter((x) => x.indexOf('async_run') !== -1 || x.indexOf('api/tasks') !== -1) });
+      }
+      const danger = document.querySelector('#sk-result .callout-danger');
+      if (danger) return 'err:' + danger.textContent.trim().slice(0, 80);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return 'timeout' })()`)
+  let runInfo = {}
+  try { runInfo = JSON.parse(skillRun) } catch {}
+  check(runInfo.ok === true, '竞品分析跑出报告', String(skillRun).slice(0, 120))
+  const calls = runInfo.net || []
+  check(calls.some((c) => c.indexOf('async_run=true') !== -1), '慢能力走的是异步接口', calls)
+  check(calls.some((c) => c.indexOf('/api/tasks/') !== -1), '确实在轮询任务状态', calls)
+
   /* ---------------- 设置 ---------------- */
   console.log('\n/settings')
   await ev(`window.CPRouter.go('/settings?section=model', { force: true })`)

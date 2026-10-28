@@ -88,7 +88,7 @@ async function main() {
   await evaluate(`(async () => {
     const t0 = Date.now();
     while (Date.now() - t0 < 20000) {
-      if (window.CPRouter && window.CPPageSkills) return 'ready';
+      if (window.CPRouter && document.querySelector('#sk-grid-all')) return 'ready';
       await new Promise((r) => setTimeout(r, 150));
     }
     return 'timeout';
@@ -425,12 +425,14 @@ async function main() {
     t0 = Date.now();
     let sawPolling = false;
     while (Date.now() - t0 < 180000) {
-      if (document.querySelector('#sk-result .sk-loading, #sk-result .step')) sawPolling = true;
+      if (document.querySelector('#sk-result .sk-loading, #sk-result .timeline-item')) sawPolling = true;
       const rep = document.querySelector('#sk-result .report-block');
       const err = document.querySelector('#sk-result .callout-danger');
       if (err) return 'err:' + err.textContent.trim().slice(0, 160);
       if (rep && !document.querySelector('#sk-result .sk-loading')) return 'ok polling=' + sawPolling;
-      await new Promise((r) => setTimeout(r, 200));
+      // 采样 50ms 而不是 200ms：规则引擎跑得快时，loading 态（异步任务 + 轮询）
+      // 可能只存在一两百毫秒，200ms 采样会整段错过，误报「没走后台轮询」。
+      await new Promise((r) => setTimeout(r, 50));
     }
     return 'timeout';
   })()`)

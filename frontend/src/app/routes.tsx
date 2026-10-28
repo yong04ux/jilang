@@ -10,6 +10,7 @@ import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { TasksPage } from '@/pages/tasks/TasksPage'
 import { DataPage } from '@/pages/data/DataPage'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
+import { SkillsPage } from '@/pages/skills/SkillsPage'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
 
@@ -34,8 +35,10 @@ function TaskDetailRoute({ params }: RoutePageProps) {
   return <TasksPage key={`task:${params.id}`} initialTaskId={params.id} />
 }
 
-const skillsLoader: LegacyPageLoader = (root, params, query) =>
-  window.CPPageSkills?.render(root, params, query)
+/* 广场与详情同一个路由，靠 ?skill= / ?batch= 区分（保住已有深链） */
+function SkillsRoute({ query }: RoutePageProps) {
+  return <SkillsPage query={query} />
+}
 
 /* ?section= 由页面自己滚动定位，路由只负责把 query 传进去 */
 function SettingsRoute({ query }: RoutePageProps) {
@@ -54,7 +57,7 @@ export const ROUTES: RouteDef[] = [
   { path: '/tasks/:id', navKey: 'tasks', Page: TaskDetailRoute },
   { path: '/data', navKey: 'data', Page: DataPage },
   { path: '/agents', navKey: 'agents', Page: AgentsPage },
-  { path: '/skills', navKey: 'skills', Page: legacy(skillsLoader) },
+  { path: '/skills', navKey: 'skills', Page: SkillsRoute },
   { path: '/stores', navKey: 'stores', Page: legacy(storesLoader('dashboard')) },
   { path: '/stores/authorize', navKey: 'stores', Page: legacy(storesLoader('authorize')) },
   { path: '/stores/product', navKey: 'stores', Page: legacy(storesLoader('product')) },
