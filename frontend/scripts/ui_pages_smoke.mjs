@@ -307,6 +307,32 @@ async function main() {
   check(dp.sources && dp.resultPanel, '结果区与数据集区都在')
   check(dp.emptyText === '还没有导入结果', '未导入时是空态', dp.emptyText)
 
+  /* ---------------- 设置 ---------------- */
+  console.log('\n/settings')
+  await ev(`window.CPRouter.go('/settings?section=model', { force: true })`)
+  const settingsReady = await waitFor(`!!document.getElementById('section-model')`)
+  check(settingsReady, '设置页渲染')
+  const st = JSON.parse(
+    await ev(`JSON.stringify({
+      title: (document.querySelector('.page-title') || {}).textContent || '',
+      sections: ['account','model','data','team'].map((k) => !!document.getElementById('section-' + k)),
+      auditCard: !!document.getElementById('section-audit'),
+      canInvite: !!document.getElementById('btn-invite'),
+      teamHint: (document.querySelector('#section-team .callout') || {}).textContent || '',
+      activeLine: Array.from(document.querySelectorAll('#section-model .t-xs.t-muted')).map((e) => e.textContent).find((t) => t.indexOf('当前生效') === 0) || '',
+      addBtn: (document.getElementById('prov-new') || {}).disabled,
+    })`),
+  )
+  check(st.title === '设置', '标题正确', st.title)
+  check(st.sections.every(Boolean), '账号/模型/数据源/团队四张卡都在', st.sections)
+  check(st.activeLine.indexOf('当前生效：') === 0, '「当前生效」一行存在', st.activeLine)
+  check(
+    st.canInvite || /只有 admin \/ owner/.test(st.teamHint),
+    '团队卡按角色给出邀请入口或只读说明',
+    { canInvite: st.canInvite, hint: st.teamHint.slice(0, 20) },
+  )
+  check(st.auditCard === st.canInvite, '审计卡只对管理员出现', { audit: st.auditCard, invite: st.canInvite })
+
   /* ---------------- Agent 市场 ---------------- */
   console.log('\n/agents')
   await ev(`window.CPRouter.go('/agents', { force: true })`)

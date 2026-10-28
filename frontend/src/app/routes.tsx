@@ -9,6 +9,7 @@ import { AgentsPage } from '@/pages/agents/AgentsPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { TasksPage } from '@/pages/tasks/TasksPage'
 import { DataPage } from '@/pages/data/DataPage'
+import { SettingsPage } from '@/pages/settings/SettingsPage'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
 
@@ -36,8 +37,10 @@ function TaskDetailRoute({ params }: RoutePageProps) {
 const skillsLoader: LegacyPageLoader = (root, params, query) =>
   window.CPPageSkills?.render(root, params, query)
 
-const settingsLoader: LegacyPageLoader = (root, params, query) =>
-  window.CPPageSettings?.render(root, params, query)
+/* ?section= 由页面自己滚动定位，路由只负责把 query 传进去 */
+function SettingsRoute({ query }: RoutePageProps) {
+  return <SettingsPage section={query.section} />
+}
 
 const storesLoader = (view: string): LegacyPageLoader => (root, _params, query) =>
   window.CPPageStores?.render(root, view, query ?? {})
@@ -56,7 +59,7 @@ export const ROUTES: RouteDef[] = [
   { path: '/stores/authorize', navKey: 'stores', Page: legacy(storesLoader('authorize')) },
   { path: '/stores/product', navKey: 'stores', Page: legacy(storesLoader('product')) },
   { path: '/stores/ledger', navKey: 'stores', Page: legacy(storesLoader('ledger')) },
-  { path: '/settings', navKey: 'settings', Page: legacy(settingsLoader) },
+  { path: '/settings', navKey: 'settings', Page: SettingsRoute },
 ]
 
 /**
