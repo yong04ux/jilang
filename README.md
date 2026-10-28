@@ -123,7 +123,7 @@ CrossPilot/
 │   └── scripts/                     # 检查与验收脚本（编码/前端契约/冒烟/E2E/PG 专项）
 ├── frontend/                        # 单一前端（React + TypeScript，Vite 构建）
 │   ├── index.html
-│   ├── assets/                      # logo-mark.svg / logo-full.svg / favicon.svg
+│   ├── assets/                      # logo-mark.svg / favicon.svg
 │   ├── css/{tokens,base,components,layout,pages}.css
 │   ├── js/{api,auth,catalog,render,router,shell,ui,async-run,icons,app}.js + pages/
 │   └── scripts/                     # 前端侧脚本：verify-build / *-parity / ui_*.mjs 诊断
