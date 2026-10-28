@@ -6,6 +6,7 @@
  */
 import { LegacyPage } from '@/legacy/LegacyPage'
 import { AgentsPage } from '@/pages/agents/AgentsPage'
+import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
 
@@ -17,9 +18,6 @@ function legacy(loader: LegacyPageLoader) {
 
 /* 旧页面模块在经典脚本里定义，晚于本模块求值也没关系：
    这里只是包一层取值函数，真正读取发生在挂载时。 */
-const dashboardLoader: LegacyPageLoader = (root, params, query) =>
-  window.CPPageDashboard?.render(root, params, query)
-
 const workbenchLoader: LegacyPageLoader = (root, params, query) =>
   window.CPPageWorkbench?.entry(root, params, query)
 
@@ -42,7 +40,7 @@ const storesLoader = (view: string): LegacyPageLoader => (root, _params, query) 
   window.CPPageStores?.render(root, view, query ?? {})
 
 export const ROUTES: RouteDef[] = [
-  { path: '/dashboard', navKey: 'dashboard', Page: legacy(dashboardLoader) },
+  { path: '/dashboard', navKey: 'dashboard', Page: DashboardPage },
   { path: '/workbench', navKey: 'workbench', Page: legacy(workbenchLoader) },
   { path: '/tasks', navKey: 'tasks', Page: legacy(tasksListLoader) },
   // 深链 /tasks/xxx = 列表页 + 详情抽屉；点行开抽屉时旧代码走 history.replaceState，

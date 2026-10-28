@@ -78,6 +78,15 @@ declare global {
       postForm(path: string, form: FormData): Promise<unknown>
       onUnauthorized(fn: (() => void) | null): void
     }
+    /** 图表：仍是旧实现（S3 决定等首个消费页面再迁），React 页面通过 ref 挂宿主元素 */
+    CPChart?: {
+      line(host: Element, spec: Record<string, unknown>): void
+      bars(host: Element, spec: Record<string, unknown>): void
+      money(value: unknown): string
+      moneyFull(value: unknown, currency?: string): string
+      num(value: unknown): string
+      pct(value: unknown): string
+    }
     /** 迁移期门面（见 app/bootstrap.ts）：旧页面与仓库探针都离不开它们 */
     CPAuth?: {
       load(silent?: boolean): Promise<unknown>

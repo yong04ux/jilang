@@ -54,6 +54,7 @@ async function main() {
   let id = 0
   const pending = new Map()
   const errors = []
+  const consoleErrors = []
   ws.onmessage = (e) => {
     const m = JSON.parse(e.data)
     if (m.id && pending.has(m.id)) {
@@ -63,6 +64,12 @@ async function main() {
     }
     if (m.method === 'Runtime.exceptionThrown') {
       errors.push((m.params.exceptionDetails?.exception?.description || '').slice(0, 200))
+    }
+    // React 会把渲染期错误吞成 console.error，只抓 exceptionThrown 会漏掉
+    if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') {
+      consoleErrors.push(
+        m.params.args.map((a) => a.value ?? a.description ?? '').join(' ').slice(0, 300),
+      )
     }
   }
   await new Promise((r) => (ws.onopen = r))
@@ -109,6 +116,75 @@ async function main() {
     return u.username })()`)
   check(typeof login === 'string' && !/^(register|gate)/.test(login), '登录并关闭登录门', login)
   await sleep(1200)
+
+  /* ---------------- 先造一条真实任务 ----------------
+     工作台的两条分支必须分开验：新账号走空态，有数据才走到趋势图 SVG 与任务表。
+     这里用示例数据跑一次异步竞品分析（规则引擎即可，不依赖模型 Key）。 */
+  console.log('\n准备：造一条任务（用于验证趋势图与任务表）')
+  const seeded = await ev(`(async () => {
+    const ds = await (await fetch('/api/demo/dataset', { credentials: 'same-origin' })).json();
+    const ar = ds.analysis_request || {};
+    const r = await fetch('/api/agent/runs', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_key: 'main', goal: null, product_name: ar.product_name,
+        platform: 'amazon', marketplace: 'US', competitors: ar.competitors || [], keywords: [],
+        own_specs: {}, own_key_features: [], own_price: null, with_listing: false,
+        listing_language: 'en-US', data_source: 'manual', async_run: true }) });
+    if (!r.ok) return 'run:' + r.status + ' ' + (await r.text()).slice(0, 100);
+    const d = await r.json();
+    const id = d.task_id;
+    const t0 = Date.now();
+    while (Date.now() - t0 < 120000) {
+      const t = await (await fetch('/api/tasks/' + id, { credentials: 'same-origin' })).json();
+      const st = (t.task || {}).status;
+      if (['succeeded','failed','partial','cancelled','waiting_for_input','awaiting_approval'].indexOf(st) !== -1) {
+        return 'done:' + st;
+      }
+      await new Promise((res) => setTimeout(res, 500));
+    }
+    return 'timeout' })()`)
+  check(String(seeded).indexOf('done:') === 0, '任务已跑完（用于后续断言）', seeded)
+
+  /* ---------------- 工作台 ---------------- */
+  console.log('\n/dashboard')
+  await ev(`window.CPRouter.go('/dashboard', { force: true })`)
+  const dashReady = await waitFor(`!!document.querySelector('.dash-kpi .kpi')`)
+  check(dashReady, 'KPI 行已渲染')
+  // 趋势图由 useEffect 在提交后绘制，取样要等它落地（否则会读到空容器）
+  await waitFor(`(() => { const h = document.querySelector('#dash-trend'); return !!h && h.children.length > 0 })()`)
+  const dash = JSON.parse(
+    await ev(`JSON.stringify({
+      title: (document.querySelector('.page-title') || {}).textContent || '',
+      desc: (document.querySelector('.page-desc') || {}).textContent || '',
+      kpis: document.querySelectorAll('.dash-kpi .kpi').length,
+      kpiLabels: Array.from(document.querySelectorAll('.dash-kpi .kpi-label')).map((e) => e.textContent),
+      trend: !!document.querySelector('#dash-trend'),
+      trendLen: (document.querySelector('#dash-trend') || {}).innerHTML ? document.querySelector('#dash-trend').innerHTML.length : -1,
+      trendSvg: document.querySelectorAll('#dash-trend svg').length,
+      trendEmpty: !!document.querySelector('#dash-trend .cp-chart-empty'),
+      cards: document.querySelectorAll('.dash-grid .card').length,
+      taskTable: document.querySelectorAll('.dash-grid table.table tbody tr').length,
+      devwords: /TODO|Mock|placeholder|未接入|暂未实现/i.test(document.body.textContent || ''),
+    })`),
+  )
+  check(dash.title === '工作台', '标题正确', dash.title)
+  check(dash.desc.length > 0, '有页面说明', dash.desc.slice(0, 20))
+  check(dash.kpis === 5, 'KPI 5 格', dash.kpis)
+  check(
+    dash.kpiLabels.join('|') === '任务总数|进行中|报告|Listing|待审批',
+    'KPI 标签顺序正确',
+    dash.kpiLabels,
+  )
+  check(dash.cards >= 3, '主区卡片已渲染', dash.cards)
+  check(dash.trend && (dash.trendSvg > 0 || dash.trendEmpty), '趋势区有图或明确空态', {
+    svg: dash.trendSvg,
+    empty: dash.trendEmpty,
+    len: dash.trendLen,
+    consoleErrors: consoleErrors.slice(-2),
+  })
+  check(dash.trendSvg > 0, '有任务时趋势图真的画出来了', dash.trendSvg)
+  check(dash.taskTable > 0, '近期任务表有行', dash.taskTable)
+  check(dash.devwords === false, '无开发标记/内部标识')
 
   /* ---------------- Agent 市场 ---------------- */
   console.log('\n/agents')
@@ -170,6 +246,7 @@ async function main() {
   check(nf.devwords === false, '无开发标记/内部标识')
 
   check(errors.length === 0, '无 JS 异常', errors.slice(0, 3))
+  check(consoleErrors.length === 0, '无 console.error', consoleErrors.slice(0, 3))
 
   console.log('─'.repeat(56))
   ws.close()
