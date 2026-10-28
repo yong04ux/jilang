@@ -14,6 +14,9 @@
 
   const RUNNING = { queued: 1, running: 1, cancelling: 1 };
   const POLL_MS = 1000;
+  /* 连续失败多少次后放弃轮询。与 src/features/async-run/poller.ts 保持一致：
+     单次网络抖动不能让轮询永久停住，但一直失败也不该无限重试。 */
+  const MAX_FAILURES = 5;
 
   const STEP_ICON = {
     succeeded: "check",
@@ -121,7 +124,7 @@
    *   onError(err)     轮询失败回调
    */
   function poller(opts) {
-    const state = { timer: null, stopped: false, done: false };
+    const state = { timer: null, stopped: false, done: false, failures: 0 };
     const taskId = opts.taskId;
 
     function stop() {
@@ -137,8 +140,19 @@
       let detail;
       try {
         detail = await window.CPApi.get(`/api/tasks/${encodeURIComponent(taskId)}`);
+        state.failures = 0;
       } catch (err) {
+        state.failures += 1;
         if (opts.onError) opts.onError(err);
+        /* 修掉的缺陷：原先这里直接 return，不再排下一次 setTimeout，
+           于是任何一次网络抖动都会让轮询永久停住，界面停在最后一次状态。
+           现在只有连续失败达到上限才放弃。 */
+        if (state.failures >= MAX_FAILURES) {
+          stop();
+          if (opts.onGiveUp) opts.onGiveUp(err);
+          return;
+        }
+        state.timer = window.setTimeout(tick, POLL_MS);
         return;
       }
       if (state.stopped) return;
