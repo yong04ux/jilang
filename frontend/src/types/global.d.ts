@@ -58,17 +58,6 @@ declare global {
       animate(el: Element, frames: unknown, opts?: Record<string, unknown>): Promise<unknown>
       [key: string]: unknown
     }
-    CPPageDashboard?: { render: LegacyPageLoader }
-    CPPageWorkbench?: { entry: LegacyPageLoader }
-    CPPageTasks?: { render: LegacyPageLoader; detail: LegacyPageLoader }
-    CPPageData?: { render: LegacyPageLoader }
-    CPPageSettings?: { render: LegacyPageLoader }
-    CPPageStores?: { render: (root: HTMLElement, view: string, query: Record<string, string>) => unknown }
-    CPPageSkills?: { render: LegacyPageLoader }
-    CPPages?: {
-      agents: LegacyPageLoader
-      notFound: (root: HTMLElement, path?: string) => unknown
-    }
     /** 旧传输层（js/api.js）：迁移期页面还在用它，401 处理必须与 TS 实现共用同一个回调 */
     CPApi?: {
       get(path: string): Promise<unknown>

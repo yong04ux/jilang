@@ -95,7 +95,7 @@ async function main() {
   console.log('shell:', await evaluate(`(async () => {
     const t0 = Date.now();
     while (Date.now() - t0 < 20000) {
-      if (window.CPRouter && window.CPPageStores && document.getElementById('view-root')) return 'ready';
+      if (window.CPRouter && document.getElementById('view-root')) return 'ready';
       await new Promise((r) => setTimeout(r, 150));
     }
     return 'timeout';
