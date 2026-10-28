@@ -1,7 +1,7 @@
 # 激浪（Cross-border AI Workspace）设计规范
 
 > 版本：**3.0** · 体系：**shadcn/ui 语义层 + LinkFox Agent 布局语言 + Lucide + Motion**
-> 适用：当前原生 HTML/CSS/JavaScript 前端（无构建步骤）
+> 适用：React + TypeScript 前端（Vite 构建；7 个 CSS 仍是手写的语义层，不经预处理器）
 > 变更：v2 → v3 **配色不动**（品牌蓝 `#1B6EF3` 保持），只借 LinkFox 的**形态与布局**：
 > 大圆角、允许胶囊、68px 图标栏、内容居中单列、常驻输入框。
 > 对标 <https://os.linkfox.com/>，但不采用它的紫色配色。
@@ -18,7 +18,7 @@
 | 拖拽 | dnd-kit | `js/panels.js` 的 `sortable()` |
 | 状态管理 | Zustand | `js/store.js` 的 `create()` |
 
-**为什么是「同一套语言 + 等价能力」而不是装包**：前端是无构建的原生工程（FastAPI 直接托管
+**为什么是「同一套语言 + 等价能力」而不是逐条装包**：视觉与交互契约由本仓库自己实现（FastAPI 直接托管
 静态文件，Render 单服务）。shadcn/ui、Motion、dnd-kit、Zustand 都是 React 生态包，
 引入任意一个都要加构建链并改掉部署形态。
 
@@ -296,7 +296,7 @@ Animations API。新增动效优先用 `CPMotion`，不要在业务代码里写�
 - 图标尺寸要显式给：`.icon` 基础样式**无宽高**，页面里用到的地方都得补，
   否则 SVG 撑满父容器。
 - 图表统一走 `window.CPChart`（`js/charts.js`，手写内联 SVG）。
-  **不准引 Recharts**——前端是无构建原生工程，引一个 React 图表库就得加 Vite 构建链，
+  **不准引 Recharts**——图表是手写内联 SVG（`src/lib/charts.ts`），只有折线与柱状两种，引一个图表库
   并改掉 Render 单服务托管形态。
 
 ## 14. 技能广场（`/skills`）

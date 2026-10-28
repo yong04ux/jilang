@@ -54,6 +54,11 @@ services:
       # 前端由同一服务的 StaticFiles 提供，前后端同源，不需要 CORS。
       # 只有当你要从别的域名调用 API 时才需要填 ALLOWED_ORIGINS。
       #
+      # 前端构建产物（dist/ 已入库，Render 不跑 npm）：
+      # 相对路径按**进程 CWD** 解析，rootDir=backend 故为 ../frontend/dist。
+      - key: CROSSPILOT_WEB_DIR
+        value: ../frontend/dist
+      #
       # 以下为敏感值，Blueprint 不存，需在 Dashboard 手工填入
       - key: CROSSPILOT_DATABASE_URL
         sync: false
