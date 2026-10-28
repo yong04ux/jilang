@@ -41,23 +41,37 @@ async function main() {
   await send('Page.navigate', { url: `${BASE}/dashboard` })
   await sleep(2500)
 
+  // 凭据走环境变量；没有就现注册一个 —— 原来写死的 guest 账号早已失效，会 401
+  const user = process.env.CP_USER || 'callstore_' + Date.now().toString(36)
+  const pass = process.env.CP_PASS || 'password123'
   console.log('login:', await evaluate(`(async () => {
-    const r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ username: 'guest_c7f46c00', password: 'dYgDoYuvmp650dpBlMv_ay4G' }) });
-    const d = await r.json();
+    let r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username: ${JSON.stringify('$USER')}, password: ${JSON.stringify('$PASS')} }) });
+    if (!r.ok) {
+      r = await fetch('/api/auth/register', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ username: ${JSON.stringify('$USER')}, password: ${JSON.stringify('$PASS')} }) });
+    }
+    await window.CPAuth.load();
+    const d = await r.json().catch(() => ({}));
     window.dispatchEvent(new CustomEvent('cp:authenticated'));
     return d.user ? d.user.username : ('fail ' + r.status);
-  })()`))
+  })()`.replace('$USER', user).replace('$PASS', pass)))
   await sleep(1200)
 
   console.log('authUser:', await evaluate(`window.CPAuth && window.CPAuth.user ? window.CPAuth.user.username : null`))
   console.log('gateVisible:', await evaluate(`(() => { const g = document.querySelector('#auth-gate'); return g ? !g.hidden : false })()`))
 
+  // 店铺页已由 React 接管（S7），旧模块不再由路由使用 —— 改走路由并等 stage 出现
   console.log('manual render:', await evaluate(`(async () => {
-    const root = document.getElementById('view-root');
     try {
-      await window.CPPageStores.render(root, 'dashboard', {});
-      return 'ok len=' + root.innerHTML.length;
+      window.CPRouter.go('/stores', { force: true });
+      const t0 = Date.now();
+      while (Date.now() - t0 < 15000) {
+        if (document.querySelector('#st-stage')) break;
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      const stage = document.getElementById('st-stage');
+      return 'ok len=' + (stage ? stage.innerHTML.length : -1);
     } catch (e) {
       return 'THROW: ' + (e && e.stack ? e.stack.split('\\n').slice(0,4).join(' | ') : e);
     }

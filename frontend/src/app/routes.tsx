@@ -1,0 +1,77 @@
+/**
+ * 路由表的唯一真源。路径、顺序、navKey 与旧 `js/app.js:50-75` 一一对应。
+ *
+ * S2 阶段所有页面都还是旧模块，用 LegacyPage 适配器挂入；
+ * 每迁完一页就把对应的 `legacy(...)` 换成真组件，路径不变。
+ */
+import { LegacyPage } from '@/legacy/LegacyPage'
+import { AgentsPage } from '@/pages/agents/AgentsPage'
+import { DashboardPage } from '@/pages/dashboard/DashboardPage'
+import { TasksPage } from '@/pages/tasks/TasksPage'
+import { DataPage } from '@/pages/data/DataPage'
+import { SettingsPage } from '@/pages/settings/SettingsPage'
+import { SkillsPage } from '@/pages/skills/SkillsPage'
+import { StoresPage } from '@/pages/stores/StoresPage'
+import { entry as workbenchEntry } from '@/pages/workbench/workbench'
+import type { LegacyPageLoader } from '@/types/global'
+import type { RouteDef, RoutePageProps } from './router'
+
+function legacy(loader: LegacyPageLoader) {
+  return function LegacyRoute({ params, query }: RoutePageProps) {
+    return <LegacyPage loader={loader} params={params} query={query} />
+  }
+}
+
+/* 旧页面模块在经典脚本里定义，晚于本模块求值也没关系：
+   这里只是包一层取值函数，真正读取发生在挂载时。 */
+/* workbench 已搬进 src（逐字搬运，见该文件头部的迁移说明） */
+const workbenchLoader: LegacyPageLoader = (root, params, query) =>
+  workbenchEntry(root, params as Record<string, string>, query as Record<string, string>)
+
+/* 深链 /tasks/{id}：同一个组件，只是带上初始抽屉任务。
+   点行开抽屉走的是 history.replaceState，不经路由，所以列表不会重挂。 */
+function TasksRoute() {
+  return <TasksPage />
+}
+
+function TaskDetailRoute({ params }: RoutePageProps) {
+  return <TasksPage key={`task:${params.id}`} initialTaskId={params.id} />
+}
+
+/* 广场与详情同一个路由，靠 ?skill= / ?batch= 区分（保住已有深链） */
+function SkillsRoute({ query }: RoutePageProps) {
+  return <SkillsPage query={query} />
+}
+
+/* ?section= 由页面自己滚动定位，路由只负责把 query 传进去 */
+function SettingsRoute({ query }: RoutePageProps) {
+  return <SettingsPage section={query.section} />
+}
+
+/* 四个子页共用一个组件，view 由路由决定；筛选条件走查询串并同步回地址 */
+function StoresRoute({ view, query }: RoutePageProps & { view: string }) {
+  return <StoresPage key={view} view={view} query={query} />
+}
+
+export const ROUTES: RouteDef[] = [
+  { path: '/dashboard', navKey: 'dashboard', Page: DashboardPage },
+  { path: '/workbench', navKey: 'workbench', Page: legacy(workbenchLoader) },
+  { path: '/tasks', navKey: 'tasks', Page: TasksRoute },
+  // 深链 /tasks/xxx = 列表页 + 详情抽屉；点行开抽屉时旧代码走 history.replaceState，
+  // 不经过路由，所以这里不会把列表整页重挂。
+  { path: '/tasks/:id', navKey: 'tasks', Page: TaskDetailRoute },
+  { path: '/data', navKey: 'data', Page: DataPage },
+  { path: '/agents', navKey: 'agents', Page: AgentsPage },
+  { path: '/skills', navKey: 'skills', Page: SkillsRoute },
+  { path: '/stores', navKey: 'stores', Page: (p: RoutePageProps) => <StoresRoute {...p} view="dashboard" /> },
+  { path: '/stores/authorize', navKey: 'stores', Page: (p: RoutePageProps) => <StoresRoute {...p} view="authorize" /> },
+  { path: '/stores/product', navKey: 'stores', Page: (p: RoutePageProps) => <StoresRoute {...p} view="product" /> },
+  { path: '/stores/ledger', navKey: 'stores', Page: (p: RoutePageProps) => <StoresRoute {...p} view="ledger" /> },
+  { path: '/settings', navKey: 'settings', Page: SettingsRoute },
+]
+
+/**
+ * 未开放的能力不进路由也不进导航：直接落到 404，
+ * 界面上不解释「为什么还没做」，只给出现在能去哪。
+ */
+export const NOT_FOUND_NAV_KEY = 'dashboard'

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>激浪 · 跨境电商 AI 运营助手</title>
+  <meta name="description" content="激浪：跨境电商 AI 运营演示站。竞品分析、Listing 生成、任务与审批全流程，使用你自己的模型密钥。" />
+  <meta name="theme-color" content="#FAFAFA" />
+  <link rel="icon" type="image/svg+xml" href="/media/favicon.svg?v=2" />
+  <!-- 绝对路径：保证 /tasks/xxx 这类深链下静态资源不被打到子路径 -->
+  <!--
+    ?v=0 是占位符，由服务端在返回本页时替换成「前端构建戳」（所有前端文件的最新修改时间）。
+    前端任何一个文件改动都会让这些 URL 变化，浏览器因此不会再用旧缓存。
+    不要手工改这里的 v 值。
+  -->
+  <link rel="stylesheet" href="/css/tokens.css?v=0" />
+  <link rel="stylesheet" href="/css/base.css?v=0" />
+  <link rel="stylesheet" href="/css/components.css?v=0" />
+  <link rel="stylesheet" href="/css/layout.css?v=0" />
+  <link rel="stylesheet" href="/css/pages.css?v=0" />
+  <link rel="stylesheet" href="/css/store.css?v=0" />
+  <link rel="stylesheet" href="/css/skills.css?v=0" />
+  <script type="module" crossorigin src="/js/index-DatuBsR0.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#view-root">跳到主内容</a>
+
+  <!-- React 挂载点。里面的骨架与 RootLayout 首次渲染的结构一致，
+       只在 JS 加载完成前顶一下版面，createRoot 首次渲染会整体接管。 -->
+  <div id="root">
+    <div class="app">
+      <aside class="sidebar" id="sidebar" aria-label="主导航"></aside>
+      <div class="main">
+        <header class="topbar" id="topbar"></header>
+        <div class="source-banner" id="source-banner" role="status" hidden></div>
+        <main class="view-root" id="view-root" tabindex="-1"></main>
+      </div>
+    </div>
+    <div id="nav-drawer" class="drawer" role="dialog" aria-modal="true" aria-label="全部导航" hidden></div>
+  </div>
+
+  <!-- 迁移期仍在的经典脚本：图标、动效、分栏、UI 工具、接口、能力目录、
+       文案翻译、Schema 表单、报告渲染、图表、异步任务，以及各页面模块。
+       外壳/登录门/路由/启动编排已由 React 接管（原 router.js / shell.js / app.js / auth.js 已移除）。 -->
+
+</body>
+</html>

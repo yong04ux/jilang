@@ -12,7 +12,7 @@
 - 全免费部署：Vercel（静态）+ Render（API/worker）+ Supabase（PG/Storage）。
 
 技术栈：**Python ≥ 3.10 + FastAPI + Pydantic v2 + PostgreSQL 16**。
-前端为无构建步骤的原生 HTML/CSS/JS 中文界面（品牌蓝 `#1B6EF3`）。
+前端为 React + TypeScript 中文界面（Vite 构建，品牌蓝 `#1B6EF3`）。
 
 ---
 
@@ -79,7 +79,7 @@
 
 ## 3. 目录结构
 
-monorepo 布局：**`backend/`（Python 工程根）+ `frontend/`（无构建前端）+ 仓库根资产**。
+monorepo 布局：**`backend/`（Python 工程根）+ `frontend/`（React 前端，Vite 构建）+ 仓库根资产**。
 
 ```
 CrossPilot/
@@ -121,12 +121,12 @@ CrossPilot/
 │   │   └── demo/                    # 演示机制：seed demo_data demo_mode store_data store_seed
 │   ├── tests/                       # pytest 套件
 │   └── scripts/                     # 检查与验收脚本（编码/前端契约/冒烟/E2E/PG 专项）
-├── frontend/                        # 单一前端（无构建，原生 HTML/CSS/JS）
+├── frontend/                        # 单一前端（React + TypeScript，Vite 构建）
 │   ├── index.html
-│   ├── assets/                      # logo-mark.svg / logo-full.svg / favicon.svg
+│   ├── assets/                      # logo-mark.svg / favicon.svg
 │   ├── css/{tokens,base,components,layout,pages}.css
 │   ├── js/{api,auth,catalog,render,router,shell,ui,async-run,icons,app}.js + pages/
-│   └── scripts/                     # 前端侧脚本：vercel-build.mjs（部署搬运）+ ui_*.mjs（诊断）
+│   └── scripts/                     # 前端侧脚本：verify-build / *-parity / ui_*.mjs 诊断
 ├── examples/                        # CSV / JSON 示例文件
 └── docs/                            # 设计文档、改造计划、部署手册
 ```
@@ -305,7 +305,7 @@ pytest
 cd backend
 python scripts/check_encoding.py   # 源文件 UTF-8 与语法（覆盖 backend + frontend + docs）
 python scripts/check_secrets.py    # 密钥扫描：推送前跑一遍，命中 exit 1（输出只给掩码）
-python scripts/check_frontend.py   # 前端资源契约与 JS 语法
+python scripts/check_frontend.py   # 前端资源契约 + 路由与 SPA_ROUTES 一致性 + tsc
 python scripts/smoke_new.py        # 新接口冒烟（数据源 / 多厂商 / 演示机制 / 异步）
 python scripts/live_check.py       # 对运行中的服务做 HTTP 端到端断言
 python scripts/pg_check.py <PG_URL> --reset   # PostgreSQL 专项验收

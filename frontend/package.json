@@ -1,0 +1,38 @@
+{
+  "name": "crosspilot-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "CrossPilot 前端（React + TypeScript）。构建产物 dist/ 由 FastAPI 直接托管，目录形状必须与后端挂载点一致。",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build && node scripts/verify-build.mjs",
+    "verify": "node scripts/verify-build.mjs",
+    "preview": "vite preview --port 5174 --strictPort",
+    "parity": "node scripts/api-parity.mjs && node scripts/primitives-parity.mjs && node scripts/render-parity.mjs && node scripts/poller-check.mjs",
+    "parity:charts": "node scripts/charts-parity.mjs",
+    "parity:api": "node scripts/api-parity.mjs",
+    "parity:primitives": "node scripts/primitives-parity.mjs",
+    "parity:render": "node scripts/render-parity.mjs",
+    "check:poller": "node scripts/poller-check.mjs",
+    "probe": "node scripts/probe-all.mjs",
+    "smoke": "node scripts/ui_pages_smoke.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zustand": "^5.0.16"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  }
+}

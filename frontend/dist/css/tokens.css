@@ -1,0 +1,178 @@
+/* ============================================================================
+   激浪 · Design Tokens  v3.0
+   体系：shadcn/ui 语义层 + LinkFox Agent 视觉语言（2026-10-22 实测取值）
+   语义命名沿用 shadcn 的 --background / --foreground / --card / --border 模型，
+   同时保留 v1 的旧变量名作为兼容别名，页面与页面样式无需改动。
+   唯一允许的间距 / 圆角 / 字号来源，页面不得自造数值。
+   规范见 frontend/design.md；改这里必须同步改那份文档。
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* ---- shadcn 语义层：底层面 ---- */
+  --background:          #FAFAFA;   /* 页面底 */
+  --foreground:          #111114;   /* 主文字 */
+  --card:                #FFFFFF;
+  --card-foreground:     #111114;
+  --popover:             #FFFFFF;
+  --popover-foreground:  #111114;
+
+  /* ---- 主色：激浪品牌蓝（不变），只用于 CTA / 链接 / 焦点环 / 选中 ---- */
+  --primary:             #1B6EF3;
+  --primary-foreground:  #FFFFFF;
+  --primary-hover:       #1560DC;
+  --primary-soft:        #EFF6FF;   /* 选中底 / 图标容器底 */
+  --primary-line:        #BFDBFE;   /* 浅色标记描边 */
+
+  /* ---- 次级 / 静默 / 强调 ---- */
+  --secondary:           #F5F5F5;
+  --secondary-foreground:#171717;
+  --muted-surface:       #F8F8F8;   /* 面：禁用、表头、骨架 */
+  --muted-foreground:    #73737B;   /* 字：辅助说明 */
+  --accent:              #F4F4F5;   /* hover 底 */
+  --accent-foreground:   #111114;
+
+  /* ---- 线与焦点 ---- */
+  --border:              #E5E7EB;
+  --border-strong:       #D4D4D8;
+  --input:               #E5E7EB;
+  --ring:                #1B6EF3;
+
+  /* ---- 语义色（成功 / 警告 / 危险 / 信息）：不与主色混用 ---- */
+  --success:             #15803D;
+  --success-soft:        #F0FDF4;
+  --success-line:        #BBF7D0;
+  --warning:             #B45309;
+  --warning-soft:        #FFFBEB;
+  --warning-line:        #FDE68A;
+  --destructive:         #DC2626;
+  --destructive-soft:    #FEF2F2;
+  --destructive-line:    #FECACA;
+  --info:                #165DFF;
+  --info-soft:           #EFF4FF;
+  --info-line:           #BFD3FE;
+
+  /* ---- 对话区专用（对标 LinkFox 的 chat 令牌） ---- */
+  --chat-user-bg:        #E4E4E4;
+  --chat-tool-bg:        #F0F0F0;
+  --chat-text-tertiary:  #B0B0B7;
+
+  /* ==========================================================================
+     兼容别名 —— v1 变量名映射到上面的语义层
+     ======================================================================== */
+  --bg:             var(--background);
+  --surface:        var(--card);
+  --surface-sunken: var(--muted-surface);
+  --surface-hover:  #F7F7F7;
+
+  --ink:        var(--foreground);
+  --ink-soft:   #3F3F46;
+  --muted:      var(--muted-foreground);
+  --faint:      #A1A1AA;
+
+  --brand:      var(--primary);
+  --brand-dark: var(--primary-hover);
+  --brand-soft: var(--primary-soft);
+  --brand-line: var(--primary-line);
+
+  --ok:     var(--success);      --ok-soft:     var(--success-soft);      --ok-line:     var(--success-line);
+  --warn:   var(--warning);      --warn-soft:   var(--warning-soft);      --warn-line:   var(--warning-line);
+  --danger: var(--destructive);  --danger-soft: var(--destructive-soft);  --danger-line: var(--destructive-line);
+  --info:   var(--info);         --info-soft:   var(--info-soft);         --info-line:   var(--info-line);
+
+  --line:        var(--border);
+  --line-strong: var(--border-strong);
+
+  /* ---- 圆角：v3 放大一档，卡片 12 / 面板 16 ---- */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius:      8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-pill: 999px;
+
+  /* ---- 阴影：卡片不用，只留浮层与微抬升 ---- */
+  --shadow-xs: 0 1px 2px rgba(17, 17, 20, .05);
+  --shadow-sm: 0 1px 2px rgba(17, 17, 20, .06);
+  --shadow-md: 0 2px 8px rgba(17, 17, 20, .07), 0 1px 2px rgba(17, 17, 20, .04);
+  --shadow-lg: 0 12px 32px rgba(17, 17, 20, .10), 0 2px 8px rgba(17, 17, 20, .06);
+
+  /* ---- 间距：四档主用 + 两档结构用 ---- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 20px; --sp-6: 28px;
+
+  /* ---- 字号：14px 基准，比 v1 收一档 ---- */
+  --fs-xs: 12px;  --fs-sm: 13px; --fs-base: 14px;
+  --fs-md: 14px;  --fs-lg: 16px; --fs-xl: 20px;
+  --fs-2xl: 24px; --fs-hero: 34px;
+
+  /* ---- 行高 ---- */
+  --lh-tight: 1.25;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.65;
+
+  /* ---- 布局：默认 68px 图标栏，可展开成 208px 文字侧栏 ---- */
+  --sidebar-w: 68px;
+  --sidebar-w-expanded: 208px;
+  --topbar-h: 48px;
+  --content-max: 1120px;        /* 表格类页面的内容宽度 */
+  --content-max-narrow: 760px;  /* 对话/技能类页面的居中单列宽度 */
+
+  /* ---- 控件高度 ---- */
+  --h-xs: 24px;
+  --h-sm: 28px;
+  --h-md: 32px;
+  --h-lg: 36px;
+  --h-xl: 40px;
+  --h-2xl: 44px;
+
+  /* ---- 字体：Noto Sans SC 优先（对标 LinkFox），缺失回落系统栈，不加载外部字体 ---- */
+  --font-sans: "Noto Sans SC", "Noto Sans SC Variable", "Inter var", "Inter",
+               -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
+               "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", "SFMono-Regular", Consolas,
+               "Liberation Mono", monospace;
+
+  /* ---- 动效：对齐 Motion 的默认曲线与时长 ---- */
+  --ease-out:    cubic-bezier(.16, 1, .3, 1);
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);
+  --ease-spring: cubic-bezier(.34, 1.36, .64, 1);
+  --ease:        var(--ease-out);   /* 兼容别名 */
+  --dur-1: 120ms;   /* 颜色 / 边框 */
+  --dur-2: 180ms;   /* 位移 / 出现 */
+  --dur-3: 280ms;   /* 面板 / 抽屉 */
+  --dur:   var(--dur-1);            /* 兼容别名 */
+}
+
+/* 动效降级：关掉所有时长，布局与层级不受影响 */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur: 0ms; }
+}
+
+/* 主题扩展位：后续加暗色只需覆写语义层，页面代码不动 */
+.dark {
+  color-scheme: dark;
+  --background: #09090B;
+  --foreground: #FAFAFA;
+  --card: #18181B;
+  --card-foreground: #FAFAFA;
+  --popover: #18181B;
+  --popover-foreground: #FAFAFA;
+  --secondary: #27272A;
+  --secondary-foreground: #FAFAFA;
+  --muted-surface: #27272A;
+  --muted-foreground: #A1A1AA;
+  --accent: #27272A;
+  --accent-foreground: #FAFAFA;
+  --border: #27272A;
+  --border-strong: #404040;
+  --input: #404040;
+  --primary-soft: #E8F1FE;
+  --primary-line: #C7DBFD;
+  --chat-user-bg: #3F3F46;
+  --chat-tool-bg: #27272A;
+  --chat-text-tertiary: #71717A;
+  --ink-soft: #D4D4D8;
+  --faint: #71717A;
+}

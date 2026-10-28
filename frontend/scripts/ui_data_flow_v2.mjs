@@ -13,7 +13,8 @@ const profile = join(tmpdir(), `cp-edge-data-${Date.now()}`)
 mkdirSync(OUT, { recursive: true })
 
 const here = dirname(fileURLToPath(import.meta.url))
-const samplePath = join(here, '..', 'examples', 'competitors_sample.csv')
+// 示例文件在仓库根 examples/，不是 frontend/examples/（少一层会塞进 0 字节空文件，上传必然失败）
+const samplePath = join(here, '..', '..', 'examples', 'competitors_sample.csv')
 
 const edge = spawn(EDGE, [
   '--headless=new', '--disable-gpu', '--no-first-run', '--hide-scrollbars',
@@ -72,7 +73,9 @@ async function main() {
   await send('Page.enable'); await send('Runtime.enable'); await send('DOM.enable')
 
   await goto('/dashboard')
-  await ev(`fetch('/api/auth/demo', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:'{}'}).then(r=>r.status)`)
+  // 现注册一个账号：/api/auth/demo 有按 IP 限流，连跑几次就 429，探针会卡在登录门
+  const flowUser = 'dataflow_' + Date.now().toString(36)
+  await ev(`fetch('/api/auth/register', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username: ${JSON.stringify(flowUser)}, password: 'password123'})}).then(r=>r.status)`)
   await goto('/data')
   await waitFor('!!document.getElementById("data-file")', 10000)
   check('数据资产页渲染', await ev('!!document.getElementById("data-file")'))
