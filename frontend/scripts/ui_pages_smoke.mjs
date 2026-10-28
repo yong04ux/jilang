@@ -283,6 +283,30 @@ async function main() {
   check(deep.rows > 0, '深链下列表同时存在（不是整页跳转）', deep.rows)
   check(deep.path === `/tasks/${taskId}`, '深链地址保持不变', deep.path)
 
+  /* ---------------- 数据资产 ---------------- */
+  console.log('\n/data')
+  await ev(`window.CPRouter.go('/data', { force: true })`)
+  const dataReady = await waitFor(`!!document.getElementById('data-file')`)
+  check(dataReady, '数据资产页渲染')
+  const dp = JSON.parse(
+    await ev(`JSON.stringify({
+      title: (document.querySelector('.page-title') || {}).textContent || '',
+      stats: document.querySelectorAll('.data-stat-card').length,
+      uploadDisabled: (document.getElementById('data-upload') || {}).disabled,
+      errorHidden: (document.getElementById('data-error') || {}).hidden,
+      sources: !!document.getElementById('data-sources-content'),
+      sourceCount: (document.getElementById('data-source-count') || {}).textContent || '',
+      resultPanel: !!document.getElementById('data-result'),
+      emptyText: (document.querySelector('#data-result .empty-title') || {}).textContent || '',
+    })`),
+  )
+  check(dp.title === '数据资产', '标题正确', dp.title)
+  check(dp.stats === 4, '概览 4 张统计卡', dp.stats)
+  check(dp.uploadDisabled === true, '未选文件时「开始导入」不可点', dp.uploadDisabled)
+  check(dp.errorHidden === true, '错误提示默认隐藏', dp.errorHidden)
+  check(dp.sources && dp.resultPanel, '结果区与数据集区都在')
+  check(dp.emptyText === '还没有导入结果', '未导入时是空态', dp.emptyText)
+
   /* ---------------- Agent 市场 ---------------- */
   console.log('\n/agents')
   await ev(`window.CPRouter.go('/agents', { force: true })`)
