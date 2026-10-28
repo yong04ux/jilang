@@ -11,6 +11,7 @@ import { TasksPage } from '@/pages/tasks/TasksPage'
 import { DataPage } from '@/pages/data/DataPage'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
 import { SkillsPage } from '@/pages/skills/SkillsPage'
+import { StoresPage } from '@/pages/stores/StoresPage'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
 
@@ -45,8 +46,10 @@ function SettingsRoute({ query }: RoutePageProps) {
   return <SettingsPage section={query.section} />
 }
 
-const storesLoader = (view: string): LegacyPageLoader => (root, _params, query) =>
-  window.CPPageStores?.render(root, view, query ?? {})
+/* 四个子页共用一个组件，view 由路由决定；筛选条件走查询串并同步回地址 */
+function StoresRoute({ view, query }: RoutePageProps & { view: string }) {
+  return <StoresPage key={view} view={view} query={query} />
+}
 
 export const ROUTES: RouteDef[] = [
   { path: '/dashboard', navKey: 'dashboard', Page: DashboardPage },
@@ -58,10 +61,10 @@ export const ROUTES: RouteDef[] = [
   { path: '/data', navKey: 'data', Page: DataPage },
   { path: '/agents', navKey: 'agents', Page: AgentsPage },
   { path: '/skills', navKey: 'skills', Page: SkillsRoute },
-  { path: '/stores', navKey: 'stores', Page: legacy(storesLoader('dashboard')) },
-  { path: '/stores/authorize', navKey: 'stores', Page: legacy(storesLoader('authorize')) },
-  { path: '/stores/product', navKey: 'stores', Page: legacy(storesLoader('product')) },
-  { path: '/stores/ledger', navKey: 'stores', Page: legacy(storesLoader('ledger')) },
+  { path: '/stores', navKey: 'stores', Page: (p: RoutePageProps) => <StoresRoute {...p} view="dashboard" /> },
+  { path: '/stores/authorize', navKey: 'stores', Page: (p: RoutePageProps) => <StoresRoute {...p} view="authorize" /> },
+  { path: '/stores/product', navKey: 'stores', Page: (p: RoutePageProps) => <StoresRoute {...p} view="product" /> },
+  { path: '/stores/ledger', navKey: 'stores', Page: (p: RoutePageProps) => <StoresRoute {...p} view="ledger" /> },
   { path: '/settings', navKey: 'settings', Page: SettingsRoute },
 ]
 

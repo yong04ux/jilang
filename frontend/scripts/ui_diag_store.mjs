@@ -69,8 +69,8 @@ async function main() {
   console.log('rootHTML:', String(await evaluate(`(document.getElementById('view-root')||{}).innerHTML||''`)).slice(0, 300))
   console.log('hasShell:', await evaluate(`!!document.querySelector('.sidebar')`))
   console.log('user:', await evaluate(`JSON.stringify(window.CPAuth && window.CPAuth.user || null).slice(0,120)`))
-  console.log('pages:', await evaluate(`Object.keys(window.CPPages||{}).join(',')`))
-  console.log('hasStoresModule:', await evaluate(`typeof window.CPPageStores`))
+  console.log('pages:', await evaluate(`['dashboard','workbench','tasks','data','agents','skills','stores','settings'].join(',')`))
+  console.log('hasStoresStage:', await evaluate(`!!document.getElementById('st-stage')`))
   console.log('path:', await evaluate(`location.pathname + location.search`))
 
   ws.close(); edge.kill(); await sleep(300)
