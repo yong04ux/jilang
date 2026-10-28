@@ -12,6 +12,7 @@ import { DataPage } from '@/pages/data/DataPage'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
 import { SkillsPage } from '@/pages/skills/SkillsPage'
 import { StoresPage } from '@/pages/stores/StoresPage'
+import { entry as workbenchEntry } from '@/pages/workbench/workbench'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
 
@@ -23,8 +24,9 @@ function legacy(loader: LegacyPageLoader) {
 
 /* 旧页面模块在经典脚本里定义，晚于本模块求值也没关系：
    这里只是包一层取值函数，真正读取发生在挂载时。 */
+/* workbench 已搬进 src（逐字搬运，见该文件头部的迁移说明） */
 const workbenchLoader: LegacyPageLoader = (root, params, query) =>
-  window.CPPageWorkbench?.entry(root, params, query)
+  workbenchEntry(root, params as Record<string, string>, query as Record<string, string>)
 
 /* 深链 /tasks/{id}：同一个组件，只是带上初始抽屉任务。
    点行开抽屉走的是 history.replaceState，不经路由，所以列表不会重挂。 */

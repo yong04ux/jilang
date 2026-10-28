@@ -10,9 +10,16 @@
  * 用法：node scripts/charts-parity.mjs [base]
  */
 import { spawn } from 'node:child_process'
-import { rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, rmSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
+
+// 旧实现已随 S8 删除：没有基线就跳过（脚本保留，fixture 仍有参考价值）
+if (!existsSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'js'))) {
+  console.log('\n跳过：frontend/js/ 已删除（S8），无对照基线\n')
+  process.exit(0)
+}
 
 const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
 const BASE = process.argv[2] || 'http://127.0.0.1:8200'

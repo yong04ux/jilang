@@ -12,7 +12,7 @@
  */
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { cpSync, existsSync } from 'node:fs'
+import { cpSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -96,8 +96,7 @@ function indent(block: string): string {
 
 /**
  * 静态目录搬运：css/ -> dist/css，assets/ -> dist/assets。
- * 迁移期（CP_KEEP_LEGACY_JS !== '0'）额外把旧 js/ 搬进 dist/js，
- * 让 dist 成为旧站的直接替代品（旧页面模块在 S2-S7 期间仍被 LegacyPage 使用）。
+ * 旧 js/ 目录已在 S8 删除，不再搬运。
  */
 function copyStatic(): Plugin {
   return {
@@ -106,10 +105,6 @@ function copyStatic(): Plugin {
     closeBundle() {
       cpSync(resolve(root, 'css'), resolve(dist, 'css'), { recursive: true })
       cpSync(resolve(root, 'assets'), resolve(dist, 'assets'), { recursive: true })
-      const legacyDir = resolve(root, 'js')
-      if (process.env.CP_KEEP_LEGACY_JS !== '0' && existsSync(legacyDir)) {
-        cpSync(legacyDir, resolve(dist, 'js'), { recursive: true })
-      }
     },
   }
 }

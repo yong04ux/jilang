@@ -5,13 +5,40 @@
  * - 执行走 `/api/agent/runs` 的异步模式，轮询真实 task_steps，可取消；
  * - 结果面板不伪造进度：进度条只在"未完成"时以不确定态出现。
  */
-(function () {
-  "use strict";
-  const U = window.CPUi;
-  const A = window.CPApi;
-  const C = window.CPCatalog;
-  const R = window.CPRender;
-  const AR = window.CPAsyncRun;
+/* 激浪 · AI 助手（真实会话 + Agent Runtime + 异步执行）
+ *
+ * 版式：左对话 + 右结果（步骤 / 数据 两栏 Tab）。
+ * - 自然语言目标先经 `/api/agent/resolve` 解析（模型不可用时明确标注降级）；
+ * - 执行走 `/api/agent/runs` 的异步模式，轮询真实 task_steps，可取消；
+ * - 结果面板不伪造进度：进度条只在「未完成」时以不确定态出现。
+ *
+ * ── 迁移说明（S8）────────────────────────────────────────────────
+ * 这是**逐字搬运**的版本：逻辑、DOM 结构与文案一行未改，只做了三件机械改动：
+ *   1. IIFE → ES 模块；
+ *   2. 原先模块顶层 `const U = window.CPUi` 这类捕获改为 `ensureDeps()` 里懒取 ——
+ *      本模块在 bundle 初始化时就被 import，那时门面还没安装；
+ *   3. 末尾的 `window.CPPageWorkbench = {...}` 换成具名导出。
+ * 因为内部仍是 HTML 字符串渲染（1581 行），这里加了 @ts-nocheck：
+ * 逐行补类型没有收益，真正的 React 化（state → hooks）留作后续重构。
+ * 页面由 routes.tsx 通过 LegacyPage 适配器挂载，行为与迁移前完全一致。
+ */
+// @ts-nocheck
+/* eslint-disable */
+
+let U
+let A
+let C
+let R
+let AR
+
+function ensureDeps() {
+  if (U) return
+  U = window.CPUi
+  A = window.CPApi
+  C = window.CPCatalog
+  R = window.CPRender
+  AR = window.CPAsyncRun
+}
 
   const state = {
     mode: "empty",            // empty | params | run
@@ -1567,7 +1594,7 @@
     }
   }
 
-  async function entry(root, params, query) {
+  async function entryImpl(root, params, query) {
     closeListingEditor();
     resetState();
     if (query && query.agent) state.agentKey = query.agent;
@@ -1577,5 +1604,12 @@
     if (query && query.conversation) openConversation(root, query.conversation);
   }
 
-  window.CPPageWorkbench = { entry, render };
-})();
+/** 路由入口：先装依赖再跑原逻辑 */
+export async function entry(root, params, query) {
+  ensureDeps()
+  return entryImpl(root, params, query)
+}
+
+export { render }
+
+export const workbenchApi = { entry, render }

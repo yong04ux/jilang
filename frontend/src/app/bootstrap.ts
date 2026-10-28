@@ -12,6 +12,18 @@ import { getHealth, invalidateHealth, useHealthStore } from '@/features/health/h
 import { loadAuth, loadMe, logout, showGate, useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 import { chartApi } from '@/lib/charts'
+import { api } from '@/lib/api'
+import { iconApi } from '@/lib/icons'
+import { motionApi } from '@/lib/motion'
+import { panelsApi } from '@/lib/panels'
+import { labelApi } from '@/lib/labels'
+import { uiApi } from '@/lib/ui'
+import { catalogApi } from '@/lib/catalog'
+import { schemaFormApi } from '@/features/schema-form/schema-form.ts'
+import { renderApi } from '@/features/render/render.ts'
+import { presentApi } from '@/features/async-run/present'
+import { createPoller, isRunning, RUNNING } from '@/features/async-run/poller'
+import { cancelTask, fetchTaskDetail } from '@/features/async-run/tasks-api'
 
 function navLabels(): Record<string, string> {
   const labels: Record<string, string> = {}
@@ -21,9 +33,29 @@ function navLabels(): Record<string, string> {
 }
 
 export function installLegacyGlobals(): void {
-  /* 图表统一走 TS 实现（S7 迁入）：旧页面的 `window.CPChart.xxx` 都是调用时查全局，
-     所以覆盖一次即全站生效，不存在两套并存。 */
+  /* ── 旧全局门面 ────────────────────────────────────────────────
+     workbench 等页面仍按 `window.CPxxx` 取依赖，而这些经典脚本已全部搬进 TS。
+     这里把门面指向 TS 实现：**一处实现、两种消费端**，不再有两套并存。
+     它们必须在首次渲染前装好（LegacyPage 的子 effect 早于 App 的 effect）。 */
   window.CPChart = chartApi
+  window.CPMotion = motionApi as unknown as Window['CPMotion']
+  window.CPPanels = panelsApi as unknown as Window['CPPanels']
+  window.CPApi = api as unknown as Window['CPApi']
+  window.CPUi = uiApi as unknown as Window['CPUi']
+  window.CPIcon = iconApi
+  window.CPLabel = labelApi as unknown as Window['CPLabel']
+  window.CPCatalog = catalogApi as unknown as Window['CPCatalog']
+  window.CPSchemaForm = schemaFormApi as unknown as Window['CPSchemaForm']
+  window.CPRender = renderApi as unknown as Window['CPRender']
+  window.CPAsyncRun = {
+    ...presentApi,
+    RUNNING,
+    isRunning,
+    // 旧签名 poller({taskId,onUpdate,onDone,onError}) → 注入取数函数
+    poller: (opts: Record<string, any>) =>
+      createPoller({ ...(opts as { taskId: string }), fetchTask: fetchTaskDetail }),
+    cancel: cancelTask,
+  } as unknown as Window['CPAsyncRun']
 
   window.CPAuth = {
     load: (silent?: boolean) => loadAuth(Boolean(silent)),

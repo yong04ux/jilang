@@ -97,6 +97,14 @@ declare global {
       cancel(taskId: string): Promise<string>
       resultTabs(options: Record<string, unknown>): string
     }
+    /** 分栏与排序（TS 实现，迁移期以门面形式提供） */
+    CPPanels?: any
+    /** 文案翻译层（TS 实现，迁移期以门面形式提供） */
+    CPLabel?: any
+    /** 参数表单生成器（TS 实现，迁移期以门面形式提供） */
+    CPSchemaForm?: any
+    /** 报告 / Listing 渲染器（TS 实现，迁移期以门面形式提供） */
+    CPRender?: any
     /** 迁移期门面（见 app/bootstrap.ts）：旧页面与仓库探针都离不开它们 */
     CPAuth?: {
       load(silent?: boolean): Promise<unknown>

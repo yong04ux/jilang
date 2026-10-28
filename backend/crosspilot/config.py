@@ -88,7 +88,11 @@ class Settings(BaseSettings):
     port: int = 8000
     reload: bool = False
     # 前端静态文件目录（monorepo：与 backend/ 平级的 frontend/）
-    web_dir: Path = FRONTEND_DIR
+    #
+    # 自 S8 起前端是 Vite 构建产物：源码在 frontend/src，对外托管的是 frontend/dist。
+    # 默认值改成 dist，这样不设任何环境变量也能起服务（dist 已入库）。
+    # 三个挂载点仍按 web_dir 派生：/css、/js、/media(→assets)。
+    web_dir: Path = FRONTEND_DIR / "dist"
 
     # 存储（相对路径一律相对 backend/ 工程根，不会因当前工作目录而变化）
     data_dir: Path = BACKEND_ROOT / "data"

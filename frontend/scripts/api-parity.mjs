@@ -10,13 +10,19 @@
  *
  * 用法：node scripts/api-parity.mjs
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pathToFileURL } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = dirname(here)
+
+// 旧实现已随 S8 删除：没有基线就跳过（脚本保留，fixture 仍有参考价值）
+if (!existsSync(resolve(root, 'js'))) {
+  console.log('\n跳过：frontend/js/ 已删除（S8），无对照基线\n')
+  process.exit(0)
+}
 
 // 旧实现：读源码放进一个假 window 里执行
 const legacyWin = {}

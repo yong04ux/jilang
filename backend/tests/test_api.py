@@ -48,8 +48,8 @@ def test_legacy_ui_is_gone(client):
 
 
 def test_frontend_assets_are_served(client):
-    """前端依赖 /css 与 /js 两个挂载点。"""
-    for path in ("/css/tokens.css", "/js/app.js", "/js/pages/workbench.js", "/js/render.js"):
+    """前端依赖 /css 与 /media 两个挂载点（/js 仍挂载，但已无源码文件）。"""
+    for path in ("/css/tokens.css", "/css/components.css", "/media/favicon.svg"):
         response = client.get(path)
         assert response.status_code == 200, path
         assert response.text.strip(), path
