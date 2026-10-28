@@ -87,6 +87,15 @@ declare global {
       num(value: unknown): string
       pct(value: unknown): string
     }
+    /** 任务步骤时间线：仍是旧实现（S3 只迁了状态机），产出 HTML 字符串 */
+    CPAsyncRun?: {
+      stepList(steps: unknown[], plan: unknown[]): string
+      planLabel(name: string): string
+      isRunning(status: string): boolean
+      poller(options: Record<string, unknown>): unknown
+      cancel(taskId: string): Promise<string>
+      resultTabs(options: Record<string, unknown>): string
+    }
     /** 迁移期门面（见 app/bootstrap.ts）：旧页面与仓库探针都离不开它们 */
     CPAuth?: {
       load(silent?: boolean): Promise<unknown>

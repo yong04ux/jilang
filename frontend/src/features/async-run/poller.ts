@@ -26,6 +26,11 @@ export const RUNNING: Record<string, 1> = {
   cancelling: 1,
 }
 
+/** 与旧 `CPAsyncRun.isRunning()` 同义 */
+export function isRunning(status: string | null | undefined): boolean {
+  return Boolean(status && RUNNING[status])
+}
+
 /** 连续失败多少次后放弃（用户已确认的行为变更） */
 export const MAX_CONSECUTIVE_FAILURES = 5
 

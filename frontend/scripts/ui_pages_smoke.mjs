@@ -186,6 +186,103 @@ async function main() {
   check(dash.taskTable > 0, '近期任务表有行', dash.taskTable)
   check(dash.devwords === false, '无开发标记/内部标识')
 
+  /* ---------------- 任务中心 ---------------- */
+  console.log('\n/tasks')
+  await ev(`window.CPRouter.go('/tasks', { force: true })`)
+  const tasksReady = await waitFor(`!!document.querySelector('#task-body table tbody tr')`)
+  check(tasksReady, '任务表已渲染')
+  const tlist = JSON.parse(
+    await ev(`JSON.stringify({
+      title: (document.querySelector('.page-title') || {}).textContent || '',
+      chips: document.querySelectorAll('#task-filters .chip').length,
+      rows: document.querySelectorAll('#task-body table tbody tr').length,
+      count: (document.querySelector('#task-count') || {}).textContent || '',
+      cols: Array.from(document.querySelectorAll('#task-body table thead th')).map((e) => e.textContent),
+    })`),
+  )
+  check(tlist.title === '任务中心', '标题正确', tlist.title)
+  check(tlist.chips === 9, '状态筛选有 9 个 chip', tlist.chips)
+  check(tlist.rows > 0, '任务表有行', tlist.rows)
+  check(tlist.count === `共 ${tlist.rows} 条`, '计数与行数一致', tlist.count)
+  check(
+    tlist.cols.join('|') === '任务|类型|来源|状态|创建|结果',
+    '表头列正确',
+    tlist.cols,
+  )
+
+  // 筛选：切到「已完成」后仍应有行（种子任务就是 succeeded）
+  const filtered = await ev(`(async () => {
+    const chip = Array.from(document.querySelectorAll('#task-filters .chip')).find((c) => c.textContent === '已完成');
+    if (!chip) return 'no-chip';
+    chip.click();
+    const t0 = Date.now();
+    while (Date.now() - t0 < 10000) {
+      const active = document.querySelector('#task-filters .chip.is-active');
+      const rows = document.querySelectorAll('#task-body table tbody tr').length;
+      if (active && active.textContent === '已完成' && rows > 0) return 'ok:' + rows;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    return 'timeout' })()`)
+  check(String(filtered).indexOf('ok:') === 0, '筛选切换后仍有结果', filtered)
+  await ev(`(() => { const c = Array.from(document.querySelectorAll('#task-filters .chip')).find((x) => x.textContent === '全部'); if (c) c.click(); return 1 })()`)
+  await waitFor(`document.querySelectorAll('#task-body table tbody tr').length > 0`)
+
+  // 打开抽屉：URL 要变，但列表不能被重挂（原实现的 replaceState 语义）
+  const drawer = await ev(`(async () => {
+    const row = document.querySelector('#task-body table tbody tr');
+    if (!row) return 'no-row';
+    const id = row.getAttribute('data-task-row');
+    document.querySelector('#task-body table').__mark = 1;
+    row.click();
+    const t0 = Date.now();
+    while (Date.now() - t0 < 15000) {
+      if (document.querySelector('#task-drawer-body') && !document.querySelector('#task-drawer-body .skeleton')) break;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    const table = document.querySelector('#task-body table');
+    return JSON.stringify({
+      id,
+      path: location.pathname,
+      hasDrawer: !!document.querySelector('.drawer.is-wide'),
+      hasScrim: !!document.querySelector('#task-drawer-scrim'),
+      listKept: table ? table.__mark === 1 : false,
+      steps: document.querySelectorAll('#task-drawer-body .timeline-item, #task-drawer-body .step').length,
+      bodyLen: (document.querySelector('#task-drawer-body') || {}).textContent ? document.querySelector('#task-drawer-body').textContent.length : -1,
+    }) })()`)
+  const d = JSON.parse(drawer)
+  check(d.path === `/tasks/${d.id}`, '抽屉打开后 URL 变成 /tasks/{id}', d.path)
+  check(d.hasDrawer && d.hasScrim, '抽屉与遮罩都在')
+  check(d.listKept === true, '列表没有被重挂（replaceState 语义）')
+  check(d.bodyLen > 0, '抽屉内容已加载', d.bodyLen)
+
+  const closed = await ev(`(async () => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    const t0 = Date.now();
+    while (Date.now() - t0 < 8000) {
+      if (!document.querySelector('.drawer.is-wide')) return 'closed:' + location.pathname;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return 'still-open' })()`)
+  check(String(closed).indexOf('closed:/tasks') === 0, 'Esc 关闭抽屉并还原地址', closed)
+
+  /* 深链：整页加载 /tasks/{id} → 列表 + 抽屉 */
+  const taskId = d.id
+  await send('Page.navigate', { url: `${BASE}/tasks/${taskId}` })
+  await sleep(2500)
+  await ev(`(async () => { const u = await window.CPAuth.load(); if (u) window.dispatchEvent(new CustomEvent('cp:authenticated')); return 1 })()`)
+  const deepReady = await waitFor(`!!document.querySelector('.drawer.is-wide #task-drawer-body')`)
+  check(deepReady, '深链 /tasks/{id} 直接展开抽屉')
+  // 列表与抽屉是两次独立请求，抽屉先回来是正常的 —— 等列表落地再断言
+  await waitFor(`document.querySelectorAll('#task-body table tbody tr').length > 0`, 8000)
+  const deep = JSON.parse(
+    await ev(`JSON.stringify({
+      rows: document.querySelectorAll('#task-body table tbody tr').length,
+      path: location.pathname,
+    })`),
+  )
+  check(deep.rows > 0, '深链下列表同时存在（不是整页跳转）', deep.rows)
+  check(deep.path === `/tasks/${taskId}`, '深链地址保持不变', deep.path)
+
   /* ---------------- Agent 市场 ---------------- */
   console.log('\n/agents')
   await ev(`window.CPRouter.go('/agents', { force: true })`)

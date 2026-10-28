@@ -7,6 +7,7 @@
 import { LegacyPage } from '@/legacy/LegacyPage'
 import { AgentsPage } from '@/pages/agents/AgentsPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
+import { TasksPage } from '@/pages/tasks/TasksPage'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
 
@@ -21,11 +22,15 @@ function legacy(loader: LegacyPageLoader) {
 const workbenchLoader: LegacyPageLoader = (root, params, query) =>
   window.CPPageWorkbench?.entry(root, params, query)
 
-const tasksListLoader: LegacyPageLoader = (root, params, query) =>
-  window.CPPageTasks?.render(root, params, query)
+/* 深链 /tasks/{id}：同一个组件，只是带上初始抽屉任务。
+   点行开抽屉走的是 history.replaceState，不经路由，所以列表不会重挂。 */
+function TasksRoute() {
+  return <TasksPage />
+}
 
-const taskDetailLoader: LegacyPageLoader = (root, params, query) =>
-  window.CPPageTasks?.detail(root, params, query)
+function TaskDetailRoute({ params }: RoutePageProps) {
+  return <TasksPage key={`task:${params.id}`} initialTaskId={params.id} />
+}
 
 const dataLoader: LegacyPageLoader = (root, params, query) =>
   window.CPPageData?.render(root, params, query)
@@ -42,10 +47,10 @@ const storesLoader = (view: string): LegacyPageLoader => (root, _params, query) 
 export const ROUTES: RouteDef[] = [
   { path: '/dashboard', navKey: 'dashboard', Page: DashboardPage },
   { path: '/workbench', navKey: 'workbench', Page: legacy(workbenchLoader) },
-  { path: '/tasks', navKey: 'tasks', Page: legacy(tasksListLoader) },
+  { path: '/tasks', navKey: 'tasks', Page: TasksRoute },
   // 深链 /tasks/xxx = 列表页 + 详情抽屉；点行开抽屉时旧代码走 history.replaceState，
   // 不经过路由，所以这里不会把列表整页重挂。
-  { path: '/tasks/:id', navKey: 'tasks', Page: legacy(taskDetailLoader) },
+  { path: '/tasks/:id', navKey: 'tasks', Page: TaskDetailRoute },
   { path: '/data', navKey: 'data', Page: legacy(dataLoader) },
   { path: '/agents', navKey: 'agents', Page: AgentsPage },
   { path: '/skills', navKey: 'skills', Page: legacy(skillsLoader) },
