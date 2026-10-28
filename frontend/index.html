@@ -24,33 +24,34 @@
 <body>
   <a class="skip-link" href="#view-root">跳到主内容</a>
 
-  <div class="app">
-    <aside class="sidebar" id="sidebar" aria-label="主导航"></aside>
-
-    <div class="main">
-      <header class="topbar" id="topbar"></header>
-      <div class="source-banner" id="source-banner" role="status" hidden></div>
-      <main class="view-root" id="view-root" tabindex="-1"></main>
+  <!-- React 挂载点。里面的骨架与 RootLayout 首次渲染的结构一致，
+       只在 JS 加载完成前顶一下版面，createRoot 首次渲染会整体接管。 -->
+  <div id="root">
+    <div class="app">
+      <aside class="sidebar" id="sidebar" aria-label="主导航"></aside>
+      <div class="main">
+        <header class="topbar" id="topbar"></header>
+        <div class="source-banner" id="source-banner" role="status" hidden></div>
+        <main class="view-root" id="view-root" tabindex="-1"></main>
+      </div>
     </div>
+    <div id="nav-drawer" class="drawer" role="dialog" aria-modal="true" aria-label="全部导航" hidden></div>
   </div>
 
-  <div id="nav-drawer" class="drawer" role="dialog" aria-modal="true" aria-label="全部导航" hidden></div>
-
+  <!-- 迁移期仍在的经典脚本：图标、动效、分栏、UI 工具、接口、能力目录、
+       文案翻译、Schema 表单、报告渲染、图表、异步任务，以及各页面模块。
+       外壳/登录门/路由/启动编排已由 React 接管（原 router.js / shell.js / app.js / auth.js 已移除）。 -->
   <script src="/js/icons.js?v=0"></script>
-  <script src="/js/store.js?v=0"></script>
   <script src="/js/motion.js?v=0"></script>
   <script src="/js/panels.js?v=0"></script>
   <script src="/js/ui.js?v=0"></script>
   <script src="/js/api.js?v=0"></script>
-  <script src="/js/auth.js?v=0"></script>
   <script src="/js/catalog.js?v=0"></script>
   <script src="/js/labels.js?v=0"></script>
   <script src="/js/schema-form.js?v=0"></script>
   <script src="/js/render.js?v=0"></script>
   <script src="/js/charts.js?v=0"></script>
   <script src="/js/async-run.js?v=0"></script>
-  <script src="/js/router.js?v=0"></script>
-  <script src="/js/shell.js?v=0"></script>
   <script src="/js/pages/dashboard.js?v=0"></script>
   <script src="/js/pages/workbench.js?v=0"></script>
   <script src="/js/pages/tasks.js?v=0"></script>
@@ -59,7 +60,6 @@
   <script src="/js/pages/stores.js?v=0"></script>
   <script src="/js/pages/misc.js?v=0"></script>
   <script src="/js/pages/skills.js?v=0"></script>
-  <script src="/js/app.js?v=0"></script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>

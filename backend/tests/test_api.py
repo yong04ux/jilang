@@ -26,7 +26,10 @@ def test_index_page_serves_spa_shell(client):
     assert response.status_code == 200
     body = response.text
     assert "激浪" in body
-    assert "/js/app.js" in body
+    # 入口从「24 个经典脚本按序加载」改成单个 ESM 模块（Vite 产物）。
+    # 这里只断言「外壳引用了模块入口」，不锁死具体文件名 —— 产物名带内容哈希，
+    # 且测试读的是源码目录 frontend/（开发期入口是 /src/main.tsx）。
+    assert 'type="module"' in body
     assert 'id="view-root"' in body
 
 

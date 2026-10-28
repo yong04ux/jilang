@@ -1,17 +1,21 @@
 /**
- * S0 阶段：本文件只占位，证明「Vite 产物能落到后端认的路径」。
- * 页面此时仍由 index.html 里的一批旧脚本驱动（window.CP*）。
- * S2 起这里改为 createRoot(#root).render(<App />)，逐步接管渲染。
+ * React 入口。
+ *
+ * `bootstrap()` 必须在首次渲染之前执行：LegacyPage 的子 effect（真正调用旧页面模块）
+ * 早于 App 的 effect 运行，若门面还没装好，settings 这类页面在渲染期读
+ * `window.CPAuth.user` 就会直接抛错。
  */
-const boot = () => {
-  // 显式留痕，方便在控制台确认新入口确实加载了（S2 移除）
-  document.documentElement.dataset.cpEntry = 'vite'
+import { bootstrap } from '@/app/bootstrap'
+import { createRoot } from 'react-dom/client'
+import App from './App'
+
+bootstrap()
+
+const host = document.getElementById('root')
+if (!host) {
+  throw new Error('缺少 #root 挂载点')
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', boot, { once: true })
-} else {
-  boot()
-}
-
-export {}
+// 不用 StrictMode：它会把 effect 跑两遍，而 LegacyPage 的 effect 会重复调一次页面
+// 加载函数（旧页面每次都发请求），等于凭空多一倍请求。
+createRoot(host).render(<App />)
