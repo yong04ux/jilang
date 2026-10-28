@@ -13,6 +13,7 @@
     "build": "tsc --noEmit && vite build && node scripts/verify-build.mjs",
     "verify": "node scripts/verify-build.mjs",
     "preview": "vite preview --port 5174 --strictPort",
+    "parity": "node scripts/api-parity.mjs",
     "probe": "node scripts/probe-all.mjs"
   },
   "dependencies": {
