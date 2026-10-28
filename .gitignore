@@ -48,6 +48,13 @@ __pycache__/
 .eggs/
 build/
 dist/
+# 例外：前端构建产物必须入库。两个硬理由——
+#   1) Render 的 buildCommand 只有 pip install，没有 Node 步骤，取不到产物；
+#   2) dist 缺失会让 app.py 的 NoCacheStatic(check_dir=True) 在 create_app()
+#      阶段直接抛 RuntimeError，等于整个服务起不来。
+# 与下面「前端代码已纳入版本库」是同一条理由。
+!frontend/dist/
+!frontend/dist/**
 .venv/
 venv/
 .mypy_cache/
