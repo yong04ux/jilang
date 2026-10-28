@@ -30,7 +30,8 @@ const PAGES = [
   { name: '4-dashboard-inventory', path: '/stores?seg=inventory', ready: '.st-breakdown-row' },
   { name: '5-dashboard-aftersales', path: '/stores?seg=aftersales', ready: '.st-table tbody tr' },
   { name: '6-product', path: '/stores/product', ready: '.st-table tbody tr' },
-  { name: '6b-product-detail', path: '/stores/product?asin=B07X1MOCK1', ready: '.st-metric' },
+  // path 在登录后会按「该店铺真实的第一个 ASIN」重写：写死 ASIN 会因为目录不同而必然 MISS
+  { name: '6b-product-detail', path: '/stores/product', ready: '.st-product-title' },
   { name: '7-ledger', path: '/stores/ledger', ready: '.st-table tbody tr' },
   { name: '8-ledger-orders', path: '/stores/ledger?kind=orders', ready: '.st-table tbody tr' },
   { name: '9-authorize', path: '/stores/authorize', ready: '.st-card' },
@@ -91,16 +92,6 @@ async function main() {
   await send('Page.navigate', { url: `${BASE}/dashboard` })
   await sleep(2500)
 
-  // 等外壳与路由就绪（页面内轮询，不做 CDP 往返）
-  console.log('shell:', await evaluate(`(async () => {
-    const t0 = Date.now();
-    while (Date.now() - t0 < 20000) {
-      if (window.CPRouter && document.getElementById('view-root')) return 'ready';
-      await new Promise((r) => setTimeout(r, 150));
-    }
-    return 'timeout';
-  })()`))
-
   // 登录：库是跨境访问，偶尔会瞬断，重试几次再判定失败
   let loggedIn = ''
   for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -131,6 +122,34 @@ async function main() {
     throw new Error('登录失败，无法继续验收：' + loggedIn)
   }
   await sleep(2500)
+
+  // 单品详情的 ASIN 从真实目录取；没有商品就退回列表页（不再写死 ASIN 造成假 MISS）
+  const sampleAsin = await evaluate(`fetch('/api/marketplace/products?limit=1')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => (d && d.items && d.items[0] ? d.items[0].asin : ''))
+    .catch(() => '')`)
+  {
+    const sixB = PAGES.filter((item) => item.name === '6b-product-detail')[0]
+    if (sixB) {
+      if (sampleAsin) sixB.path = '/stores/product?asin=' + encodeURIComponent(sampleAsin)
+      else {
+        sixB.path = '/stores/product'
+        sixB.ready = '.st-table tbody tr'
+      }
+    }
+  }
+
+
+  // 等外壳与路由就绪（页面内轮询，不做 CDP 往返）
+  console.log('shell:', await evaluate(`(async () => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < 20000) {
+      if (window.CPRouter && document.getElementById('view-root')) return 'ready';
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    return 'timeout';
+  })()`))
+
   console.log('gate:', await evaluate(`(() => {
     const g = document.getElementById('auth-gate');
     if (!g) return 'none';
