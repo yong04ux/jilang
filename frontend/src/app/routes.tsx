@@ -5,6 +5,7 @@
  * 每迁完一页就把对应的 `legacy(...)` 换成真组件，路径不变。
  */
 import { LegacyPage } from '@/legacy/LegacyPage'
+import { AgentsPage } from '@/pages/agents/AgentsPage'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
 
@@ -31,9 +32,6 @@ const taskDetailLoader: LegacyPageLoader = (root, params, query) =>
 const dataLoader: LegacyPageLoader = (root, params, query) =>
   window.CPPageData?.render(root, params, query)
 
-const agentsLoader: LegacyPageLoader = (root, params, query) =>
-  window.CPPages?.agents(root, params, query)
-
 const skillsLoader: LegacyPageLoader = (root, params, query) =>
   window.CPPageSkills?.render(root, params, query)
 
@@ -51,7 +49,7 @@ export const ROUTES: RouteDef[] = [
   // 不经过路由，所以这里不会把列表整页重挂。
   { path: '/tasks/:id', navKey: 'tasks', Page: legacy(taskDetailLoader) },
   { path: '/data', navKey: 'data', Page: legacy(dataLoader) },
-  { path: '/agents', navKey: 'agents', Page: legacy(agentsLoader) },
+  { path: '/agents', navKey: 'agents', Page: AgentsPage },
   { path: '/skills', navKey: 'skills', Page: legacy(skillsLoader) },
   { path: '/stores', navKey: 'stores', Page: legacy(storesLoader('dashboard')) },
   { path: '/stores/authorize', navKey: 'stores', Page: legacy(storesLoader('authorize')) },

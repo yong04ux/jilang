@@ -18,7 +18,8 @@
     "parity:primitives": "node scripts/primitives-parity.mjs",
     "parity:render": "node scripts/render-parity.mjs",
     "check:poller": "node scripts/poller-check.mjs",
-    "probe": "node scripts/probe-all.mjs"
+    "probe": "node scripts/probe-all.mjs",
+    "smoke": "node scripts/ui_pages_smoke.mjs"
   },
   "dependencies": {
     "react": "^19.3.1",
