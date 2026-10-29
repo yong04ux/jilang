@@ -374,22 +374,27 @@ async function main() {
     document.querySelector('#sk-run').click();
     const t0 = Date.now();
     while (Date.now() - t0 < 60000) {
-      const warn = document.querySelector('#sk-result .callout-warn, #sk-result .callout-danger');
-      if (warn && warn.textContent.trim()) {
-        const link = warn.querySelector('a');
+      const badge = document.getElementById('sk-engine');
+      if (badge) {
         return JSON.stringify({
-          text: warn.textContent.trim().slice(0, 100),
-          action: link ? link.textContent.trim() + '->' + link.getAttribute('href') : '',
+          text: badge.textContent.trim().slice(0, 60),
+          kind: badge.getAttribute('data-engine') || '',
         });
       }
+      const err = document.querySelector('#sk-result .callout-danger');
+      if (err && err.textContent.trim()) return 'err:' + err.textContent.trim().slice(0, 100);
       await new Promise((r) => setTimeout(r, 150));
     }
     return 'timeout';
   })()`)
   let keyInfo = {}
   try { keyInfo = JSON.parse(keyRun) } catch {}
-  const keyOk = /密钥|API Key/.test(keyInfo.text || '') && /settings/.test(keyInfo.action || '')
-  check('缺密钥时给出「去配置」引导', keyOk, keyInfo)
+  /* 这条断言原先验的是「没 Key → 428 → 弹去配置的引导」。BYOK 改版后
+     无 Key 也能跑（走规则引擎），428 分支不存在了，于是它会误抓 Listing 的
+     质检警告当成功。改成验真正该守的契约：**结果必须如实标注执行引擎**，
+     不能让人把规则生成当成模型生成。 */
+  const engineOk = Boolean(keyInfo.kind) && /规则|模型/.test(keyInfo.text || '')
+  check('结果标注执行引擎（无 Key 时为规则引擎）', engineOk, keyInfo)
 
   const resultVisible = await evaluate(`(async () => {
     const el = document.querySelector('#sk-result .callout');
@@ -430,6 +435,16 @@ async function main() {
       'TrailMate 随行杯 20oz | 18.5 | 4.1 | 963 | Hard to clean the narrow opening.',
       'HydraCore 运动水壶 24oz | 31 | 4.6 | 2310 | Started leaking after a month.',
     ].join('\\n'));
+    // 用**网络证据**判断走了后台任务：DOM 上采样 loading 不可靠 ——
+    // 规则引擎一个任务 GET 就能跑完，loading 只存在一两百毫秒。
+    window.__net = [];
+    const _f = window.fetch;
+    window.fetch = async (...a) => {
+      const u = typeof a[0] === 'string' ? a[0] : a[0].url;
+      const r = await _f.apply(window, a);
+      window.__net.push(r.status + ' ' + u);
+      return r;
+    };
     const btn = document.querySelector('#sk-run');
     if (!btn) return 'no-run';
     btn.click();
@@ -440,7 +455,12 @@ async function main() {
       const rep = document.querySelector('#sk-result .report-block');
       const err = document.querySelector('#sk-result .callout-danger');
       if (err) return 'err:' + err.textContent.trim().slice(0, 160);
-      if (rep && !document.querySelector('#sk-result .sk-loading')) return 'ok polling=' + sawPolling;
+      if (rep && !document.querySelector('#sk-result .sk-loading')) {
+        const net = (window.__net || []).filter(
+          (x) => x.indexOf('async_run') !== -1 || x.indexOf('api/tasks') !== -1,
+        );
+        return 'ok polling=' + sawPolling + ' net=' + JSON.stringify(net);
+      }
       // 采样 50ms 而不是 200ms：规则引擎跑得快时，loading 态（异步任务 + 轮询）
       // 可能只存在一两百毫秒，200ms 采样会整段错过，误报「没走后台轮询」。
       await new Promise((r) => setTimeout(r, 50));
@@ -448,7 +468,11 @@ async function main() {
     return 'timeout';
   })()`)
   check('竞品分析跑出报告', String(compResult).indexOf('ok') === 0, compResult)
-  check('慢能力走的是后台任务轮询', String(compResult).indexOf('polling=true') !== -1, compResult)
+  check(
+    '慢能力走后台任务并轮询任务状态',
+    String(compResult).indexOf('async_run') !== -1 && String(compResult).indexOf('api/tasks') !== -1,
+    String(compResult).slice(0, 200),
+  )
 
   const compFacts = await evaluate(`(() => ({
     demo: document.querySelector('#sk-result .callout-warn') ? document.querySelector('#sk-result .callout-warn').textContent.trim().slice(0, 60) : '',

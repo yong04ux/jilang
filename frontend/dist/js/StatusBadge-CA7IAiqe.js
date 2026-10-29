@@ -1,0 +1,1 @@
+import{t as e}from"./jsx-runtime-Wy9s6hX0.js";import{w as t}from"./index-ClPB81LC.js";var n=e();function r({status:e}){let r=t[e]||t.queued;return(0,n.jsx)(`span`,{className:r.cls,children:r.label})}export{r as t};

@@ -21,6 +21,7 @@ import { useTaskPolling } from '@/features/async-run/useTaskPolling'
 import { describe, hydratePickers, read, render as renderForm } from '@/features/schema-form/schema-form.ts'
 import { outputHtml, paintChart } from '@/features/skills/blocks.ts'
 import { unmountCharts } from '@/features/charts/mount-lazy'
+import { Badge } from '@/components/ui/badge'
 import { ensureSkills, skillByKey, skillLoadError, type Skill } from '@/features/skills/skillsCache'
 
 type Dict = Record<string, any>
@@ -284,6 +285,10 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
   const [running, setRunning] = useState(false)
   const [taskId, setTaskId] = useState<string | null>(null)
   const [result, setResult] = useState<Dict | null>(null)
+  /* 执行引擎：来自接口的 engine 字段（{kind,label,provider,model}） */
+  const engine = ((result as Dict | null)?.engine ?? null) as
+    | { kind?: string; label?: string; provider?: string; model?: string }
+    | null
   const [errorText, setErrorText] = useState('')
   const [steps, setSteps] = useState<Dict[]>([])
   const [resultHtml, setResultHtml] = useState('')
@@ -462,6 +467,9 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
           is_demo: Boolean(sk.is_demo),
           result_ref: sk.result_ref,
           task_id: task.task_id,
+          /* 执行引擎必须跟着结果走：无密钥时是规则引擎，有密钥是大模型。
+             界面上要如实显示，不能让人以为规则生成的结果是模型跑的。 */
+          engine: d.engine || (d.result || {}).engine || null,
         }
         setResult(payload)
         showResult(outputHtml(skill.key, payload))
@@ -548,6 +556,13 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
         <form id="sk-form" className="mt-4" autoComplete="off">
           <div ref={formRef} dangerouslySetInnerHTML={{ __html: renderForm(skill.inputSchema, {}) }} />
         </form>
+
+        {engine ? (
+          <div className="mt-4 flex items-center gap-2 text-xs" id="sk-engine" data-engine={engine.kind || ''}>
+            <Badge variant={engine.kind === 'llm' ? 'info' : 'outline'}>{engine.label || '规则引擎'}</Badge>
+            <span className="text-muted-foreground">这次结果由它生成</span>
+          </div>
+        ) : null}
 
         {/* 结果区放在运行条之前：运行条是吸底的，结果放它后面会被压在视口外 */}
         <div
