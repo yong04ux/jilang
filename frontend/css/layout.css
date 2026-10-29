@@ -5,205 +5,19 @@
    ========================================================================== */
 
 /* ----------------------------------------------------------------------------
-   App shell
+   App shell / 侧栏 —— 已迁到 Tailwind
+   ----------------------------------------------------------------------------
+   网格在 layout/RootLayout.tsx（`app grid grid-cols-[...]`），侧栏在
+   layout/Sidebar.tsx。宽度仍取 --sidebar-w / --sidebar-w-expanded，
+   展开态由 prop 决定类名，不再用 `.app.is-expanded` 后代选择器；窄屏退回
+   图标栏由 hooks/useMediaQuery.ts 的 useShellNarrow 决定（原先是
+   display:none !important）。
+
+   仍保留 `.app` / `.is-expanded` 类名：**账号菜单**还没迁，它的展开态布局
+   依赖 `.app.is-expanded .account-meta` 这条选择器。等 AccountMenu 迁完
+   再一起删。
    ---------------------------------------------------------------------------- */
 
-.app {
-  display: grid;
-  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
-  min-height: 100vh;
-}
-
-.app.is-expanded { grid-template-columns: var(--sidebar-w-expanded) minmax(0, 1fr); }
-
-/* ----------------------------------------------------------------------------
-   侧栏：默认 68px 图标栏（图标在上、文字在下）
-   加 .is-expanded 变成 208px 文字侧栏。对标 LinkFox 的图标栏模型。
-   ---------------------------------------------------------------------------- */
-
-.sidebar {
-  position: sticky;
-  top: 0;
-  z-index: 120;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100vh;
-  padding: 10px 6px 8px;
-  background: var(--card);
-  border-right: 1px solid var(--border);
-  /* 账号菜单要溢出到主区，不能裁切；滚动交给 .sidebar-nav */
-  overflow: visible;
-}
-
-.app.is-expanded .sidebar {
-  align-items: stretch;
-  padding: 12px 8px 8px;
-}
-
-.sidebar-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 0 0 8px;
-  flex-shrink: 0;
-}
-
-.app.is-expanded .sidebar-head {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 4px;
-  margin-bottom: 8px;
-}
-
-/* Logo 同时是侧栏展开/收起的开关 */
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-  padding: 4px;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: background var(--dur-1) var(--ease-out);
-}
-.sidebar-brand:hover { background: var(--accent); text-decoration: none; }
-.sidebar-brand img {
-  width: auto;
-  height: 40px;
-  flex-shrink: 0;
-  transition: transform var(--dur-1) var(--ease-out);
-}
-.sidebar-brand:active img { transform: scale(.94); }
-.app.is-expanded .sidebar-brand { justify-content: flex-start; }
-.app.is-expanded .sidebar-brand img { width: auto; height: 30px; }
-.drawer-head .sidebar-brand-text { display: block; }
-.sidebar-brand-text {
-  display: none;
-  font-size: var(--fs-base);
-  font-weight: 600;
-  letter-spacing: -.01em;
-  color: var(--foreground);
-  white-space: nowrap;
-}
-.app.is-expanded .sidebar-brand { flex: 1 1 auto; justify-content: flex-start; }
-.app.is-expanded .sidebar-brand-text { display: block; }
-
-.sidebar-nav {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-.sidebar-nav::-webkit-scrollbar { display: none; }
-.app.is-expanded .sidebar-nav { align-items: stretch; gap: 1px; }
-
-.sidebar-group { display: block; width: 100%; }
-/* 图标栏里用一条细分隔线代替分组标题 */
-.sidebar-group + .sidebar-group {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border);
-}
-.app.is-expanded .sidebar-group + .sidebar-group {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: 0;
-}
-
-.sidebar-group-title {
-  display: none;
-  padding: 14px 8px 4px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--faint);
-  letter-spacing: .02em;
-  white-space: nowrap;
-}
-.app.is-expanded .sidebar-group-title { display: block; }
-
-.nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  width: 100%;
-  height: 52px;
-  padding: 6px 2px;
-  border-radius: var(--radius);
-  color: var(--muted-foreground);
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
-  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
-}
-.nav-item:hover {
-  background: var(--accent);
-  color: var(--foreground);
-  text-decoration: none;
-}
-.nav-item .icon { width: 18px; height: 18px; color: currentColor; flex-shrink: 0; }
-
-.nav-item.is-active {
-  background: var(--primary-soft);
-  color: var(--primary);
-  font-weight: 600;
-}
-.nav-item.is-active .icon { color: var(--primary); }
-
-.nav-item-label {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.nav-label-full { display: none; }
-.app.is-expanded .nav-label-short { display: none; }
-.app.is-expanded .nav-label-full { display: inline; }
-
-/* 展开态：回到横向图标 + 文字 */
-.app.is-expanded .nav-item {
-  flex-direction: row;
-  justify-content: flex-start;
-  gap: 8px;
-  height: 32px;
-  padding: 0 8px;
-  font-size: var(--fs-sm);
-}
-.app.is-expanded .nav-item .icon { width: 16px; height: 16px; }
-.app.is-expanded .nav-item-label { flex: 1; min-width: 0; }
-
-.sidebar-sep {
-  height: 1px;
-  margin: 8px;
-  background: var(--border);
-  flex-shrink: 0;
-}
-
-
-
-.sidebar-foot {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 100%;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.app.is-expanded .sidebar-foot { align-items: stretch; }
 
 .account-btn {
   display: flex;
@@ -453,19 +267,10 @@
 }
 
 @media (max-width: 980px) {
-  /* 窗口窄时强制回到图标栏，不允许展开 */
-  .app,
-  .app.is-expanded { grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
-  .sidebar { align-items: center; padding: 10px 6px 8px; }
-  .sidebar-brand-text,
-  .sidebar-group-title,
+  /* 侧栏在窄屏的形状已由 useShellNarrow 处理；这里只剩账号菜单：
+     侧栏退回图标栏后，账号按钮必须居中、且隐藏姓名/角色文字。 */
   .account-meta { display: none !important; }
-  .sidebar-head { flex-direction: column; align-items: center; padding: 0 0 8px; margin-bottom: 0; }
-  .nav-item { flex-direction: column; justify-content: center; height: 52px; padding: 6px 2px; font-size: 10px; }
-  .nav-item .icon { width: 18px; height: 18px; }
-  .sidebar-foot { flex-direction: column; }
   .account-btn { justify-content: center; padding: 0; }
-  .sidebar-group + .sidebar-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
 }
 
 @media (max-width: 720px) {

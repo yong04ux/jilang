@@ -1,0 +1,1 @@
+import{r as e}from"./PageShell-CrcILBd8.js";import{x as t}from"./index-9AcYb3kB.js";var n=e();function r({status:e}){let r=t[e]||t.queued;return(0,n.jsx)(`span`,{className:r.cls,children:r.label})}export{r as t};

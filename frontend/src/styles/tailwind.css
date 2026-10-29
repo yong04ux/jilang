@@ -63,6 +63,8 @@
      否则 `bg-muted` 会把文字色当背景用（整片灰）。 */
   --color-muted: var(--muted-surface);
   --color-muted-foreground: var(--muted-foreground);
+  /* 比 muted-foreground 更淡一档，只用于分组标题这类弱信息 */
+  --color-faint: var(--faint);
 
   /* ---- 线与焦点 ---- */
   --color-border: var(--border);
