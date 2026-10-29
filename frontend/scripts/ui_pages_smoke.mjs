@@ -378,14 +378,15 @@ async function main() {
   /* ---------------- Agent 市场 ---------------- */
   console.log('\n/agents')
   await ev(`window.CPRouter.go('/agents', { force: true })`)
-  const agentsReady = await waitFor(`!!document.querySelector('.card-grid-3 .card')`)
+  // 迁移到 shadcn Card 后不再有 .card 类：按语义钩子断言，不绑样式类名
+  const agentsReady = await waitFor(`!!document.querySelector('[data-agent-card]')`)
   check(agentsReady, 'Agent 卡片已渲染')
   const agents = await ev(`JSON.stringify({
     title: (document.querySelector('.page-title') || {}).textContent || '',
     desc: (document.querySelector('.page-desc') || {}).textContent || '',
-    cards: document.querySelectorAll('.card-grid-3 .card').length,
-    withRunBtn: document.querySelectorAll('.card-grid-3 [data-agent-run]').length,
-    firstName: (document.querySelector('.card-grid-3 .t-section') || {}).textContent || '',
+    cards: document.querySelectorAll('[data-agent-card]').length,
+    withRunBtn: document.querySelectorAll('[data-agent-card] [data-agent-run]').length,
+    firstName: (document.querySelector('[data-agent-name]') || {}).textContent || '',
     slots: document.querySelectorAll('#view-root > .mount-slot').length,
     hasView: !!document.querySelector('#view-root > .mount-slot > .view'),
   })`)
@@ -397,7 +398,7 @@ async function main() {
   check(a.slots === 1 && a.hasView, 'DOM 形状是 .view-root > .mount-slot > .view')
 
   const nav = await ev(`(async () => {
-    const btn = document.querySelector('.card-grid-3 [data-agent-run]');
+    const btn = document.querySelector('[data-agent-card] [data-agent-run]');
     if (!btn) return 'no-btn';
     btn.click();
     const t0 = Date.now();
