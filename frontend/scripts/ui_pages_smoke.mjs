@@ -168,6 +168,11 @@ async function main() {
     })`),
   )
   check(dash.title === '工作台', '标题正确', dash.title)
+  // 示例数据提示条：内容来自 /api/demo/dataset，用户必须能一眼看出这不是自己的经营数据
+  check(
+    await ev(`!document.getElementById('source-banner').hidden`),
+    '数据来源提示条可见',
+  )
   check(dash.desc.length > 0, '有页面说明', dash.desc.slice(0, 20))
   check(dash.kpis === 5, 'KPI 5 格', dash.kpis)
   check(
@@ -185,6 +190,21 @@ async function main() {
   check(dash.trendSvg > 0, '有任务时趋势图真的画出来了', dash.trendSvg)
   check(dash.taskTable > 0, '近期任务表有行', dash.taskTable)
   check(dash.devwords === false, '无开发标记/内部标识')
+
+  /* ---------------- 侧栏导航：点导航项应改地址、重挂页面，且不整页刷新 ----------------
+     这条原先只在 ui_flows_v2 里有，而那个脚本的选择器是迁移前的前端
+     （.kpi-row / svg.trend / /competitors），早已失效。搬到统一入口后，
+     其他断言由本文件与 ui_*_v2 各自覆盖。 */
+  console.log('\n侧栏导航')
+  await ev(`window.__navStamp = 42; 1`)
+  await ev(`(() => { const el = document.querySelector('.sidebar-nav [data-nav="tasks"]'); if (el) el.click(); return !!el })()`)
+  const navigated = await waitFor(`location.pathname === '/tasks'`)
+  check(navigated, '点「任务中心」导航项跳转到 /tasks', await ev('location.pathname'))
+  check((await ev('window.__navStamp')) === 42, '导航是前端跳转，没有整页刷新')
+  const activeNav = await ev(
+    `(document.querySelector('.sidebar-nav .nav-item[aria-current="page"]') || {}).getAttribute && document.querySelector('.sidebar-nav .nav-item[aria-current="page"]').getAttribute('data-nav')`,
+  )
+  check(activeNav === 'tasks', '当前导航项标为选中', activeNav)
 
   /* ---------------- 任务中心 ---------------- */
   console.log('\n/tasks')
