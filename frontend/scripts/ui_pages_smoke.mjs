@@ -148,22 +148,28 @@ async function main() {
   /* ---------------- 工作台 ---------------- */
   console.log('\n/dashboard')
   await ev(`window.CPRouter.go('/dashboard', { force: true })`)
-  const dashReady = await waitFor(`!!document.querySelector('.dash-kpi .kpi')`)
+  // 工作台改用 shadcn Card 后不再有 .kpi/.dash-grid：按语义属性断言
+  const dashReady = await waitFor(`!!document.querySelector('[data-kpi]')`)
   check(dashReady, 'KPI 行已渲染')
   // 趋势图由 useEffect 在提交后绘制，取样要等它落地（否则会读到空容器）
-  await waitFor(`(() => { const h = document.querySelector('#dash-trend'); return !!h && h.children.length > 0 })()`)
+  // 图表是 lazy chunk：骨架屏也算子节点，所以不能只等「有子节点」，
+  // 要等到真的出 svg 或明确空态文案
+  await waitFor(
+    `(() => { const h = document.querySelector('#dash-trend'); if (!h) return false; return !!h.querySelector('svg') || !!h.querySelector('.cp-chart-empty') })()`,
+    15000,
+  )
   const dash = JSON.parse(
     await ev(`JSON.stringify({
       title: (document.querySelector('.page-title') || {}).textContent || '',
       desc: (document.querySelector('.page-desc') || {}).textContent || '',
-      kpis: document.querySelectorAll('.dash-kpi .kpi').length,
-      kpiLabels: Array.from(document.querySelectorAll('.dash-kpi .kpi-label')).map((e) => e.textContent),
+      kpis: document.querySelectorAll('[data-kpi]').length,
+      kpiLabels: Array.from(document.querySelectorAll('[data-kpi-label]')).map((e) => e.textContent),
       trend: !!document.querySelector('#dash-trend'),
       trendLen: (document.querySelector('#dash-trend') || {}).innerHTML ? document.querySelector('#dash-trend').innerHTML.length : -1,
       trendSvg: document.querySelectorAll('#dash-trend svg').length,
       trendEmpty: !!document.querySelector('#dash-trend .cp-chart-empty'),
-      cards: document.querySelectorAll('.dash-grid .card').length,
-      taskTable: document.querySelectorAll('.dash-grid table.table tbody tr').length,
+      cards: document.querySelectorAll('[data-dash-card]').length,
+      taskTable: document.querySelectorAll('[data-task-table] tbody tr').length,
       devwords: /TODO|Mock|placeholder|未接入|暂未实现/i.test(document.body.textContent || ''),
     })`),
   )

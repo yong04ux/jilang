@@ -297,9 +297,20 @@ Animations API。新增动效优先用 `CPMotion`，不要在业务代码里写�
 - 命名空间 `.st-`，全部写在 `css/store.css`，不往 `components.css` 里塞页面级样式。
 - 图标尺寸要显式给：`.icon` 基础样式**无宽高**，页面里用到的地方都得补，
   否则 SVG 撑满父容器。
-- 图表统一走 `window.CPChart`（`js/charts.js`，手写内联 SVG）。
-  **不准引 Recharts**——图表是手写内联 SVG（`src/lib/charts.ts`），只有折线与柱状两种，引一个图表库
-  并改掉 Render 单服务托管形态。
+- **图表有两套实现，分工是明确的**（2026-10-30 起）：
+
+  | 场景 | 实现 | 位置 |
+  |---|---|---|
+  | 需要 hover 读数 / 多序列的趋势图 | **Recharts** | `src/features/charts/TrendChart.tsx` |
+  | 轻量柱状图（成本构成等）与已有页面 | 手写内联 SVG | `src/lib/charts.ts`（`window.CPChart`） |
+
+  Recharts **必须** `lazy()` 加载并单独成 chunk：它约 350 KB（raw）/ 100 KB（gzip），
+  塞进页面主 chunk 会直接拖慢首屏。工作台就是这么接的 —— 先出 KPI 与列表，
+  图表随后补上，容器高度预留，不跳动。
+
+  用 Recharts 时**不许用它的默认皮肤**：线色取 `--chart-1`、网格 `--border`、
+  面积是实色低透明度（不是渐变）、tooltip 用 `--card` + `--border` + `--shadow-md`。
+  单点数据要显式给 `dot`，否则 Recharts 什么都不画。
 
 ## 14. 技能广场（`/skills`）
 

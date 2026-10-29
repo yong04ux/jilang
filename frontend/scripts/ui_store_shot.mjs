@@ -23,7 +23,7 @@ const PAGES = [
   // 热身截图：就绪条件用「一定存在」的 KPI 行。
   // 原先等 .st-metric 是错的：未绑定店铺时 /api/marketplace/metrics 返回 409，
   // 工作台不会渲染「经营概览」，这个选择器永远等不到。
-  { name: '0-workbench', path: '/dashboard', ready: '.dash-kpi .kpi' },
+  { name: '0-workbench', path: '/dashboard', ready: '[data-kpi]' },
   { name: '1-dashboard', path: '/stores', ready: '.st-metric' },
   { name: '2-dashboard-orders', path: '/stores?seg=orders', ready: '.st-grid-2' },
   { name: '3-dashboard-ads', path: '/stores?seg=ads', ready: '.st-metrics--ads .st-metric' },
