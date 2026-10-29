@@ -1,13 +1,24 @@
 /**
  * 账号菜单：悬停展开、点击切换、Esc 收起并回焦、点击外部收起。
- * 行为逐条对齐旧 shell.js:349-406（含 160ms 悬停延迟关闭）。
+ * 行为逐条对齐旧 shell.js（含 160ms 悬停延迟关闭）。
+ *
+ * Phase 3 把 layout.css 的 `.account-*` 全部改成 Tailwind。展开态由 `expanded`
+ * prop 决定（原先靠 `.app.is-expanded` 后代选择器）：
+ *   - 图标栏：按钮只留头像，菜单弹在**侧栏右侧**，底边与按钮底对齐
+ *   - 文字栏：按钮显示姓名+角色，菜单弹在按钮**上方**
+ *
+ * 保留的 id（App.tsx 的 document 点击委托按 `#user-logout` 判退出，
+ * 别改）：#account-wrap #user-chip #account-avatar #account-name #account-role
+ *      #account-menu #menu-avatar #menu-name #menu-sub #menu-model #menu-worker
+ *      #user-logout
  */
 import { useEffect, useRef, useState } from 'react'
-import { Icon } from '@/components/Icon'
+import { Database, LogOut, Settings2, Store } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useHealthStore, providerFlagText } from '@/features/health/health'
+import { cn } from '@/lib/utils'
 
-export function AccountMenu() {
+export function AccountMenu({ expanded }: { expanded: boolean }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -103,9 +114,12 @@ export function AccountMenu() {
     }
   }, [])
 
+  const itemClass =
+    'flex h-[34px] w-full items-center gap-2.5 rounded-sm px-2 text-left text-[13px] text-[var(--ink-soft)] transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-[15px] [&_svg]:shrink-0 [&_svg]:text-muted-foreground hover:[&_svg]:text-foreground'
+
   return (
     <div
-      className="account-wrap"
+      className="relative w-full"
       id="account-wrap"
       ref={wrapRef}
       onMouseEnter={openMenu}
@@ -114,7 +128,10 @@ export function AccountMenu() {
     >
       <button
         type="button"
-        className="account-btn"
+        className={cn(
+          'flex h-9 w-full items-center rounded-md transition-colors hover:bg-accent',
+          expanded ? 'justify-start gap-2 px-2' : 'justify-center px-1.5',
+        )}
         id="user-chip"
         title="当前账号"
         aria-haspopup="menu"
@@ -128,76 +145,91 @@ export function AccountMenu() {
           else openMenu()
         }}
       >
-        <span className="account-avatar" id="account-avatar">
+        <span
+          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground"
+          id="account-avatar"
+        >
           {initial}
         </span>
-        <span className="account-meta">
-          <span className="account-name" id="account-name">
-            {display}
+        {expanded ? (
+          <span className="flex min-w-0 flex-col text-left">
+            <span
+              className="truncate text-xs font-medium leading-tight text-foreground"
+              id="account-name"
+            >
+              {display}
+            </span>
+            <span className="truncate text-[10px] leading-tight text-muted-foreground" id="account-role">
+              {role}
+            </span>
           </span>
-          <span className="account-role" id="account-role">
-            {role}
-          </span>
-        </span>
+        ) : null}
       </button>
 
       <div
-        className="account-menu"
+        className={cn(
+          'absolute z-200 w-[292px] rounded-xl border border-border bg-card p-1.5 shadow-lg',
+          // 图标栏：弹在侧栏右侧；文字栏：弹在按钮上方（避免超出视口右缘）
+          expanded ? 'bottom-[calc(100%+8px)] left-0' : 'bottom-[-4px] left-[calc(100%+10px)]',
+        )}
         id="account-menu"
         role="menu"
         aria-label="账号"
         hidden={!open}
         ref={menuRef}
       >
-        <div className="account-menu-head">
-          <span className="account-menu-avatar" id="menu-avatar">
+        <div className="flex items-center gap-2.5 px-2 pb-2.5 pt-2">
+          <span
+            className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-[15px] font-semibold text-primary-foreground"
+            id="menu-avatar"
+          >
             {initial}
           </span>
-          <span className="account-menu-id">
-            <span className="account-menu-name" id="menu-name">
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate text-sm font-semibold text-foreground" id="menu-name">
               {display}
             </span>
-            <span className="account-menu-sub" id="menu-sub">
+            <span className="truncate text-xs text-muted-foreground" id="menu-sub">
               {signedIn ? `${role} · ${username}` : '—'}
             </span>
           </span>
         </div>
 
-        <div className="account-menu-card">
-          <div className="account-menu-card-row">
-            <span className="account-menu-card-label">智能助手</span>
-            <span className="account-menu-card-value" id="menu-model">
+        <div className="mx-1 mb-1.5 flex gap-3 rounded-lg bg-muted px-3 py-2.5">
+          <div className="flex min-w-0 flex-1 flex-col gap-[3px]">
+            <span className="text-xs text-muted-foreground">智能助手</span>
+            <span className="truncate text-[13px] font-medium text-foreground" id="menu-model">
               {providerText}
             </span>
           </div>
-          <div className="account-menu-card-row">
-            <span className="account-menu-card-label">任务执行</span>
-            <span className="account-menu-card-value" id="menu-worker">
+          <div className="flex min-w-0 flex-1 flex-col gap-[3px] border-l border-border pl-3">
+            <span className="text-xs text-muted-foreground">任务执行</span>
+            <span className="truncate text-[13px] font-medium text-foreground" id="menu-worker">
               {workerText}
             </span>
           </div>
         </div>
 
-        <div className="account-menu-list">
-          <a className="account-menu-item" role="menuitem" href="/settings" data-link="">
-            <Icon name="settings" />
+        <div className="flex flex-col gap-px px-0.5">
+          <a className={itemClass} role="menuitem" href="/settings" data-link="">
+            <Settings2 />
             <span>个人设置</span>
           </a>
-          <a className="account-menu-item" role="menuitem" href="/stores" data-link="">
-            <Icon name="stores" />
+          <a className={itemClass} role="menuitem" href="/stores" data-link="">
+            <Store />
             <span>店铺与渠道</span>
           </a>
-          <a className="account-menu-item" role="menuitem" href="/data" data-link="">
-            <Icon name="data" />
+          <a className={itemClass} role="menuitem" href="/data" data-link="">
+            <Database />
             <span>数据资产</span>
           </a>
         </div>
 
-        <div className="account-menu-sep" />
+        <div className="mx-2 my-1.5 h-px bg-border" />
 
-        <div className="account-menu-list">
-          <button type="button" className="account-menu-item" role="menuitem" id="user-logout">
-            <Icon name="logout" />
+        <div className="flex flex-col gap-px px-0.5">
+          <button type="button" className={itemClass} role="menuitem" id="user-logout">
+            <LogOut />
             <span>退出登录</span>
           </button>
         </div>

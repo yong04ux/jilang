@@ -28,8 +28,6 @@ export function RootLayout({ activeKey, children }: { activeKey: string; childre
     <div
       className={cn(
         'app grid min-h-screen',
-        // is-expanded 只给还没迁移的账号菜单用（.app.is-expanded .account-meta）
-        expanded && 'is-expanded',
         expanded
           ? 'grid-cols-[var(--sidebar-w-expanded)_minmax(0,1fr)]'
           : 'grid-cols-[var(--sidebar-w)_minmax(0,1fr)]',
@@ -46,7 +44,8 @@ export function RootLayout({ activeKey, children }: { activeKey: string; childre
         <Sidebar activeKey={activeKey} />
       </aside>
 
-      <div className="main flex min-w-0 flex-col">
+      {/* .main 的样式仍在 layout.css（含 min-height:100vh），这里不加重复的工具类 */}
+      <div className="main">
         {/* 顶栏样式在 Tailwind 里（原 layout.css 的 .topbar 段已删除） */}
         <header
           id="topbar"

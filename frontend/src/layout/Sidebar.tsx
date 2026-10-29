@@ -139,7 +139,7 @@ export function Sidebar({ activeKey }: { activeKey: string }) {
           expanded ? 'items-stretch' : 'items-center',
         )}
       >
-        <AccountMenu />
+        <AccountMenu expanded={expanded} />
       </div>
     </>
   )
