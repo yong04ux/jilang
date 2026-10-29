@@ -8,7 +8,7 @@
  * 保证「一处实现、两种消费端」。S8 旧目录删除后再统一清理。
  */
 import { go, normalize, renderPath, installRouterListeners } from './router'
-import { getHealth, invalidateHealth, useHealthStore } from '@/features/health/health'
+import { getHealth, invalidateHealth, useHealthStore } from '@/lib/health/health'
 import { loadAuth, loadMe, logout, showGate, useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 import { chartApi } from '@/lib/charts'
@@ -19,11 +19,11 @@ import { panelsApi } from '@/lib/panels'
 import { labelApi } from '@/lib/labels'
 import { uiApi } from '@/lib/ui'
 import { catalogApi } from '@/lib/catalog'
-import { schemaFormApi } from '@/features/schema-form/schema-form.ts'
-import { renderApi } from '@/features/render/render.ts'
-import { presentApi } from '@/features/async-run/present'
-import { createPoller, isRunning, RUNNING } from '@/features/async-run/poller'
-import { cancelTask, fetchTaskDetail } from '@/features/async-run/tasks-api'
+import { schemaFormApi } from '@/lib/schema-form/schema-form.ts'
+import { renderApi } from '@/lib/render/render.ts'
+import { presentApi } from '@/lib/async-run/present'
+import { createPoller, isRunning, RUNNING } from '@/lib/async-run/poller'
+import { cancelTask, fetchTaskDetail } from '@/lib/async-run/tasks-api'
 
 function navLabels(): Record<string, string> {
   const labels: Record<string, string> = {}

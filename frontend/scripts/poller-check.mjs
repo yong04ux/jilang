@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const root = dirname(here)
 const { createPoller, POLL_MS, RUNNING, MAX_CONSECUTIVE_FAILURES } = await import(
-  pathToFileURL(resolve(root, 'src/features/async-run/poller.ts')).href
+  pathToFileURL(resolve(root, 'src/lib/async-run/poller.ts')).href
 )
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))

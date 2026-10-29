@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 渲染层语义对照：旧 `js/{schema-form,render}.js` ↔ 新 `src/features/{schema-form,render}`。
+ * 渲染层语义对照：旧 `js/{schema-form,render}.js` ↔ 新 `src/lib/{schema-form,render}`。
  *
  * 这两个模块产出的是整块 HTML 字符串，直接塞进 innerHTML。
  * 少一个空格、错一个类名、漏一层转义，页面就变形或漏渲染，而探针只断言
@@ -39,9 +39,9 @@ const oldForm = legacyWindow.CPSchemaForm
 const oldRender = legacyWindow.CPRender
 
 const newForm = await import(
-  pathToFileURL(resolve(root, 'src/features/schema-form/schema-form.ts')).href
+  pathToFileURL(resolve(root, 'src/lib/schema-form/schema-form.ts')).href
 )
-const newRender = await import(pathToFileURL(resolve(root, 'src/features/render/render.ts')).href)
+const newRender = await import(pathToFileURL(resolve(root, 'src/lib/render/render.ts')).href)
 
 let failed = 0
 let passed = 0

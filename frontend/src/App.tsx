@@ -9,17 +9,17 @@
  *   5. cp:authenticated / cp:logout 常驻监听（换账号必须能刷新）。
  */
 import { Suspense, useEffect } from 'react'
-import { RootLayout } from '@/layout/RootLayout'
-import { NavDrawer } from '@/layout/NavDrawer'
-import { AuthGate } from '@/layout/AuthGate'
-import { NotFoundPage } from '@/pages/NotFoundPage'
-import { PageFallback } from '@/components/PageFallback'
+import { RootLayout } from '@/components/layout/RootLayout'
+import { NavDrawer } from '@/components/layout/NavDrawer'
+import { AuthGate } from '@/components/layout/AuthGate'
+import { NotFoundPage } from '@/app/NotFoundPage'
+import { PageFallback } from '@/components/shared/PageFallback'
 import { ROUTES, NOT_FOUND_NAV_KEY } from './app/routes'
 import { matchRoutes, parseQuery, renderPath } from './app/router'
 import { useRouteSnapshot } from './app/useRoute'
 import { api } from '@/lib/api'
 import { loadAuth, loadMe, logout, showGate, useAuthStore } from '@/stores/authStore'
-import { useHealthStore } from '@/features/health/health'
+import { useHealthStore } from '@/lib/health/health'
 import { useUiStore } from '@/stores/uiStore'
 
 export default function App() {

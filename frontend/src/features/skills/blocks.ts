@@ -6,8 +6,8 @@
  * 直接复用 `features/render` 的报告与 Listing 渲染器。
  */
 import { esc, icon } from '@/lib/ui'
-import { kindBadge, money, renderListing, renderReport } from '@/features/render/render.ts'
-import { mountBars } from '@/features/charts/mount-lazy'
+import { kindBadge, money, renderListing, renderReport } from '@/lib/render/render.ts'
+import { mountBars } from '@/components/shared/charts/mount-lazy'
 
 type Dict = Record<string, any>
 

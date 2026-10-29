@@ -141,7 +141,7 @@
 .st-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 .st-card + .st-card,
@@ -454,7 +454,7 @@
   gap: 14px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--card);
 }
 .st-product-thumb {
@@ -512,7 +512,7 @@
 .st-step {
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   background: var(--card);
 }
 .st-step-no {

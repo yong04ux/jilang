@@ -12,7 +12,7 @@
  */
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { cpSync } from 'node:fs'
+import { copyFileSync, cpSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -25,6 +25,9 @@ const dist = resolve(root, 'dist')
  *  该文件由 `npm run build:css` 从 src/styles/tailwind.css 生成后落盘到 css/，
  *  不走 Vite 打包 —— 这样它仍是**固定文件名 + ?v=0**，能被服务端的构建戳
  *  统一失效缓存（变成 css/index-<hash>.css 就绕过了这套机制）。 */
+/** 手写样式层（源码在 src/styles，产物落到 /css/*.css，文件名固定） */
+const HAND_CSS: readonly string[] = ['tokens', 'base', 'components', 'layout', 'pages', 'store', 'skills']
+
 const CSS_FILES = [
   'tokens',
   'base',
@@ -101,8 +104,8 @@ function indent(block: string): string {
 }
 
 /**
- * 静态目录搬运：css/ -> dist/css，assets/ -> dist/assets。
- * 旧 js/ 目录已在 S8 删除，不再搬运。
+ * 静态目录搬运：css/ -> dist/css，src/styles 的手写样式 -> dist/css，src/assets -> dist/assets。
+ * 手写样式源码在 src/styles，产物仍是固定文件名的 /css/*.css。
  */
 function copyStatic(): Plugin {
   return {
@@ -110,12 +113,15 @@ function copyStatic(): Plugin {
     apply: 'build',
     closeBundle() {
       cpSync(resolve(root, 'css'), resolve(dist, 'css'), { recursive: true })
-      cpSync(resolve(root, 'assets'), resolve(dist, 'assets'), { recursive: true })
+      for (const name of HAND_CSS) {
+        copyFileSync(resolve(root, `src/styles/${name}.css`), resolve(dist, `css/${name}.css`))
+      }
+      cpSync(resolve(root, 'src/assets'), resolve(dist, 'assets'), { recursive: true })
     },
   }
 }
 
-/** 开发期把 /media/x 映射到 /assets/x（生产由 FastAPI 的 mount 负责） */
+/** 开发期把 /media/x 映射到品牌资源目录（生产由 FastAPI 的 mount 负责） */
 function mediaAlias(): Plugin {
   return {
     name: 'cp-media-alias',
@@ -123,7 +129,27 @@ function mediaAlias(): Plugin {
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
         if (req.url && req.url.startsWith('/media/')) {
-          req.url = '/assets/' + req.url.slice('/media/'.length)
+          req.url = '/src/assets/' + req.url.slice('/media/'.length)
+        }
+        next()
+      })
+    },
+  }
+}
+
+/** 开发期把 /css/<手写样式>.css 映射到 src/styles，免去构建一步 */
+function cssAlias(): Plugin {
+  return {
+    name: 'cp-css-alias',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url && req.url.startsWith('/css/')) {
+          const [pathname, query] = req.url.split('?')
+          const name = pathname.slice('/css/'.length).replace(/\.css$/, '')
+          if (HAND_CSS.includes(name)) {
+            req.url = `/src/styles/${name}.css${query ? `?${query}` : ''}`
+          }
         }
         next()
       })
@@ -160,6 +186,7 @@ export default defineConfig({
   plugins: [
     react(),
     mediaAlias(),
+    cssAlias(),
     htmlStrip(),
     htmlRestore(),
     copyStatic(),

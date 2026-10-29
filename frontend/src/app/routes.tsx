@@ -8,28 +8,28 @@
  * 命名导出的页面在这里映射成 default，保持路由表只关心「一个组件」。
  */
 import { lazy } from 'react'
-import { LegacyPage } from '@/legacy/LegacyPage'
+import { LegacyPage } from '@/app/legacy'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
 
 const DashboardPage = lazy(() =>
-  import('@/pages/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+  import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 )
 const TasksPage = lazy(() =>
-  import('@/pages/tasks/TasksPage').then((m) => ({ default: m.TasksPage })),
+  import('@/features/tasks/TasksPage').then((m) => ({ default: m.TasksPage })),
 )
-const DataPage = lazy(() => import('@/pages/data/DataPage').then((m) => ({ default: m.DataPage })))
+const DataPage = lazy(() => import('@/features/data-assets/DataPage').then((m) => ({ default: m.DataPage })))
 const AgentsPage = lazy(() =>
-  import('@/pages/agents/AgentsPage').then((m) => ({ default: m.AgentsPage })),
+  import('@/features/agents/AgentsPage').then((m) => ({ default: m.AgentsPage })),
 )
 const SkillsPage = lazy(() =>
-  import('@/pages/skills/SkillsPage').then((m) => ({ default: m.SkillsPage })),
+  import('@/features/skills/SkillsPage').then((m) => ({ default: m.SkillsPage })),
 )
 const StoresPage = lazy(() =>
-  import('@/pages/stores/StoresPage').then((m) => ({ default: m.StoresPage })),
+  import('@/features/stores/StoresPage').then((m) => ({ default: m.StoresPage })),
 )
 const SettingsPage = lazy(() =>
-  import('@/pages/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+  import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 )
 
 function legacy(loader: LegacyPageLoader) {
@@ -41,7 +41,7 @@ function legacy(loader: LegacyPageLoader) {
 /* workbench 是 1600 行字符串渲染，单独切一个 chunk。
    依赖在模块内部懒取（见该文件 header），所以动态 import 是安全的。 */
 const workbenchLoader: LegacyPageLoader = (root, params, query) =>
-  import('@/pages/workbench/workbench').then((m) =>
+  import('@/features/workbench/workbench').then((m) =>
     m.entry(root, params as Record<string, string>, query as Record<string, string>),
   )
 

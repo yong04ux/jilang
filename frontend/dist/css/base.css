@@ -199,7 +199,7 @@ select {
   height: var(--h-md);
   padding: 0 10px;
   border: 1px solid var(--input);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--card);
   color: var(--foreground);
   font-size: var(--fs-sm);

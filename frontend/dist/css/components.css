@@ -334,7 +334,7 @@
 }
 
 .table td {
-  height: 44px;
+  height: 52px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--ink-soft);
@@ -346,6 +346,11 @@
 .table tbody tr:hover td { background: var(--background); }
 .table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table td strong { color: var(--foreground); font-weight: 600; }
+
+/* 窄屏收起次要列，先让主信息（任务 / 状态 / 时间）保持可读 */
+@media (max-width: 1180px) {
+  .table .col-optional { display: none; }
+}
 
 /* 移动端转卡片 */
 @media (max-width: 720px) {
@@ -456,6 +461,15 @@
               color var(--dur-1) var(--ease-out);
 }
 .chip:hover { border-color: var(--border-strong); background: var(--accent); }
+
+/* 计数挂在伪元素上：不改 textContent，脚本按文字匹配筛选标签时不受影响 */
+.chip[data-count]::after {
+  content: attr(data-count);
+  margin-left: 6px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.chip.is-active[data-count]::after { color: var(--primary); }
 /* 选中态：白底 + 品牌蓝描边 + 蓝字（对标 LinkFox 的筛选标签） */
 .chip.is-active {
   border-color: var(--primary);
@@ -661,6 +675,32 @@
   line-height: var(--lh-normal);
 }
 
+/* 已完成步骤：细节默认收起，点「查看详情」再展开 */
+.timeline-more { margin-top: 6px; }
+.timeline-more > summary {
+  width: fit-content;
+  padding: 2px 0;
+  color: var(--muted-foreground);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  list-style: none;
+}
+.timeline-more > summary::-webkit-details-marker { display: none; }
+.timeline-more > summary::before {
+  content: "";
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-right: 5px;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transform-origin: 2px 50%;
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.timeline-more[open] > summary::before { transform: rotate(90deg); }
+.timeline-more > summary:hover { color: var(--foreground); }
+
 /* ----------------------------------------------------------------------------
    Modal / Drawer
    ---------------------------------------------------------------------------- */
@@ -861,7 +901,7 @@
 .metric-cell {
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   background: var(--card);
 }
 

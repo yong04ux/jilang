@@ -678,7 +678,16 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
 }
 .plan-title .icon { width: 15px; height: 15px; color: var(--brand); }
 
-.plan-body { padding: var(--sp-4); }
+.plan-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+}
+
+.plan-stage { display: flex; flex-direction: column; gap: 2px; }
+.plan-stage-name { font-size: var(--fs-sm); font-weight: 500; color: var(--ink); }
 
 /* 工具调用摘要 */
 .tool-row {
@@ -956,6 +965,7 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
   margin-bottom: var(--sp-4);
 }
 .task-search { max-width: 260px; }
+.task-sort { width: auto; min-width: 108px; height: var(--h-sm); font-size: var(--fs-xs); }
 
 /* 任务详情抽屉内容 */
 .task-detail-head { display: flex; flex-direction: column; gap: var(--sp-1); }
@@ -1524,4 +1534,33 @@ a.list-row:hover { background: var(--surface-hover); text-decoration: none; }
   .wb-run.split > .split-handle { display: none; }
   .wb-run.split > .wb-pane-chat { flex: 0 0 auto; max-width: none; width: 100%; }
   .wb-run.split > .wb-pane-res { flex: 0 0 auto; min-height: 420px; }
+}
+
+/* 窄屏一次只显示一栏，用顶部的两段切换 */
+.wb-mobile-tabs { display: none; }
+
+@media (max-width: 760px) {
+  .wb-mobile-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+  }
+  .wb-mobile-tab {
+    height: var(--h-sm);
+    padding: 0 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    color: var(--muted-foreground);
+    font-size: var(--fs-sm);
+  }
+  .wb-mobile-tab.is-active {
+    border-color: var(--primary-line);
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-weight: 500;
+  }
+  .wb-run.split.is-mobile-chat > .wb-pane-res { display: none; }
+  .wb-run.split.is-mobile-result > .wb-pane-chat { display: none; }
 }

@@ -84,7 +84,7 @@ async function main() {
 
   // 关闭 Listing（临时账号未配 Key，Listing 会被 BYOK 拦），执行
   await ev('(() => { const c = document.getElementById("wb-with-listing"); if (c) c.checked = false; return true })()')
-  await ev('document.getElementById("wb-run").click()')
+  await ev('document.getElementById("wb-run-task").click()')
 
   const runMode = await waitFor('!!document.getElementById("wb-run")', 15000)
   check('进入左对话 + 右结果两栏', runMode)

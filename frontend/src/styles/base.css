@@ -1,0 +1,298 @@
+/* ============================================================================
+   激浪 · Base
+   体系：shadcn/ui · Nova
+   reset · 排版 · 表单 · 表格 · 通用工具类
+   ========================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  color: var(--foreground);
+  background: var(--background);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5 {
+  margin: 0;
+  line-height: var(--lh-tight);
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--foreground);
+}
+
+p { margin: 0; }
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+a:hover { text-decoration: underline; }
+
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-size: .92em;
+}
+
+code {
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  background: var(--muted-surface);
+  color: var(--ink-soft);
+}
+
+/* ----------------------------------------------------------------------------
+   元素级重置放进 `base` 层（2026-10-30）
+
+   为什么不留在无层：CSS 层叠规则里「未分层」恒定强于任何 `@layer`，所以这条
+   `button { border: 0; padding: 0; font: inherit }` 会以不可预测的方式压过
+   Tailwind 的工具类 —— 实测同一个页面里，shadcn Button 的 `px-2.5` 生效了、
+   另一个按钮的 `border-b-2` 与 `font-medium` 却被吃掉，排查代价很高。
+
+   放进 `base` 层后优先级是确定的：元素重置 < 工具类 < 无层的类选择器
+   （如 `.btn`）。也就是说新组件的 Tailwind 类稳定生效，而既有 `.btn` /
+   `.btn-icon` 这些**类**选择器仍保持对旧 markup 的控制力。
+   ---------------------------------------------------------------------------- */
+@layer base {
+  button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+
+  input, textarea, select {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+ul, ol { margin: 0; padding: 0; }
+li { list-style: none; }
+
+img, svg { display: block; max-width: 100%; }
+
+[hidden] { display: none !important; }
+
+/* ---- 焦点可见：shadcn 的 ring 语义，用 outline 实现 ---- */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* ---- 滚动条：细、低调 ---- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--faint); background-clip: content-box; }
+
+/* ============================================================================
+   排版工具
+   ========================================================================== */
+
+.t-hero    { font-size: var(--fs-hero); font-weight: 600; letter-spacing: -.02em; line-height: 1.2; }
+.t-title   { font-size: var(--fs-xl);  font-weight: 600; letter-spacing: -.01em; }
+.t-section { font-size: var(--fs-md);  font-weight: 600; }
+.t-body    { font-size: var(--fs-base); }
+.t-sm      { font-size: var(--fs-sm); }
+.t-xs      { font-size: var(--fs-xs); }
+
+.t-muted  { color: var(--muted); }
+.t-faint  { color: var(--faint); }
+.t-soft   { color: var(--ink-soft); }
+.t-brand  { color: var(--brand); }
+.t-danger { color: var(--danger); }
+
+.t-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* 数字对齐：表格与统计必须用 */
+.num { font-variant-numeric: tabular-nums; }
+
+/* 单行/多行截断 */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   布局工具
+   ========================================================================== */
+
+.row     { display: flex; align-items: center; }
+.row-top { display: flex; align-items: flex-start; }
+.col     { display: flex; flex-direction: column; }
+.between { justify-content: space-between; }
+.center  { justify-content: center; align-items: center; }
+.wrap    { flex-wrap: wrap; }
+.grow    { flex: 1 1 auto; min-width: 0; }
+.shrink-0 { flex-shrink: 0; }
+
+.gap-1 { gap: var(--sp-1); }
+.gap-2 { gap: var(--sp-2); }
+.gap-3 { gap: var(--sp-3); }
+.gap-4 { gap: var(--sp-4); }
+.gap-5 { gap: var(--sp-5); }
+.gap-6 { gap: var(--sp-6); }
+
+.mt-1 { margin-top: var(--sp-1); } .mt-2 { margin-top: var(--sp-2); }
+.mt-3 { margin-top: var(--sp-3); } .mt-4 { margin-top: var(--sp-4); }
+.mt-5 { margin-top: var(--sp-5); } .mt-6 { margin-top: var(--sp-6); }
+.mb-1 { margin-bottom: var(--sp-1); } .mb-2 { margin-bottom: var(--sp-2); }
+.mb-3 { margin-bottom: var(--sp-3); } .mb-4 { margin-bottom: var(--sp-4); }
+.mb-5 { margin-bottom: var(--sp-5); }
+
+/* ============================================================================
+   表单基础（组件样式在 components.css，这里只做原生控件归一）
+   ========================================================================== */
+
+/* `input:not([type])` 不能省：登录门的输入框历史上没写 type 属性，
+   它们在 DOM 上的 type 属性值为空，`input[type="text"]` 匹配不到，
+   一直靠浏览器默认样式（padding 1px 2px）。Tailwind 的 preflight 会把
+   默认 padding 归零，这类输入框就会掉字。补上兜底后不再依赖 UA 默认值。 */
+input:not([type]),
+input[type="text"],
+input[type="search"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+input[type="url"],
+textarea,
+select {
+  width: 100%;
+  height: var(--h-md);
+  padding: 0 10px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--foreground);
+  font-size: var(--fs-sm);
+  transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+}
+
+textarea {
+  height: auto;
+  min-height: 80px;
+  padding: 8px 10px;
+  line-height: var(--lh-normal);
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder { color: var(--faint); }
+
+input:hover,
+textarea:hover,
+select:hover { border-color: var(--border-strong); }
+
+/* 下拉：去掉原生箭头，换成统一的 chevron（与 Lucide chevron-down 同形） */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 14px 14px;
+}
+select[multiple] {
+  height: auto;
+  padding: 6px 10px;
+  background-image: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px rgba(27, 110, 243, .16);
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background: var(--muted-surface);
+  color: var(--muted-foreground);
+  cursor: not-allowed;
+}
+
+/* 错误态由 .field.is-invalid 控制 */
+.field.is-invalid input,
+.field.is-invalid textarea,
+.field.is-invalid select {
+  border-color: var(--destructive);
+}
+.field.is-invalid input:focus,
+.field.is-invalid textarea:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, .16);
+}
+
+/* ============================================================================
+   表格基础
+   ========================================================================== */
+
+table { border-collapse: collapse; width: 100%; }
+
+/* ============================================================================
+   无障碍工具
+   ========================================================================== */
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: var(--sp-4);
+  z-index: 999;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+}
+.skip-link:focus { top: var(--sp-4); }

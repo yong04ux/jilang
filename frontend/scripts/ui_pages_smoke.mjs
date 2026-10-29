@@ -231,7 +231,7 @@ async function main() {
   check(tlist.rows > 0, '任务表有行', tlist.rows)
   check(tlist.count === `共 ${tlist.rows} 条`, '计数与行数一致', tlist.count)
   check(
-    tlist.cols.join('|') === '任务|类型|来源|状态|创建|结果',
+    tlist.cols.join('|') === '任务|类型|来源|状态|创建|更新|结果',
     '表头列正确',
     tlist.cols,
   )
@@ -419,7 +419,7 @@ async function main() {
   const a = JSON.parse(agents)
   check(a.title === 'Agent 市场', '标题正确', a.title)
   check(a.cards > 0, '至少一张卡片', a.cards)
-  check(a.withRunBtn === a.cards, '每张卡都有「用此 Agent 运行」', `${a.withRunBtn}/${a.cards}`)
+  check(a.withRunBtn === a.cards, '每张卡都有「使用此 Agent」按钮', `${a.withRunBtn}/${a.cards}`)
   check(a.firstName.length > 0, '卡片有名称', a.firstName)
   check(a.slots === 1 && a.hasView, 'DOM 形状是 .view-root > .mount-slot > .view')
 

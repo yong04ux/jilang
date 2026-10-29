@@ -1,10 +1,7 @@
 /* ============================================================================
-   激浪 · Design Tokens  v3.0
-   体系：shadcn/ui 语义层 + LinkFox Agent 视觉语言（2026-10-22 实测取值）
-   语义命名沿用 shadcn 的 --background / --foreground / --card / --border 模型，
-   同时保留 v1 的旧变量名作为兼容别名，页面与页面样式无需改动。
-   唯一允许的间距 / 圆角 / 字号来源，页面不得自造数值。
-   规范见 frontend/design.md；改这里必须同步改那份文档。
+   激浪 · Design Tokens
+   shadcn/ui 语义层，附旧变量名兼容别名。
+   间距 / 圆角 / 字号 / 控件高度的唯一来源，页面不得自造数值。
    ========================================================================== */
 
 :root {
@@ -122,20 +119,20 @@
   --lh-normal: 1.5;
   --lh-relaxed: 1.65;
 
-  /* ---- 布局：默认 68px 图标栏，可展开成 208px 文字侧栏 ---- */
+  /* ---- 布局：68px 图标栏，展开成 224px 文字侧栏 ---- */
   --sidebar-w: 68px;
-  --sidebar-w-expanded: 208px;
-  --topbar-h: 48px;
-  --content-max: 1120px;        /* 表格类页面的内容宽度 */
+  --sidebar-w-expanded: 224px;
+  --topbar-h: 56px;
+  --content-max: 1440px;        /* 表格类页面的内容宽度 */
   --content-max-narrow: 760px;  /* 对话/技能类页面的居中单列宽度 */
 
   /* ---- 控件高度 ---- */
   --h-xs: 24px;
   --h-sm: 28px;
-  --h-md: 32px;
-  --h-lg: 36px;
-  --h-xl: 40px;
-  --h-2xl: 44px;
+  --h-md: 36px;
+  --h-lg: 40px;
+  --h-xl: 44px;
+  --h-2xl: 48px;
 
   /* ---- 字体：Noto Sans SC 优先（对标 LinkFox），缺失回落系统栈，不加载外部字体 ---- */
   --font-sans: "Noto Sans SC", "Noto Sans SC Variable", "Inter var", "Inter",

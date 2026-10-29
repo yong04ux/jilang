@@ -13,7 +13,7 @@
 
 技术栈：**Python ≥ 3.10 + FastAPI + Pydantic v2 + PostgreSQL 16**。
 前端为 React + TypeScript 中文界面（Vite 构建，品牌蓝 `#1B6EF3`）。
-样式分两层：手写的语义层 `frontend/css/*.css`（7 个，含 shadcn 语义变量）+ Tailwind 工具类层（`css/tailwind.css`，由 `npm run build:css` 生成，作为第 8 个样式加载）。UI 基元在 `frontend/src/components/ui/`（shadcn/ui），约定见 `frontend/design.md` 第 16 节。
+样式分两层：手写的语义层 `frontend/src/styles/*.css`（7 个，含 shadcn 语义变量，构建时落成 `/css/*.css`）+ Tailwind 工具类层（`css/tailwind.css`，由 `npm run build:css` 生成，作为第 8 个样式加载）。UI 基元在 `frontend/src/components/ui/`（shadcn/ui），约定见 `frontend/design.md`。
 
 ---
 
