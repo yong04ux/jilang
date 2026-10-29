@@ -168,6 +168,11 @@ img, svg { display: block; max-width: 100%; }
    表单基础（组件样式在 components.css，这里只做原生控件归一）
    ========================================================================== */
 
+/* `input:not([type])` 不能省：登录门的输入框历史上没写 type 属性，
+   它们在 DOM 上的 type 属性值为空，`input[type="text"]` 匹配不到，
+   一直靠浏览器默认样式（padding 1px 2px）。Tailwind 的 preflight 会把
+   默认 padding 归零，这类输入框就会掉字。补上兜底后不再依赖 UA 默认值。 */
+input:not([type]),
 input[type="text"],
 input[type="search"],
 input[type="number"],

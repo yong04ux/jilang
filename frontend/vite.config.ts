@@ -19,7 +19,12 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(fileURLToPath(import.meta.url))
 const dist = resolve(root, 'dist')
 
-/** 7 个样式文件的固定顺序（与 index.html 里的加载顺序一致，顺序即级联优先级） */
+/** 样式文件的固定顺序（与 index.html 里的加载顺序一致，顺序即级联优先级）
+ *
+ *  tailwind 必须排最后：它是工具类层，晚于页面样式才能稳定胜出。
+ *  该文件由 `npm run build:css` 从 src/styles/tailwind.css 生成后落盘到 css/，
+ *  不走 Vite 打包 —— 这样它仍是**固定文件名 + ?v=0**，能被服务端的构建戳
+ *  统一失效缓存（变成 css/index-<hash>.css 就绕过了这套机制）。 */
 const CSS_FILES = [
   'tokens',
   'base',
@@ -28,6 +33,7 @@ const CSS_FILES = [
   'pages',
   'store',
   'skills',
+  'tailwind',
 ] as const
 
 /**

@@ -53,6 +53,16 @@
   --info-soft:           #EFF4FF;
   --info-line:           #BFD3FE;
 
+  /* ---- 图表色阶 ----
+     取值与 `lib/charts.ts` 手写 SVG 完全同源（折线 = 品牌蓝，柱 = 浅蓝），
+     新增 Recharts 组件时只管引用，不要另起一套配色。
+     其余三档是小面积的次要序列色，仅在多序列图表里出现。 */
+  --chart-1:             #1B6EF3;   /* 品牌蓝：主序列 / 折线 */
+  --chart-2:             #93BBFB;   /* 浅蓝：柱状 / 次序列 */
+  --chart-3:             #15803D;   /* 成功绿 */
+  --chart-4:             #B45309;   /* 警示琥珀 */
+  --chart-5:             #6D5BD0;   /* 紫：第三序列 */
+
   /* ---- 对话区专用（对标 LinkFox 的 chat 令牌） ---- */
   --chat-user-bg:        #E4E4E4;
   --chat-tool-bg:        #F0F0F0;

@@ -1,0 +1,146 @@
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+
+@source "../../src";
+@source "../../index.html";
+
+/* ============================================================================
+   激浪 · Tailwind 入口
+   ────────────────────────────────────────────────────────────────────────────
+   为什么是这套写法（三条都是这个仓库特有的约束，不要改）：
+
+   1. 为什么**不用** `important`
+      一开始用的是官方推荐的 `@import "tailwindcss" important;`（与已有高优先级
+      样式共存的开关），实测发现一个不能接受的副作用：工具类的 `!important`
+      会压掉**行内 style**。工作台有 `className="dash-grid mt-4"
+      style={{ marginTop: 'var(--sp-5)' }}` 这种写法，行内值 20px 被 mt-4 的
+      16px 顶掉，页面凭空少 8px 高度。
+
+      于是改为「不加 important，也不动既有 CSS」：
+        · 现有 7 个样式保持无层，新页面若也用 Tailwind，两者不混写同一个属性；
+        · 新组件（components/ui/*）只吃 Tailwind，与旧类名没有交集；
+        · 个别位置确实需要压过旧类时，用 Tailwind 的单点 important 前缀 `!`，
+          例如 `!p-0` —— 显式、局部、可搜索，而不是全局一刀切。
+
+      这样既有页面的渲染结果与引入 Tailwind 前**逐像素一致**，
+      由 scripts/tailwind-ab.mjs 守着（8 个页面 A/B 比对）。
+
+   2. `source(none)` + 显式 @source
+      自动探测会从仓库根开始扫，把 backend/ 的模板与文档也算进去，既慢又不确定。
+      这里只扫 src/ 与 index.html，扫描范围是确定的。
+
+   3. `@theme inline`
+      我们的 --background / --card 等在 `:root` 定义、在 `.dark` 覆写。
+      非 inline 的 @theme 会把 var() 在 :root 处提前替换掉，深色主题直接失效。
+      inline 让工具类输出 `background-color: var(--background)`，按元素重新解析。
+
+   token 的唯一真源仍是 `css/tokens.css` —— 这里只做**映射**，不新造颜色。
+   ========================================================================== */
+
+@theme inline {
+  /* ---- 面色 ---- */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  /* ---- 品牌与强调（品牌蓝 #1B6EF3，不新增色阶） ---- */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-line: var(--primary-line);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* ---- 静默 ----
+     注意命名陷阱：项目的 `--muted` 是**文字色**（v1 兼容别名），
+     而 shadcn 的 `muted` 是**面**色。这里必须映射到 --muted-surface，
+     否则 `bg-muted` 会把文字色当背景用（整片灰）。 */
+  --color-muted: var(--muted-surface);
+  --color-muted-foreground: var(--muted-foreground);
+
+  /* ---- 线与焦点 ---- */
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* ---- 语义色：不与品牌蓝混用 ---- */
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--primary-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-line: var(--destructive-line);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-line: var(--info-line);
+
+  /* ---- 图表：与 lib/charts.ts 手写 SVG 的取值同源，切 Recharts 时不换观感 ---- */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* ---- 圆角：对齐 tokens 的 4 / 6 / 8 / 12 / 16 ---- */
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  /* ---- 阴影：卡片零阴影，只有浮层才用 ---- */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+
+  /* ---- 字体：不引入外部字体，沿用系统中文栈 ---- */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* ---- 结构尺寸：侧栏 / 顶栏，供 w-sidebar 这类类名使用 ---- */
+  --spacing-sidebar: var(--sidebar-w);
+  --spacing-sidebar-expanded: var(--sidebar-w-expanded);
+  --spacing-topbar: var(--topbar-h);
+  --spacing-content-max: var(--content-max);
+  --spacing-content-narrow: var(--content-max-narrow);
+
+  /* 不确定态进度条：任务在跑但进度未知时用它，绝不编百分比 */
+  --animate-indeterminate: indeterminate 1.4s var(--ease-in-out) infinite;
+}
+
+@keyframes indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+/* ============================================================================
+   基础层：只补 Tailwind 与现有 CSS 之间真正缺的那几项。
+   不要在这里重设 body / 排版 —— base.css 已经定义，重复定义会打架。
+   ========================================================================== */
+@layer base {
+  /* Radix 的浮层挂到 body 末尾，body 若继承了错误的字体就会串味 */
+  [data-radix-popper-content-wrapper] {
+    font-family: var(--font-sans);
+  }
+
+  /* Radix ScrollArea 的视口默认不是 flex 容器，表格页需要它撑满 */
+  [data-radix-scroll-area-viewport] > div {
+    display: block !important;
+  }
+}

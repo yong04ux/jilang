@@ -35,7 +35,18 @@ INTENTIONALLY_UNROUTED = {
     "/knowledge",
 }
 
-CSS_FILES = ["tokens", "base", "components", "layout", "pages", "store", "skills"]
+CSS_FILES = [
+    "tokens",
+    "base",
+    "components",
+    "layout",
+    "pages",
+    "store",
+    "skills",
+    # 由 `npm run build:css` 从 src/styles/tailwind.css 生成，落盘为固定文件名
+    # （不用内容哈希），这样仍走服务端的 ?v=0 构建戳失效机制。
+    "tailwind",
+]
 
 
 def normalize(path: str) -> str:

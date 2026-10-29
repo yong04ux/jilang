@@ -22,6 +22,8 @@ const CSS_FILES = [
   'pages',
   'store',
   'skills',
+  // 由 npm run build:css 生成的工具类层，固定文件名 + ?v=0
+  'tailwind',
 ]
 
 const failures = []
@@ -58,17 +60,21 @@ check(
   topLevel.join(' '),
 )
 
-// 3. 7 个样式 link 必须都带 ?v=0（meta.py:119 靠它注入构建戳）
+// 3. 每个样式 link 都必须带 ?v=0（meta.py:119 靠它注入构建戳）
 //    注意：外壳里旧脚本也带 ?v=0，且注释文本里含 "?v=0" 字样，所以只统计 CSS link。
 const cssStampCount = (html.match(/href="\/css\/[\w.-]+\.css\?v=0"/g) ?? []).length
-check(cssStampCount === 7, '7 个样式 link 都带 ?v=0', `实际 ${cssStampCount}`)
+check(
+  cssStampCount === CSS_FILES.length,
+  `${CSS_FILES.length} 个样式 link 都带 ?v=0`,
+  `实际 ${cssStampCount}`,
+)
 
-// 4. 7 个样式文件都被引用且真实存在
+// 4. 每个样式文件都被引用且真实存在
 const cssRefs = [...html.matchAll(/href="\/css\/([\w.-]+\.css)/g)].map((m) => m[1])
 const missingCss = CSS_FILES.filter((n) => !cssRefs.includes(`${n}.css`))
 check(
   missingCss.length === 0,
-  '7 个样式文件全部被引用',
+  `${CSS_FILES.length} 个样式文件全部被引用`,
   missingCss.length ? `缺少 ${missingCss.join(', ')}` : cssRefs.length + ' 条',
 )
 const missingCssFiles = cssRefs.filter((f) => !existsSync(join(dist, 'css', f)))
