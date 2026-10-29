@@ -392,79 +392,16 @@
 }
 
 /* ----------------------------------------------------------------------------
-   顶栏
+   顶栏 —— 已迁到 Tailwind
+   ----------------------------------------------------------------------------
+   结构在 layout/RootLayout.tsx（<header class="topbar">），内容在
+   layout/Topbar.tsx。样式规则全部改为 Tailwind 工具类并从本文件删除，
+   断点用 src/styles/tailwind.css 里的 shell / wide / narrow（取值与原来的
+   981 / 1180 / 720 一致）。
+
+   保留 `.topbar` / `#topbar` 这两个名字只是**探针钩子**（ui_shots_login 会判断
+   `.topbar` 是否存在），它们不再承载样式 —— 别照着它们写新样式。
    ---------------------------------------------------------------------------- */
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  height: var(--topbar-h);
-  padding: 0 20px;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-}
-
-.topbar-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.topbar-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-
-.crumb {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: var(--fs-xs);
-  color: var(--muted-foreground);
-}
-.crumb a { color: var(--muted-foreground); }
-.crumb a:hover { color: var(--foreground); text-decoration: none; }
-.crumb-sep { color: var(--border-strong); font-size: var(--fs-xs); }
-.crumb-current { color: var(--foreground); font-weight: 500; }
-.crumb .icon { width: 12px; height: 12px; }
-
-/* 生成方式标识：中性描边 + 语义色点 */
-.proto-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--card);
-  color: var(--muted-foreground);
-  font-size: 11px;
-  font-weight: 500;
-  white-space: nowrap;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.proto-flag .icon { width: 12px; height: 12px; flex-shrink: 0; }
-.proto-flag.is-warn { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
-.proto-flag.is-ok { border-color: var(--ok-line); background: var(--ok-soft); color: var(--ok); }
-
-/* 顶栏主操作 */
-.pill-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: var(--h-sm);
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: var(--foreground);
-  color: var(--background);
-  font-size: var(--fs-xs);
-  font-weight: 500;
-  transition: background var(--dur-1) var(--ease-out);
-}
-.pill-action:hover { background: #262626; text-decoration: none; }
-.pill-action .icon { width: 13px; height: 13px; }
 
 /* ----------------------------------------------------------------------------
    页面容器
@@ -507,14 +444,10 @@
    响应式
    ---------------------------------------------------------------------------- */
 
-/* 桌面端图标栏常驻，顶栏的抽屉入口是冗余的，隐藏掉（对标 LinkFox 无顶栏菜单） */
-@media (min-width: 981px) {
-  #nav-open { display: none; }
-}
+/* 桌面端图标栏常驻，顶栏抽屉入口的隐藏已由 Topbar 的 shell:hidden 负责 */
 
 @media (max-width: 1180px) {
   .page { padding: 16px; }
-  .topbar { padding: 0 16px; }
   .kpi-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .kpi:nth-child(4) { border-left: 0; }
 }
@@ -533,15 +466,11 @@
   .sidebar-foot { flex-direction: column; }
   .account-btn { justify-content: center; padding: 0; }
   .sidebar-group + .sidebar-group { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
-  .topbar-right .pill-action span { display: none; }
 }
 
 @media (max-width: 720px) {
   .page { padding: 12px; }
   .page-head { flex-direction: column; align-items: stretch; }
-  .crumb { display: none; }
-  .topbar { padding: 0 12px; gap: 8px; }
-  .proto-flag { max-width: 132px; }
   .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi { padding: 12px; }
   .kpi:nth-child(3) { border-left: 0; }

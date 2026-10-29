@@ -1,1 +1,0 @@
-import{r as e}from"./PageShell-CrcILBd8.js";import{y as t}from"./index-B-MG4oig.js";var n=e();function r({status:e}){let r=t[e]||t.queued;return(0,n.jsx)(`span`,{className:r.cls,children:r.label})}export{r as t};

@@ -118,6 +118,16 @@
 
   /* 不确定态进度条：任务在跑但进度未知时用它，绝不编百分比 */
   --animate-indeterminate: indeterminate 1.4s var(--ease-in-out) infinite;
+
+  /* ---- 断点：与 layout.css 里既有的三个断点一一对应 ----
+     沿用原值而不是 Tailwind 默认的 768/1024/1280，
+     改造外壳时响应式行为才和现在完全一致。
+       shell  981px  —— 小于它回到图标栏、显示抽屉入口
+       wide  1180px  —— 小于它页面与顶栏收内边距
+       narrow 720px  —— 小于它隐藏面包屑、压缩标识 */
+  --breakpoint-shell: 981px;
+  --breakpoint-wide: 1180px;
+  --breakpoint-narrow: 720px;
 }
 
 @keyframes indeterminate {

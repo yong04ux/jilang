@@ -23,7 +23,12 @@ export function RootLayout({ activeKey, children }: { activeKey: string; childre
       </aside>
 
       <div className="main">
-        <header className="topbar" id="topbar">
+        {/* 顶栏样式在 Tailwind 里（原 layout.css 的 .topbar 段已删除）。
+            `topbar` 这个类名保留只是探针钩子，不再承载样式。 */}
+        <header
+          id="topbar"
+          className="topbar sticky top-0 z-100 flex h-topbar items-center justify-between gap-3 border-b border-border bg-card px-5 wide:px-4 max-narrow:gap-2 max-narrow:px-3"
+        >
           <Topbar
             activeKey={activeKey}
             drawerOpen={drawerOpen}
