@@ -17,6 +17,7 @@ import { api } from '@/lib/api'
 import { esc, icon, toast } from '@/lib/ui'
 import { go } from '@/app/router'
 import { PageFrame } from '@/components/PageShell'
+import { mountTrend, mountBars, unmountCharts } from '@/features/charts/mount-lazy'
 import {
   HEAD,
   LEDGERS,
@@ -302,6 +303,8 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
       }
     }
 
+    // innerHTML 一换，旧宿主就脱离文档了：先卸载图表，避免泄漏 root
+    unmountCharts()
     stage.innerHTML =
       (view === 'dashboard' && dash && !viewError ? toolsHtml() + '<div id="st-dash">' + body + '</div>' :
         toolsHtml() + body)
@@ -309,44 +312,40 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
 
     /* 图表：容器已在文档里，宽度才量得到 */
     if (view === 'dashboard' && dash && !viewError) {
-      const trendHost = stage.querySelector('#st-trend') as HTMLElement | null
-      if (trendHost) {
-        window.CPChart?.line(trendHost, {
-          series: (dash.metrics?.salesTrend || []).map((item: Dict) => ({
-            date: item.date,
-            value: item[trendKey],
-          })),
-          format: trendKey === 'salesAmount' ? 'money' : 'number',
-          currency: dash.currency,
-          height: 232,
-          label: '业绩走势',
-        })
-      }
-      const hourHost = stage.querySelector('#st-hours') as HTMLElement | null
-      if (hourHost) {
-        window.CPChart?.bars(hourHost, {
-          series: (dash.metrics?.hourDistribution || []).map((item: Dict) => ({
-            hour: item.hour,
-            label: item.hour + ' 点',
-            value: item.orderCount,
-          })),
-          format: 'number',
-          height: 168,
-          label: '24 小时下单分布',
-        })
-      }
+      mountTrend(stage.querySelector('#st-trend') as HTMLElement | null, {
+        series: (dash.metrics?.salesTrend || []).map((item: Dict) => ({
+          date: String(item.date || ''),
+          value: Number(item[trendKey]) || 0,
+        })),
+        format: trendKey === 'salesAmount' ? 'money' : 'number',
+        currency: dash.currency,
+        height: 232,
+        label: '业绩走势',
+        emptyText: '这段时间还没有销售记录',
+      })
+      mountBars(stage.querySelector('#st-hours') as HTMLElement | null, {
+        series: (dash.metrics?.hourDistribution || []).map((item: Dict) => ({
+          label: String(item.hour) + ' 点',
+          value: Number(item.orderCount) || 0,
+        })),
+        format: 'number',
+        height: 168,
+        label: '24 小时下单分布',
+        emptyText: '这段时间还没有订单',
+      })
     }
     if (view === 'product' && detail && !viewError) {
-      const trendHost = stage.querySelector('#st-trend') as HTMLElement | null
-      if (trendHost) {
-        window.CPChart?.line(trendHost, {
-          series: (detail.trend || []).map((item: Dict) => ({ date: item.date, value: item.salesAmount })),
-          format: 'money',
-          currency: detail.currency || detail.product?.currency,
-          height: 232,
-          label: '单品销售走势',
-        })
-      }
+      mountTrend(stage.querySelector('#st-trend') as HTMLElement | null, {
+        series: (detail.trend || []).map((item: Dict) => ({
+          date: String(item.date || ''),
+          value: Number(item.salesAmount) || 0,
+        })),
+        format: 'money',
+        currency: detail.currency || detail.product?.currency,
+        height: 232,
+        label: '单品销售走势',
+        emptyText: '这个商品这段时间还没有销售记录',
+      })
     }
   }, [view, stores, storesError, sources, busy, viewError, dash, segment, products, asin, detail,
     ledger, ledgerItems, trendKey, ctx])

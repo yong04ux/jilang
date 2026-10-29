@@ -312,6 +312,12 @@ Animations API。新增动效优先用 `CPMotion`，不要在业务代码里写�
   面积是实色低透明度（不是渐变）、tooltip 用 `--card` + `--border` + `--shadow-md`。
   单点数据要显式给 `dot`，否则 Recharts 什么都不画。
 
+  **字符串渲染的区域**（店铺页 `pages/stores/render.ts`、技能页 `features/skills/blocks.ts`）
+  没法直接放 React 组件：它们的图表宿主只是 innerHTML 里的一个 div。这类地方用
+  `features/charts/mount-lazy.tsx` 的 `mountTrend()` / `mountBars()` 命令式挂载，
+  **改写 innerHTML 之前必须先 `unmountCharts()`**，否则 root 随宿主一起泄漏。
+  挂载器会给宿主补上 `.cp-chart` 标记类（探针按它断言）。
+
 ## 14. 技能广场（`/skills`）
 
 2026-10-25 随 Skill 协议层（PRD v3.0 P0）落地，2026-10-23 按

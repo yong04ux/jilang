@@ -20,6 +20,7 @@ import { PageFrame, PageShell } from '@/components/PageShell'
 import { useTaskPolling } from '@/features/async-run/useTaskPolling'
 import { describe, hydratePickers, read, render as renderForm } from '@/features/schema-form/schema-form.ts'
 import { outputHtml, paintChart } from '@/features/skills/blocks.ts'
+import { unmountCharts } from '@/features/charts/mount-lazy'
 import { ensureSkills, skillByKey, skillLoadError, type Skill } from '@/features/skills/skillsCache'
 
 type Dict = Record<string, any>
@@ -325,6 +326,8 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
   useEffect(() => {
     const host = resultRef.current
     if (!host) return
+    // 结果区是字符串重绘：旧图表宿主已被替换掉，先卸载避免 root 泄漏
+    unmountCharts()
     window.CPIcon?.hydrate(host)
     if (result) paintChart(host, skill.key, result)
     if (revealSignal > 0) {

@@ -302,6 +302,17 @@ async function main() {
   })()`)
   check('利润测算跑出结果', profitRun === 'ok', profitRun)
 
+  // 成本图是 Recharts 懒加载 chunk：KPI 一出现就数图会读成 0，
+  // 等到真的出 svg（或明确空态）再断言
+  await evaluate(`(async () => {
+    const t0 = Date.now()
+    while (Date.now() - t0 < 20000) {
+      if (document.querySelector('#sk-result .cp-chart svg, #sk-result .cp-chart-empty')) return 'ok'
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    return 'timeout'
+  })()`)
+
   const profitFacts = await evaluate(`(() => ({
     values: Array.from(document.querySelectorAll('#sk-result .sk-kpi-value')).map((e) => e.textContent.trim()),
     rows: document.querySelectorAll('#sk-result .table tbody tr').length,
@@ -484,7 +495,7 @@ async function main() {
 
   const other = await evaluate(`(async () => {
     const out = {};
-    for (const [name, path, ready] of [['workbench', '/workbench', '.wb-hero-title'], ['agents', '/agents', '.card, .table']]) {
+    for (const [name, path, ready] of [['workbench', '/workbench', '.wb-hero-title'], ['agents', '/agents', '[data-agent-card]']]) {
       window.CPRouter.go(path, { force: true });
       const t0 = Date.now();
       let ok = false;

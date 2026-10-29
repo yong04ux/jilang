@@ -181,6 +181,23 @@ async function main() {
     const ready = String(navigated).indexOf('ok:') === 0
     if (!ready) console.log('  nav:', navigated)
 
+    // 图表换成 Recharts 并按需加载：页面就绪时图表 chunk 可能还没到。
+    // 有宿主的页面等到「出 svg 或出空态」再取样，否则会读成 0。
+    if (ready) {
+      await evaluate(`(async () => {
+        const hosts = Array.from(document.querySelectorAll('#st-trend, #st-hours'))
+        if (!hosts.length) return 'no-host'
+        // 两个宿主都要落地：只看第一个会量到 charts=1（另一张还在加载）
+        const done = (h) => !!h.querySelector('svg') || !!h.querySelector('.cp-chart-empty')
+        const t0 = Date.now()
+        while (Date.now() - t0 < 20000) {
+          if (hosts.every(done)) return 'ok'
+          await new Promise((r) => setTimeout(r, 100))
+        }
+        return 'timeout'
+      })()`)
+    }
+
     const facts = await evaluate(`(() => {
       const q = (s) => document.querySelectorAll(s).length;
       const cs = (s, p) => { const el = document.querySelector(s); return el ? getComputedStyle(el)[p] : null; };

@@ -7,6 +7,7 @@
  */
 import { esc, icon } from '@/lib/ui'
 import { kindBadge, money, renderListing, renderReport } from '@/features/render/render.ts'
+import { mountBars } from '@/features/charts/mount-lazy'
 
 type Dict = Record<string, any>
 
@@ -201,18 +202,20 @@ export function outputHtml(skillKey: string, payload: Dict): string {
   return demo
 }
 
-/** 成本构成柱图仍走旧 chart 实现（charts 的 TS 化留给 S7） */
+/** 成本构成柱图：Recharts（宿主在字符串 HTML 里，走命令式挂载） */
 export function paintChart(host: HTMLElement, skillKey: string, payload: Dict): void {
-  if (skillKey !== 'profit_calc' || !window.CPChart) return
-  const target = host.querySelector('[data-chart="cost"]')
+  if (skillKey !== 'profit_calc') return
+  const target = host.querySelector('[data-chart="cost"]') as HTMLElement | null
   if (!target) return
   const out = payload.output || {}
-  const series = (out.cost_breakdown || []).map((c: Dict) => ({ label: c.label, value: c.amount }))
-  window.CPChart.bars(target as HTMLElement, {
-    series,
-    categories: true,
+  mountBars(target, {
+    series: (out.cost_breakdown || []).map((c: Dict) => ({
+      label: String(c.label || ''),
+      value: Number(c.amount) || 0,
+    })),
     label: '成本构成',
     format: 'number',
     height: 168,
+    emptyText: '这次测算没有分项成本',
   })
 }
