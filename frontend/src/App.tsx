@@ -8,11 +8,12 @@
  *   4. /api/auth/status → 已登录才 loadMe 并渲染页面；
  *   5. cp:authenticated / cp:logout 常驻监听（换账号必须能刷新）。
  */
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { RootLayout } from '@/layout/RootLayout'
 import { NavDrawer } from '@/layout/NavDrawer'
 import { AuthGate } from '@/layout/AuthGate'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { PageFallback } from '@/components/PageFallback'
 import { ROUTES, NOT_FOUND_NAV_KEY } from './app/routes'
 import { matchRoutes, parseQuery, renderPath } from './app/router'
 import { useRouteSnapshot } from './app/useRoute'
@@ -91,11 +92,14 @@ export default function App() {
     <>
       <RootLayout activeKey={activeKey}>
         {pageReady ? (
-          Page ? (
-            <Page key={routeKey} params={match.params} query={query} path={match.path} />
-          ) : (
-            <NotFoundPage key={routeKey} />
-          )
+          /* 页面都是 lazy 的：chunk 未到时先给同形状骨架，避免布局塌陷 */
+          <Suspense fallback={<PageFallback />}>
+            {Page ? (
+              <Page key={routeKey} params={match.params} query={query} path={match.path} />
+            ) : (
+              <NotFoundPage key={routeKey} />
+            )}
+          </Suspense>
         ) : null}
       </RootLayout>
 
