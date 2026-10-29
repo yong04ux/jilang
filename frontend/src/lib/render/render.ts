@@ -310,6 +310,30 @@ export function renderReport(report: Dict, options?: { actions?: string }): stri
   )
 }
 
+/** 报告按区块单独取用：结果面板把它拆成「竞品对比 / 评论洞察」两个视图 */
+export function renderReportPart(report: Dict, part: 'competitors' | 'reviews' | 'insights'): string {
+  if (part === 'competitors') {
+    return (
+      `<div class="t-section">价格定位</div>` +
+      priceSection(report.price_analysis) +
+      `<div class="t-section mt-4">竞品对比</div>` +
+      competitorTable(report)
+    )
+  }
+  if (part === 'reviews') {
+    return `<div class="t-section">评论洞察</div>` + painPoints(report)
+  }
+  return (
+    `<div class="t-section">关键词</div>` +
+    keywordSection(report) +
+    `<div class="t-section mt-4">差异化机会</div>` +
+    differentiation(report) +
+    `<div class="t-section mt-4">内容建议</div>` +
+    recommendations(report) +
+    `<div class="mt-4">${limitations(report)}</div>`
+  )
+}
+
 /* ------------------------------------------------------ Listing 草稿 */
 
 /* 质检问题：说清「哪里」「什么问题」「怎么改」，不暴露内部问题编号 */
@@ -436,4 +460,4 @@ export function renderListing(listing: Dict, options?: { actions?: string }): st
   )
 }
 
-export const renderApi = { renderReport, renderListing, kindBadge, money, POSITION_LABEL }
+export const renderApi = { renderReport, renderReportPart, renderListing, kindBadge, money, POSITION_LABEL }

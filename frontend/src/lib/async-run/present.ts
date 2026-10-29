@@ -63,16 +63,8 @@ export function stepList(steps: Dict[] | null | undefined, plan: string[] | null
     return (
       '<ul class="timeline">' +
       steps
-        .map((s) => {
-          /* 已经跑完的步骤默认收起细节，展开才看证据；进行中与失败的一直铺开 */
-          const folded = s.status === 'succeeded' || s.status === 'skipped'
-          const detail = s.detail
-            ? folded
-              ? `<details class="timeline-more"><summary>查看详情</summary>` +
-                `<div class="timeline-detail">${esc(s.detail)}</div></details>`
-              : `<div class="timeline-detail">${esc(s.detail)}</div>`
-            : ''
-          return (
+        .map(
+          (s) =>
             `<li class="timeline-item is-${esc(s.status)}">` +
             `<span class="timeline-dot">${icon(STEP_ICON[s.status] || 'clock')}</span>` +
             `<div class="timeline-body"><div class="timeline-head">` +
@@ -82,10 +74,9 @@ export function stepList(steps: Dict[] | null | undefined, plan: string[] | null
               ? `<span class="timeline-meta">${fmtDuration(s.duration_ms)}</span>`
               : '') +
             `</div>` +
-            detail +
-            `</div></li>`
-          )
-        })
+            (s.detail ? `<div class="timeline-detail">${esc(s.detail)}</div>` : '') +
+            `</div></li>`,
+        )
         .join('') +
       '</ul>'
     )
@@ -112,13 +103,21 @@ export function stepList(steps: Dict[] | null | undefined, plan: string[] | null
   )
 }
 
-/** 结果面板骨架：步骤 / 数据 两个 Tab（旧实现里只有这两个） */
-export function resultTabs(opts: { active?: string }): string {
+/** 结果面板的分区：只显示这次任务真的有产出的那几栏 */
+export const RESULT_TABS = [
+  { key: 'steps', label: '步骤' },
+  { key: 'overview', label: '概要' },
+  { key: 'competitors', label: '竞品对比' },
+  { key: 'reviews', label: '评论洞察' },
+  { key: 'listing', label: 'Listing 草稿' },
+  { key: 'pending', label: '待确认项' },
+  { key: 'log', label: '日志' },
+] as const
+
+export function resultTabs(opts: { active?: string; available?: string[] }): string {
   const active = opts?.active || 'steps'
-  const tabs = [
-    { key: 'steps', label: '步骤' },
-    { key: 'data', label: '数据' },
-  ]
+  const allow = opts?.available
+  const tabs = RESULT_TABS.filter((t) => !allow || allow.indexOf(t.key) >= 0)
   return (
     '<div class="res-tabs" role="tablist">' +
     tabs
@@ -132,4 +131,4 @@ export function resultTabs(opts: { active?: string }): string {
   )
 }
 
-export const presentApi = { stepList, planLabel, resultTabs }
+export const presentApi = { stepList, planLabel, resultTabs, RESULT_TABS }

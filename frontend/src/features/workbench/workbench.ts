@@ -90,6 +90,11 @@ function ensureDeps() {
     listingFeaturesText: "",
     listingDetailing: false,  // 「补充商品资料」是否展开
     moreParamsOpen: false,    // 竞品分析的「更多参数」是否展开
+    productCategory: "",      // 商品类目（随请求发给后端）
+    ownSpecs: { size: "", material: "", capacity: "" }, // 商品事实，进 own_specs
+    planOpen: false,          // 对话里的执行计划是否展开
+    logCache: null,           // 日志 Tab 的 trace 结果
+    pending: null,            // 服务端返回的待确认信息
     engine: null,             // 本次执行用的是规则引擎还是大模型
   };
 
@@ -369,6 +374,11 @@ function ensureDeps() {
   }
 
   function renderEmpty() {
+    /* 参数确认是独立的一屏「新建任务」，不再挤在首页内容下面 */
+    if (state.mode === "params") {
+      return `<div class="wb-empty"><div class="wb-scroll wb-scroll-task">${paramsCard()}</div></div>`;
+    }
+
     const panel = state.seg === "agent" ? agentPanel()
       : state.seg === "expert" ? expertPanel()
       : skillPanel();
@@ -382,7 +392,6 @@ function ensureDeps() {
       panel +
       recentBlock() +
       `</div>` +
-      (state.mode === "params" ? paramsCard() : "") +
       `</div>` +
       composer() +
       `</div>`
@@ -410,75 +419,220 @@ function ensureDeps() {
 
   /* 参数确认卡：**不占满整页**。它就长在首页内容的下方、输入框的上方，
      像助手顺着对话把「接下来要跑什么」摊开给你看，页面本身不换。 */
-  function paramsCard() {
-    /* Listing 生成不需要竞品，也不该让人手敲商品名：它有自己的配置卡。
-       其它技能（竞品分析）仍然要填竞品，继续用原来的表单。 */
-    if (isListingMode()) return listingConfigCard();
-    const skillHint = state.skill ? `已选技能：${state.skill.name}` : "默认执行竞品分析";
+  /* 计划节点的预计耗时：只做量级提示，界面上统一写「预计」 */
+  function planEta(label) {
+    if (label.indexOf("竞品") >= 0) return "约 1 分钟";
+    if (label.indexOf("Listing") >= 0) return "约 30 秒";
+    if (label.indexOf("质检") >= 0) return "约 20 秒";
+    if (label.indexOf("总结") >= 0) return "约 20 秒";
+    if (label.indexOf("保存") >= 0) return "约 5 秒";
+    return "约 10 秒";
+  }
+
+  /* 工作流顺序是确定性的，这里只列阶段，不冒充执行记录 */
+  function plannedStages() {
+    if (isListingMode()) {
+      return ["校验输入", "分派工作流", "装载站点规则", "生成 Listing 草稿", "质检草稿", "保存草稿"];
+    }
+    const stages = ["校验输入", "分派工作流", "竞品分析"];
+    if (state.withListing) {
+      stages.push("检查 Listing 必需事实", "生成 Listing 草稿", "质检草稿");
+    } else {
+      stages.push("市场机会总结");
+    }
+    stages.push("保存结果");
+    return stages;
+  }
+
+  function currentSkill() {
+    if (isListingMode()) {
+      return {
+        name: "Listing 生成",
+        desc: "按商品事实生成标题、五点、描述与搜索词，并做事实对齐质检。",
+        tags: ["Listing 生成", "事实对齐"],
+      };
+    }
+    if (state.skill) {
+      return {
+        name: state.skill.name,
+        desc: state.skill.desc,
+        tags: (state.skill.tags || []).slice(0, 4),
+      };
+    }
+    return {
+      name: "竞品分析",
+      desc: "从竞品价格、评论与卖点里找出市场机会和差异化方向，产出可追溯的报告。",
+      tags: ["竞品分析", "市场机会"],
+    };
+  }
+
+  function pickedSkillBlock(skill) {
+    return (
+      `<div class="wb-picked">` +
+      `<span class="wb-picked-icon">${U.icon("skills")}</span>` +
+      `<div class="wb-picked-text">` +
+      `<div class="wb-picked-name">${U.esc(skill.name)}</div>` +
+      `<div class="wb-picked-desc">${U.esc(skill.desc)}</div>` +
+      (skill.tags && skill.tags.length
+        ? `<div class="wb-picked-tags">` +
+          skill.tags.map(function (t) { return `<span class="tag">${U.esc(t)}</span>`; }).join("") +
+          `</div>`
+        : "") +
+      `</div></div>`
+    );
+  }
+
+  function taskSection(no, title, extra, body) {
+    return (
+      `<section class="wb-sec">` +
+      `<div class="wb-sec-no" aria-hidden="true">${no}</div>` +
+      `<div class="wb-sec-main">` +
+      `<div class="wb-sec-head"><span class="wb-sec-title">${U.esc(title)}</span>${extra || ""}</div>` +
+      body +
+      `</div></section>`
+    );
+  }
+
+  /* 新建任务：左侧四段表单。控件 id 与旧参数卡一致，脚本填表不受影响 */
+  function taskForm() {
+    const skill = currentSkill();
     const products = state.products || [];
     const parsedCount = parseCompetitors(state.competitorsText).length;
+    const specs = state.ownSpecs || {};
+    const specsMissing = !specs.size && !specs.material && !specs.capacity;
+
+    const productPicker = products.length
+      ? `<label class="field mt-3"><span class="field-label">从店铺商品里挑</span>` +
+        `<select id="wb-product-pick">` +
+        `<option value="">手动填写商品名称</option>` +
+        products.map(function (p) {
+          return `<option value="${U.esc(p.name)}">${U.esc(p.name)}${p.asin ? " · " + U.esc(p.asin) : ""}</option>`;
+        }).join("") +
+        `</select></label>`
+      : "";
+
     return (
-      `<div class="wb-inline" id="wb-params">` +
-      `<div class="card card-pad">` +
-      `<div class="row between"><div><div class="card-title">确认执行参数</div>` +
-      `<div class="card-sub">${U.esc(skillHint)} · 参数来自目标解析，可在执行前修改</div></div>` +
-      `<button type="button" class="btn-icon" data-act="back" aria-label="返回">${U.icon("close")}</button></div>` +
+      taskSection("1", "选择技能",
+        `<button type="button" class="btn btn-sm" data-act="back">更换技能</button>`,
+        pickedSkillBlock(skill)) +
 
-      `<div class="callout callout-info mt-3">${U.icon("info")}` +
-      `<div>你的目标：<strong>${U.esc(state.goal || "（未填写）")}</strong><br>` +
-      `执行计划：竞品分析 → 数据完整性检查 → 市场机会总结 → 保存报告${state.withListing ? " → Listing 生成 → 质量检查 → 保存草稿" : ""}。` +
-      `计划由确定性规则决定，质检不会被跳过。</div></div>` +
-      specRow() +
-
-      /* 竞品分析：只留两项必填（商品 + 竞品），其余收进「更多参数」。
-         商品可以从店铺商品里挑，省得手打；竞品支持从表格直接粘。 */
-      `<label class="field mt-4"><span class="field-label">商品名称 <span class="t-danger">*</span></span>` +
-      (products.length
-        ? `<select id="wb-product-pick">` +
-          `<option value="">从店铺商品里挑（或直接在下面写）</option>` +
-          products.map(function (p) {
-            return `<option value="${U.esc(p.name)}">${U.esc(p.name)}${p.asin ? " · " + U.esc(p.asin) : ""}</option>`;
+      taskSection("2", "描述你的任务目标", "",
+        `<div class="wb-goal-field">` +
+        `<textarea id="wb-goal" rows="4" maxlength="1000" aria-label="任务目标" ` +
+        `placeholder="例如：分析这款宠物饮水机在美国站的竞品价格、核心卖点与差评点，并基于分析结果生成一份高转化率的 Amazon Listing 草稿。">` +
+        `${U.esc(state.goal || "")}</textarea>` +
+        `<span class="wb-goal-count"><span id="wb-goal-count">${(state.goal || "").length}</span>/1000</span>` +
+        `</div>` +
+        `<div class="wb-examples">` +
+        ["分析竞品价格与核心卖点并生成 Listing", "分析差评，优化产品卖点", "生成多版本标题和五点描述"]
+          .map(function (text) {
+            return `<button type="button" class="chip" data-goal="${U.esc(text)}">${U.esc(text)}</button>`;
           }).join("") +
-          `</select>`
-        : "") +
-      `<input id="wb-product" value="${U.esc(state.productName)}" placeholder="例如 EcoSip Insulated Water Bottle"${products.length ? ' style="margin-top:8px"' : ""} /></label>` +
+        `</div>`) +
 
-      `<div class="field mt-3"><span class="field-label">竞品 <span class="t-danger">*</span>` +
-      `<span class="t-xs t-muted" id="wb-competitor-count">${parsedCount ? `· 已识别 ${parsedCount} 个` : ""}</span>` +
-      `</span>` +
-      `<textarea id="wb-competitors" rows="6" spellcheck="false" placeholder="竞品 A | 25.99 | 4.2 | 380 | 盖子漏水&#10;竞品 B">${U.esc(state.competitorsText)}</textarea>` +
-      `<span class="field-help">从 Excel 或表格里整块复制粘贴也行；每行「名称 | 价格 | 评分 | 评论数 | 一条评论」，只有名称必填。</span></div>` +
+      taskSection("3", "商品资料", "",
+        `<div class="wb-grid-3">` +
+        `<label class="field"><span class="field-label">商品名称 <span class="t-danger">*</span></span>` +
+        `<input id="wb-product" value="${U.esc(state.productName)}" placeholder="例如 EcoSip 保温杯 750ml" /></label>` +
+        `<label class="field"><span class="field-label">类目</span>` +
+        `<input id="wb-category" value="${U.esc(state.productCategory || "")}" placeholder="例如 Pet Supplies > Pet Fountains" /></label>` +
+        `<label class="field"><span class="field-label">站点 <span class="t-danger">*</span></span>` +
+        `<select id="wb-marketplace">` +
+        ["US", "DE", "JP", "UK"].map(function (m) {
+          return `<option value="${m}"${m === state.marketplace ? " selected" : ""}>${window.CPLabel.site(m)}</option>`;
+        }).join("") +
+        `</select></label>` +
+        `</div>` +
+        productPicker +
+        `<label class="field mt-3"><span class="field-label">竞品数据 <span class="t-danger">*</span>` +
+        `<span class="t-xs t-muted" id="wb-competitor-count">${parsedCount ? `· 已识别 ${parsedCount} 个` : ""}</span></span>` +
+        `<textarea id="wb-competitors" rows="5" spellcheck="false" placeholder="竞品 A | 25.99 | 4.2 | 380 | 盖子漏水&#10;竞品 B | 19.99">${U.esc(state.competitorsText)}</textarea>` +
+        `<span class="field-help">每行「名称 | 价格 | 评分 | 评论数 | 一条评论」，只有名称必填；整块从表格粘贴也行。` +
+        `要导入 Excel/CSV，请先到 <a href="/data" data-link>数据资产</a> 导入。</span></label>`) +
 
-      `<details class="mt-4"${state.moreParamsOpen ? " open" : ""}>` +
-      `<summary class="t-sm t-bold" style="cursor:pointer">更多参数（站点、语言、是否同时生成 Listing）</summary>` +
-      `<div class="grid-2 mt-3">` +
-      `<label class="field"><span class="field-label">站点</span>` +
-      `<select id="wb-marketplace">` +
-      ["US", "DE", "JP", "UK"].map(function (m) {
-        return `<option value="${m}"${m === state.marketplace ? " selected" : ""}>${window.CPLabel.site(m)}</option>`;
+      taskSection("4", "补充参数（可选）", "",
+        (specsMissing
+          ? `<div class="callout callout-warn">${U.icon("alert")}` +
+            `<div><strong>检测到以下商品事实可能未提供完整</strong><br>` +
+            `补上后质检里的「待确认项」会更少，Listing 也更准确。</div></div>`
+          : "") +
+        `<div class="wb-grid-3 mt-3">` +
+        `<label class="field"><span class="field-label">尺寸</span>` +
+        `<input id="wb-spec-size" value="${U.esc(specs.size || "")}" placeholder="例如 20 × 15 × 15 cm" /></label>` +
+        `<label class="field"><span class="field-label">材质</span>` +
+        `<input id="wb-spec-material" value="${U.esc(specs.material || "")}" placeholder="例如 ABS、304 不锈钢" /></label>` +
+        `<label class="field"><span class="field-label">容量</span>` +
+        `<input id="wb-spec-capacity" value="${U.esc(specs.capacity || "")}" placeholder="例如 2L" /></label>` +
+        `</div>` +
+        `<div class="wb-extra-row">` +
+        `<label class="row gap-2" style="cursor:pointer">` +
+        `<input type="checkbox" id="wb-with-listing" ${state.withListing ? "checked" : ""} />` +
+        `<span class="t-sm">同时生成 Listing 草稿</span></label>` +
+        `<label class="field wb-extra-lang"><span class="field-label">Listing 语言</span>` +
+        `<select id="wb-language">` +
+        ["en-US", "de-DE", "ja-JP"].map(function (code) {
+          return `<option value="${code}"${code === state.listingLanguage ? " selected" : ""}>${window.CPLabel.language(code)}</option>`;
+        }).join("") +
+        `</select></label>` +
+        `</div>`)
+    );
+  }
+
+  function taskAside(listing) {
+    const stages = plannedStages();
+    const skill = currentSkill();
+    return (
+      `<div class="wb-aside-card">` +
+      `<div class="wb-aside-title">本次任务将会执行</div>` +
+      `<p class="wb-aside-note">AI 将按以下步骤完成任务，时长是预计值，实际以执行记录为准。</p>` +
+      `<ol class="wb-plan-list">` +
+      stages.map(function (name, index) {
+        return `<li class="wb-plan-item">` +
+          `<span class="wb-plan-no">${index + 1}</span>` +
+          `<span class="wb-plan-body"><span class="wb-plan-name">${U.esc(name)}</span>` +
+          `<span class="wb-plan-eta">预计 ${U.esc(planEta(name))}</span></span></li>`;
       }).join("") +
-      `</select></label>` +
-      `<label class="field"><span class="field-label">Listing 语言</span>` +
-      `<select id="wb-language">` +
-      ["en-US", "de-DE", "ja-JP"].map(function (code) {
-        return `<option value="${code}"${code === state.listingLanguage ? " selected" : ""}>${window.CPLabel.language(code)}</option>`;
-      }).join("") +
-      `</select></label>` +
+      `</ol></div>` +
+
+      `<div class="wb-aside-card">` +
+      `<div class="wb-aside-title">已选择的技能</div>` +
+      pickedSkillBlock(skill) +
       `</div>` +
-      `<label class="row gap-2 mt-3" style="cursor:pointer">` +
-      `<input type="checkbox" id="wb-with-listing" ${state.withListing ? "checked" : ""} />` +
-      `<span class="t-sm">同时生成 Listing 草稿（要先填 API Key）</span></label>` +
-      `</details>` +
 
-      (state.error ? `<p class="callout callout-danger mt-3">${U.esc(state.error)}</p>` : "") +
+      `<div class="wb-aside-card wb-aside-tip">${U.icon("info")}` +
+      `<div><strong>提示</strong><br>` +
+      `Listing 生成需要你自己的模型密钥。没有配置时仍能跑竞品分析，只是文案由规则引擎生成，界面上会如实标注。` +
+      `<div class="mt-2"><a class="btn btn-sm" href="/settings" data-link>去配置模型密钥</a></div>` +
+      `</div></div>` +
+
+      (state.error ? `<div class="callout callout-danger">${U.esc(state.error)}</div>` : "") +
       keyHint() +
 
-      `<div class="row gap-2 mt-4">` +
-      `<button type="button" class="btn btn-primary" id="wb-run-task" ${state.busy ? "disabled" : ""}>` +
-      `${state.busy ? "执行中…" : "开始执行"}</button>` +
-      `<button type="button" class="btn" id="wb-demo">载入示例数据</button>` +
-      `<button type="button" class="btn btn-quiet" data-act="back">返回</button>` +
-      `</div></div></div>`
+      (listing
+        ? ""
+        : `<div class="wb-aside-actions">` +
+          `<button type="button" class="btn btn-primary" id="wb-run-task" ${state.busy ? "disabled" : ""}>` +
+          `${state.busy ? "执行中…" : "开始执行"}</button>` +
+          `<button type="button" class="btn btn-quiet" id="wb-demo">载入示例数据</button>` +
+          `<button type="button" class="btn btn-quiet" data-act="back">返回</button>` +
+          `</div>`)
+    );
+  }
+
+  /* 新建任务页：整页双栏，右侧信息栏吸顶，主按钮固定在右栏底部 */
+  function paramsCard() {
+    const listing = isListingMode();
+    return (
+      `<div class="wb-task" id="wb-params">` +
+      `<div class="wb-task-head">` +
+      `<button type="button" class="btn-icon" data-act="back" aria-label="返回">${U.icon("arrowLeft")}</button>` +
+      `<div><h1 class="wb-task-title">新建任务</h1>` +
+      `<p class="wb-task-desc">请描述你的目标，补充商品资料和参数，AI 将为你完成专业的跨境电商运营任务。</p></div>` +
+      `</div>` +
+      `<div class="wb-task-grid">` +
+      `<div class="wb-task-main">` + (listing ? listingConfigCard() : taskForm()) + `</div>` +
+      `<aside class="wb-task-aside">` + taskAside(listing) + `</aside>` +
+      `</div></div>`
     );
   }
 
@@ -616,7 +770,7 @@ function ensureDeps() {
         `<span class="field-help">${U.esc(state.productsError || "接到店铺后这里会变成商品选择器。")}</span></label>`;
 
     return (
-      `<div class="wb-inline" id="wb-params">` +
+      `<div class="wb-inline">` +
       `<div class="card card-pad">` +
       `<div class="row between"><div><div class="card-title">生成 Listing</div>` +
       `<div class="card-sub">选好商品就能生成；竞品数据不是必需的</div></div>` +
@@ -764,7 +918,7 @@ function ensureDeps() {
       (issues.length
         ? issues.map(function (i) {
             const tone = i.severity === "warning" ? "callout-warn" : i.severity === "error" ? "callout-danger" : "callout-info";
-            return `<div class="callout ${tone}" style="margin-bottom:var(--sp-2)">${U.icon("info")}<div>${U.esc(i.message)}</div></div>`;
+            return `<div class="callout ${tone}" style="margin-bottom:var(--sp-2)">${U.icon("info")}<div>${U.esc(readableText(i.message))}</div></div>`;
           }).join("")
         : `<p class="t-sm t-muted">未发现数据完整性问题。</p>`) +
       `</div></div>`
@@ -842,6 +996,177 @@ function ensureDeps() {
     return blocks.join("");
   }
 
+  /* ---------------- 结果分区：只列这次任务真有产出的栏 ---------------- */
+
+  /* 后端会在提示里带字段键名（brand / key_features），翻成人话再显示 */
+  function readableText(text) {
+    const label = window.CPLabel && window.CPLabel.field ? window.CPLabel.field : null;
+    if (!label) return String(text || "");
+    return String(text || "").replace(/[a-z][a-z_]{2,}/g, function (word) {
+      const translated = label(word);
+      return translated && translated !== word ? translated : word;
+    });
+  }
+
+  function pendingData() {
+    const task = state.taskRaw || {};
+    return state.pending || (task.output || {}).pending || null;
+  }
+
+  function availableTabs() {
+    const tabs = ["steps", "overview"];
+    if (state.report) {
+      tabs.push("competitors", "reviews");
+    }
+    if (state.listing) tabs.push("listing");
+    if (pendingData()) tabs.push("pending");
+    tabs.push("log");
+    return tabs;
+  }
+
+  function emptyHint(text) {
+    return `<p class="t-sm t-muted" style="padding:var(--sp-3) 0">${U.esc(text)}</p>`;
+  }
+
+  function listingResultCard() {
+    const listing = state.listing;
+    if (!listing) return emptyHint("这次任务没有产出 Listing 草稿。");
+    const bullets = listing.bullets || [];
+    const block = function (title, body, copyText) {
+      return (
+        `<div class="wb-ls-block">` +
+        `<div class="wb-ls-block-head"><span class="wb-ls-block-title">${U.esc(title)}</span>` +
+        (copyText ? `<button type="button" class="btn-icon" data-copy="${U.esc(copyText)}" aria-label="复制${U.esc(title)}">${U.icon("copy")}</button>` : "") +
+        `</div><div class="wb-ls-block-body">${body}</div></div>`
+      );
+    };
+    return (
+      `<div class="wb-ls-card">` +
+      `<div class="wb-ls-card-head"><div class="row gap-2 wrap">` +
+      `<span class="t-section">Listing 草稿</span>` +
+      `<span class="badge">第 ${U.esc(String(listing.version || 1))} 版</span>` +
+      (listing.is_demo ? U.mockFlag() : "") +
+      `</div>` +
+      `<button type="button" class="btn btn-sm" id="wb-ls-edit">编辑</button></div>` +
+      block("标题（Title）", `<p class="wb-ls-text">${U.esc(listing.title || "—")}</p>`, listing.title || "") +
+      block("五点描述（Bullet Points）",
+        bullets.length
+          ? `<ol class="wb-ls-bullets">` +
+            bullets.map(function (b) {
+              return `<li><strong>${U.esc(b.headline || "")}</strong>${b.body ? " — " + U.esc(b.body) : ""}</li>`;
+            }).join("") + `</ol>`
+          : emptyHint("还没有五点描述。"),
+        bullets.map(function (b) { return `${b.headline || ""} — ${b.body || ""}`; }).join("\n")) +
+      block("产品描述（Product Description）", `<p class="wb-ls-text">${U.esc(listing.description || "—")}</p>`, listing.description || "") +
+      block("Search Terms", `<p class="wb-ls-text">${U.esc(listing.search_terms || "—")}</p>`, listing.search_terms || "") +
+      `</div>`
+    );
+  }
+
+  function pendingPanel() {
+    const pending = pendingData();
+    if (!pending) return emptyHint("这条任务没有待确认项。");
+    const reasons = pending.reasons || [];
+    const affected = pending.affected_conclusions || [];
+    const missing = pending.missing_fields || pending.fields || [];
+    return (
+      `<div class="wb-pending">` +
+      `<div class="callout callout-warn">${U.icon("alert")}` +
+      `<div><strong>${U.esc(pending.question || "需要你确认是否继续")}</strong>` +
+      (reasons.length
+        ? `<ul class="mt-2 mb-0 t-sm">` + reasons.map(function (r) { return `<li>${U.esc(r)}</li>`; }).join("") + `</ul>`
+        : "") +
+      `</div></div>` +
+      (missing.length
+        ? `<div class="wb-pending-sec"><div class="t-sm t-bold">缺的资料</div>` +
+          `<div class="wb-pending-tags">` +
+          missing.map(function (f) { return `<span class="tag tag-warn">${U.esc(typeof f === "string" ? f : f.label || f.field || "")}</span>`; }).join("") +
+          `</div></div>`
+        : "") +
+      (affected.length
+        ? `<div class="wb-pending-sec"><div class="t-sm t-bold">受影响的结论</div>` +
+          `<ul class="t-sm mb-0">` + affected.map(function (a) { return `<li>${U.esc(a)}</li>`; }).join("") + `</ul></div>`
+        : "") +
+      `<div class="wb-pending-actions">` +
+      `<button type="button" class="btn btn-primary btn-sm" id="wb-confirm-continue">确认并继续</button>` +
+      `<button type="button" class="btn btn-sm" id="wb-confirm-cancel">取消任务</button>` +
+      (state.taskId ? `<a class="btn btn-sm btn-quiet" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
+      `</div></div>`
+    );
+  }
+
+  function logPanel() {
+    if (!state.taskId) return emptyHint("任务开始后这里会显示调用明细。");
+    const log = state.logCache;
+    if (!log || log.loading) return `<p class="t-sm t-muted" style="padding:var(--sp-3) 0">正在读取调用明细…</p>`;
+    if (log.error) return `<div class="callout callout-danger">${U.icon("alert")}<div>${U.esc(log.error)}</div></div>`;
+    const totals = log.totals || {};
+    const chain = log.chain || [];
+    return (
+      `<div class="wb-log">` +
+      (log.totals && log.totals.llm_calls === 0
+        ? `<div class="callout callout-info">${U.icon("info")}<div>这次执行没有调用模型：全部步骤由本地规则与校验完成。</div></div>`
+        : "") +
+      `<div class="wb-log-totals">` +
+      `<span>步骤 <strong>${U.esc(String(totals.steps || chain.length))}</strong></span>` +
+      `<span>累计耗时 <strong>${U.esc(U.fmtDuration(totals.duration_ms || 0))}</strong></span>` +
+      `<span>模型调用 <strong>${U.esc(String(totals.llm_calls || 0))}</strong></span>` +
+      `</div>` +
+      (chain.map(function (step) {
+        const calls = step.llm_calls || [];
+        return (
+          `<div class="wb-log-step">` +
+          `<div class="wb-log-step-head">` +
+          `<span class="wb-log-no">${U.esc(String(step.seq))}</span>` +
+          `<span class="t-sm t-bold">${U.esc(step.name || "")}</span>` +
+          U.statusBadge(step.status) +
+          `<span class="t-xs t-muted">${U.esc(fmt(step.duration_ms))}</span>` +
+          `</div>` +
+          (calls.length
+            ? `<div class="wb-log-calls">` + calls.map(function (call) {
+                return `<div class="wb-log-call">` +
+                  `<span class="t-xs">${U.esc(call.provider || "")} · ${U.esc(call.model || "")}</span>` +
+                  `<span class="t-xs t-muted">${U.esc(fmt(call.latency_ms))} · ${U.esc(String((call.prompt_tokens || 0) + (call.completion_tokens || 0)))} tokens` +
+                  `${call.ok ? "" : " · 失败"}</span>` +
+                  `</div>`;
+              }).join("") + `</div>`
+            : (log.totals && log.totals.llm_calls === 0
+              ? ""
+              : `<div class="t-xs t-muted" style="padding-left:22px">这一步没有模型调用</div>`)) +
+          `</div>`
+        );
+      }).join("") || emptyHint("还没有调用记录。")) +
+      `</div>`
+    );
+
+    function fmt(ms) {
+      if (ms === null || ms === undefined) return "—";
+      const value = Number(ms);
+      return value >= 1000 ? (value / 1000).toFixed(1) + " s" : value + " ms";
+    }
+  }
+
+  function resultBody(tab) {
+    if (tab === "overview") {
+      const blocks = [summaryBlock(), checksBlock(), qualityBlock()].filter(Boolean);
+      return blocks.length ? blocks.join("") : emptyHint("任务完成后，结论与质检会显示在这里。");
+    }
+    if (tab === "competitors") {
+      return state.report
+        ? `<div class="report-block">${R.renderReportPart(state.report, "competitors")}</div>`
+        : emptyHint("这次任务没有竞品分析结果。");
+    }
+    if (tab === "reviews") {
+      return state.report
+        ? `<div class="report-block">${R.renderReportPart(state.report, "reviews")}</div>`
+        : emptyHint("这次任务没有评论洞察。");
+    }
+    if (tab === "listing") return listingResultCard();
+    if (tab === "pending") return pendingPanel();
+    if (tab === "log") return logPanel();
+    return AR.stepList(state.steps, state.plan);
+  }
+
   function resultPane() {
     const running = AR.isRunning(state.taskStatus) || state.busy;
     /* 失败只认服务端的任务状态。state.error 是「表单/请求层面」的错误，
@@ -872,7 +1197,7 @@ function ensureDeps() {
       (running && state.taskId ? `<button type="button" class="btn btn-sm" id="wb-cancel">取消</button>` : "") +
       (state.taskId ? `<a class="btn btn-sm" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
       `</div></div>` +
-      AR.resultTabs({ active: tab }) +
+      AR.resultTabs({ active: tab, available: availableTabs() }) +
       `<div class="res-body"><div class="res-inner">` +
       (running ? `<div class="progress is-indeterminate"><div class="progress-bar"></div></div>` : "") +
       (state.degraded
@@ -881,13 +1206,9 @@ function ensureDeps() {
         : "") +
       (waiting
         ? `<div class="callout callout-warn">${U.icon("info")}<div><strong>任务暂停，等你决定</strong><br>` +
-          `竞品数据不足以支撑完整结论。打开「任务详情」可以选择继续生成，或取消这条任务。</div></div>`
+          `竞品数据不足以支撑完整结论。在「待确认项」里可以继续生成或取消，也可以打开任务详情看依据。</div></div>`
         : "") +
-      (tab === "steps"
-        ? AR.stepList(state.steps, state.plan)
-        : tab === "data"
-          ? resultDataPane()
-          : AR.stepList(state.steps, state.plan)) +
+      resultBody(tab) +
       (failed && state.error
         ? `<div class="callout callout-danger">${U.icon("alert")}<div>执行失败：${U.esc(state.error)}</div></div>`
         : "") +
@@ -921,18 +1242,22 @@ function ensureDeps() {
 
   function planCard() {
     const facts = planFacts();
+    const open = Boolean(state.planOpen);
     return (
       `<div class="plan-card" data-plan-summary>` +
       `<div class="plan-head">` +
-      `<span class="plan-title">${U.icon("tasks")}执行概况</span>` +
+      `<span class="plan-title">${U.icon("tasks")}执行计划</span>` +
       `<span class="t-xs t-muted" data-plan-meta>${facts.meta}</span></div>` +
       `<div class="plan-body">` +
       `<div class="plan-stage">` +
       `<span class="t-xs t-muted">当前阶段</span>` +
       `<span class="plan-stage-name" data-plan-stage>${U.esc(facts.stage)}</span>` +
       `</div>` +
-      `<button type="button" class="btn btn-sm" data-open-steps>查看完整步骤</button>` +
-      `</div></div>`
+      `<button type="button" class="btn btn-sm" data-plan-toggle>` +
+      `${open ? "收起步骤" : "查看完整步骤"}</button>` +
+      `</div>` +
+      (open ? `<div class="plan-steps" data-plan-steps>${AR.stepList(state.steps, state.plan)}</div>` : "") +
+      `</div>`
     );
   }
 
@@ -1064,14 +1389,49 @@ function ensureDeps() {
     });
   }
 
+  function ensureLog(root) {
+    if (!state.taskId) return;
+    if (state.logCache && !state.logCache.error) return;
+    state.logCache = { loading: true };
+    A.get(`/api/tasks/${encodeURIComponent(state.taskId)}/trace`)
+      .then(function (data) {
+        state.logCache = data || {};
+        renderInPlace(root);
+      })
+      .catch(function (err) {
+        state.logCache = { error: err.message || String(err) };
+        renderInPlace(root);
+      });
+  }
+
+  async function confirmPending(root, decision) {
+    if (!state.taskId) return;
+    const pending = pendingData() || {};
+    try {
+      await A.post(`/api/tasks/${encodeURIComponent(state.taskId)}/confirm`, {
+        decision: decision,
+        confirmation_token: pending.confirmation_token || "",
+      });
+      U.toast(decision === "continue" ? "已继续生成" : "已取消", "ok");
+      const detail = await A.get(`/api/tasks/${encodeURIComponent(state.taskId)}`);
+      applyTaskDetail(detail);
+      state.logCache = null;
+      render(root);
+      startPolling(root, state.taskId);
+    } catch (err) {
+      U.toast(err.message || String(err), "danger");
+    }
+  }
+
   function bindResultPane(root) {
     root.querySelectorAll("[data-res-tab]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.resTab = btn.getAttribute("data-res-tab");
         renderInPlace(root);
+        if (state.resTab === "log") ensureLog(root);
       });
     });
-    // 直接在面板里绑：结果面板是独立重绘的，走 root 的事件委托在重绘后不够可靠
+    /* 直接在面板里绑：结果面板是独立重绘的，走 root 的事件委托在重绘后不够可靠 */
     const editBtn = root.querySelector("#wb-ls-edit");
     if (editBtn) editBtn.addEventListener("click", function () { openListingEditor(root); });
 
@@ -1082,11 +1442,26 @@ function ensureDeps() {
     });
     const cancel = root.querySelector("#wb-cancel");
     if (cancel) cancel.addEventListener("click", function () { cancelRun(root); });
+
+    const cont = root.querySelector("#wb-confirm-continue");
+    if (cont) cont.addEventListener("click", function () { void confirmPending(root, "continue"); });
+    const stop = root.querySelector("#wb-confirm-cancel");
+    if (stop) stop.addEventListener("click", function () { void confirmPending(root, "cancel"); });
   }
 
   function bind(root) {
     bindResultPane(root);
     mountSplit(root);
+
+    root.oninput = function (event) {
+      const target = event.target as HTMLElement | null;
+      if (target && target.id === "wb-goal") {
+        const value = (target as HTMLTextAreaElement).value;
+        state.goal = value;
+        const counter = root.querySelector("#wb-goal-count");
+        if (counter) counter.textContent = String(value.length);
+      }
+    };
 
     root.onclick = function (event) {
       /* 助手菜单：点自己只开关，点菜单项交给下面的 [data-agent]，点别处先收起 */
@@ -1141,26 +1516,18 @@ function ensureDeps() {
         return;
       }
 
-      const openSteps = event.target.closest("[data-open-steps]");
-      if (openSteps) {
-        state.resTab = "steps";
-        /* 窄屏下结果栏可能正被「对话」挡住，先切过去 */
-        state.mobilePane = "result";
-        const run = root.querySelector("#wb-run");
-        if (run) {
-          run.classList.remove("is-mobile-chat");
-          run.classList.add("is-mobile-result");
-        }
-        root.querySelectorAll("[data-wb-pane]").forEach(function (btn) {
-          const on = btn.getAttribute("data-wb-pane") === "result";
-          btn.classList.toggle("is-active", on);
-          btn.setAttribute("aria-selected", on ? "true" : "false");
-        });
-        renderInPlace(root);
-        const pane = root.querySelector("#wb-res-pane") as HTMLElement | null;
-        if (pane) {
-          pane.scrollIntoView({ block: "nearest" });
-          pane.focus({ preventScroll: true });
+      const planToggle = event.target.closest("[data-plan-toggle]");
+      if (planToggle) {
+        state.planOpen = !state.planOpen;
+        const card = root.querySelector("[data-plan-summary]");
+        if (card) {
+          const holder = document.createElement("div");
+          holder.innerHTML = planCard();
+          const next = holder.firstElementChild;
+          if (next) {
+            card.replaceWith(next);
+            window.CPIcon.hydrate(root);
+          }
         }
         return;
       }
@@ -1186,6 +1553,20 @@ function ensureDeps() {
         /* 不跳页：把技能的目标带进输入框，助手先说明这一步要补什么，
            用户按发送才开始。整页跳到参数表单在这个位置太突然。 */
         pickSkill(root, skill);
+        return;
+      }
+
+      const goalChip = event.target.closest("[data-goal]");
+      if (goalChip) {
+        const text = goalChip.getAttribute("data-goal") || "";
+        const field = root.querySelector("#wb-goal");
+        if (field) {
+          field.value = text;
+          state.goal = text;
+          const counter = root.querySelector("#wb-goal-count");
+          if (counter) counter.textContent = String(text.length);
+          field.focus();
+        }
         return;
       }
 
@@ -1367,7 +1748,12 @@ function ensureDeps() {
       const info = await A.post("/api/agent/resolve", { goal: goal });
       state.resolveInfo = info;
       const spec = info.spec || {};
-      if (!state.productName) state.productName = spec.product_name || state.productName;
+      /* 规则解析会把整句目标塞进 product_name，那不是商品名——宁可留空让人填 */
+      if (!state.productName) {
+        const suggested = String(spec.product_name || "").trim();
+        const looksLikeName = suggested.length > 0 && suggested.length <= 40 && suggested.indexOf("，") < 0;
+        if (!info.degraded && looksLikeName) state.productName = suggested;
+      }
       state.marketplace = spec.marketplace || state.marketplace;
       state.listingLanguage = spec.listing_language || state.listingLanguage;
       if (typeof spec.with_listing === "boolean") state.withListing = spec.with_listing;
@@ -1498,11 +1884,23 @@ function ensureDeps() {
     const listingEl = root.querySelector("#wb-with-listing");
     const marketEl = root.querySelector("#wb-marketplace");
     const langEl = root.querySelector("#wb-language");
+    const goalEl = root.querySelector("#wb-goal");
+    const catEl = root.querySelector("#wb-category");
+    const sizeEl = root.querySelector("#wb-spec-size");
+    const materialEl = root.querySelector("#wb-spec-material");
+    const capacityEl = root.querySelector("#wb-spec-capacity");
     if (productEl) state.productName = productEl.value.trim();
     if (compEl) state.competitorsText = compEl.value;
     if (listingEl) state.withListing = listingEl.checked;
     if (marketEl) state.marketplace = marketEl.value;
     if (langEl) state.listingLanguage = langEl.value;
+    if (goalEl) state.goal = goalEl.value.trim();
+    if (catEl) state.productCategory = catEl.value.trim();
+    state.ownSpecs = {
+      size: sizeEl ? sizeEl.value.trim() : state.ownSpecs.size,
+      material: materialEl ? materialEl.value.trim() : state.ownSpecs.material,
+      capacity: capacityEl ? capacityEl.value.trim() : state.ownSpecs.capacity,
+    };
     state.error = "";
 
     if (!state.productName) { state.error = "请填写商品名称"; render(root); return; }
@@ -1535,9 +1933,14 @@ function ensureDeps() {
         product_name: state.productName,
         platform: "amazon",
         marketplace: state.marketplace,
+        category: state.productCategory || null,
         competitors: competitors,
         keywords: [],
-        own_specs: {},
+        own_specs: Object.keys(state.ownSpecs).reduce(function (acc, key) {
+          const value = (state.ownSpecs[key] || "").trim();
+          if (value) acc[key] = value;
+          return acc;
+        }, {}),
         own_key_features: [],
         own_price: null,
         with_listing: state.withListing,
@@ -1591,6 +1994,7 @@ function ensureDeps() {
     state.degraded = !!result.degraded;
     state.engine = result.engine || state.engine;
     state.degradedReason = result.degraded_reason || state.degradedReason;
+    state.pending = detail.pending || null;
     state.error = task.error_message || "";
     state.busy = AR.isRunning(task.status);
     state.taskRaw = task;
