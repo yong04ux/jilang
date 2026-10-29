@@ -1,7 +1,8 @@
 # 激浪（Cross-border AI Workspace）设计规范
 
 > 版本：**3.0** · 体系：**shadcn/ui 语义层 + LinkFox Agent 布局语言 + Lucide + Motion**
-> 适用：React + TypeScript 前端（Vite 构建；7 个 CSS 仍是手写的语义层，不经预处理器）
+> 适用：React + TypeScript 前端（Vite 构建）。样式分两层：
+> **手写语义层**（`css/*.css`，7 个）+ **Tailwind 工具类层**（`css/tailwind.css`，构建生成）
 > 变更：v2 → v3 **配色不动**（品牌蓝 `#1B6EF3` 保持），只借 LinkFox 的**形态与布局**：
 > 大圆角、允许胶囊、68px 图标栏、内容居中单列、常驻输入框。
 > 对标 <https://os.linkfox.com/>，但不采用它的紫色配色。
@@ -12,15 +13,16 @@
 |---|---|---|
 | 语义 Token | shadcn/ui（`--background` / `--card` / `--border` / `--radius`） | `css/tokens.css` |
 | **视觉语言与交互** | **LinkFox Agent（os.linkfox.com）** | 本文件第 1–6 节，实测取值见第 1 节 |
-| 图标 | Lucide | 真实路径数据（`js/icons.js`，24 栅格 / 2px 描边） |
-| 动画 | Motion | Web Animations API 封装（`js/motion.js`） |
-| 布局分栏 | react-resizable-panels | `js/panels.js` 的 `split()` |
-| 拖拽 | dnd-kit | `js/panels.js` 的 `sortable()` |
-| 状态管理 | Zustand | `js/store.js` 的 `create()` |
+| 图标 | Lucide | 真实路径数据（`src/lib/icons.ts`，24 栅格 / 2px 描边）；新组件可直接用 `lucide-react` |
+| 动画 | Motion | Web Animations API 封装（`src/lib/motion.ts`） |
+| 布局分栏 | react-resizable-panels | `src/lib/panels.ts` 的 `split()` |
+| 拖拽 | dnd-kit | `src/lib/panels.ts` 的 `sortable()` |
+| 状态管理 | Zustand | `zustand`（`src/stores/`） |
 
-**为什么是「同一套语言 + 等价能力」而不是逐条装包**：视觉与交互契约由本仓库自己实现（FastAPI 直接托管
-静态文件，Render 单服务）。shadcn/ui、Motion、dnd-kit、Zustand 都是 React 生态包，
-引入任意一个都要加构建链并改掉部署形态。
+**现状（2026-10-30 起）**：前端已是 React + Vite，所以 shadcn/ui 与 Tailwind 已经**真正接入**
+（`components.json`、`src/components/ui/`、`src/styles/tailwind.css`），见第 16 节。
+Motion / 分栏 / 拖拽 / 状态仍用仓库自己的等价实现，没有换成 npm 包 —— 它们依赖的旧页面
+还在陆续迁移，一次性替换的回归面太大。
 
 > **关键发现（2026-10-22 实测）**：LinkFox Agent 的 CSS 变量与 shadcn 完全同构
 > （`--color-background` / `--color-card` / `--color-border` / `--radius-lg: .5rem`）。
@@ -435,3 +437,84 @@ Animations API。新增动效优先用 `CPMotion`，不要在业务代码里写�
 | 带入说明 | `.wb-echo` 24px 汉字图标 + 标题 + 两行说明，`--radius`，零阴影 |
 | 助手选择器 | 高 28px、`--fs-xs`，菜单向上弹（`bottom: calc(100% + 6px)`）、宽 300px |
 
+## 16. Tailwind 与 shadcn/ui 落地约定
+
+这一节是**硬约束**，都是踩过的坑，改之前先读。
+
+### 16.1 不用 `important`
+
+官方为「与已有高优先级样式共存」推荐的 `@import "tailwindcss" important;` 会带来一个
+不可接受的副作用：工具类的 `!important` **会压掉行内 style**。
+
+实例：工作台曾写 `className="dash-grid mt-4" style={{ marginTop: 'var(--sp-5)' }}`，
+行内的 20px 被 `mt-4` 的 16px 顶掉，整页少了 8px 高度。
+
+因此当前策略是：
+
+- 既有 7 个 CSS **保持无层、一行不动**；
+- 新代码（`components/ui/*`、已迁移页面）**只吃 Tailwind**，不与旧类名混写同一属性；
+- 个别位置确实要压过旧类时，用**单点** `!` 前缀（如 `!p-0`）——显式、局部、可搜索。
+
+### 16.2 `tailwind.css` 是构建产物，固定文件名
+
+后端只挂 `/css` `/js` `/media`，且靠 `?v=0` 占位符注入构建戳做缓存失效。
+所以 Tailwind 不用 Vite 打包（那会变成 `css/index-<hash>.css` 绕开这套机制），
+而是 `npm run build:css` 生成到固定路径 `css/tailwind.css`，作为**第 8 个样式**加载。
+
+改样式后必须重新 `npm run build`（会先跑 build:css），否则 dist 里是旧样式。
+
+### 16.3 `@theme inline` 不是可选项
+
+`--background` / `--card` 等在 `:root` 定义、在 `.dark` 覆写。非 inline 的 `@theme`
+会在 `:root` 处提前替换 `var()`，深色主题直接失效。`inline` 让工具类输出
+`var(--background)`，按元素重新解析。
+
+### 16.4 命名陷阱：`muted`
+
+本项目的 `--muted` 是**文字色**（v1 兼容别名），shadcn 的 `muted` 是**面**色。
+`--color-muted` 必须映射到 `--muted-surface`，映射错了 `bg-muted` 会把文字色当底色。
+
+### 16.5 断点用原值
+
+`src/styles/tailwind.css` 里定义了三个断点，取值与手写 CSS 完全一致：
+
+| 名字 | 值 | 用途 |
+|---|---|---|
+| `shell` | 981px | 小于它侧栏退回图标栏、显示抽屉入口 |
+| `wide` | 1180px | 小于它页面与顶栏收内边距 |
+| `narrow` | 720px | 小于它隐藏面包屑、压缩状态标识 |
+
+不要换成 Tailwind 默认的 768/1024/1280 —— 那会让响应式行为与改造前不一致。
+
+### 16.6 组件分层
+
+- `src/components/ui/`：**只放 shadcn 基元**，不放业务逻辑，不 import 业务模块。
+- `src/features/*`、`src/pages/*`：业务组件写在该 feature/page 目录里。
+- 需要覆盖基元样式用 `className` + `cn()`，不要改基元本身去适配某个页面。
+
+### 16.7 外壳已迁 Tailwind，探针钩子保留
+
+`app` 网格 / `sidebar` / `topbar` 的样式已在 Tailwind 里，`layout.css` 的对应规则
+已删除。`.app` `.sidebar` `.topbar` `.nav-item` 这些类名**只作探针钩子**，不承载样式，
+别照着它们写新样式。
+
+窄屏退回图标栏由 `src/hooks/useMediaQuery.ts` 的 `useShellNarrow()` 决定
+（`expanded = stored && !narrow`），不再用 `display: none !important` 硬压。
+
+### 16.8 页面改版时，把探针从样式类名换成语义钩子
+
+探针原来断言 `.card-grid-3 .card` / `.t-section` 这类类名，样式一改就红。
+已迁移的页面改用 `data-*` 语义钩子（如 `[data-agent-card]`、`[data-agent-name]`），
+断言的含义不变，但不再耦合样式实现。后续页面改版照此办理。
+
+### 16.9 改完必须跑的三件事
+
+```bash
+npm run build   # 含 build:css，产物契约校验
+npm run smoke   # 页面冒烟（含外壳与各页断言）
+```
+
+`npm run ab:tailwind` 是**接入期的一次性守卫**：它比对「带/不带 tailwind.css」
+的渲染是否逐像素一致，用来证明引入 Tailwind 没有改动既有页面。外壳与已迁移页面
+现在**依赖** Tailwind，摘掉它必然有差异，因此这个脚本不再作为常规检查，
+只在新接入某个样式层时临时用。
