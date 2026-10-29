@@ -472,6 +472,19 @@ Animations API。新增动效优先用 `CPMotion`，不要在业务代码里写�
 - 新代码（`components/ui/*`、已迁移页面）**只吃 Tailwind**，不与旧类名混写同一属性；
 - 个别位置确实要压过旧类时，用**单点** `!` 前缀（如 `!p-0`）——显式、局部、可搜索。
 
+**例外（2026-10-30 补）：元素级重置必须放进 `base` 层。**
+`base.css` 的 `button { border:0; padding:0; font:inherit }` 原本是无层的，
+会以**不可预测的方式**压过工具类：实测同一个页面里，shadcn Button 的 `px-2.5`
+生效了，另一个按钮的 `border-b-2` / `font-medium` 却被吃掉 —— 因为
+「未分层强于任何 `@layer`」，同层内再看具体声明，行为反直觉。
+
+现在这段放进 `@layer base`，优先级变成确定的：
+
+    元素重置(base 层) < Tailwind 工具类(utilities 层) < 无层的类选择器(.btn 等)
+
+即：新组件的工具类稳定生效，而 `.btn` / `.btn-icon` 这类**类**选择器仍能压住旧
+markup。以后再加元素级 reset（`a{}`、`ul{}`…）也照此处理，别留在无层。
+
 ### 16.2 `tailwind.css` 是构建产物，固定文件名
 
 后端只挂 `/css` `/js` `/media`，且靠 `?v=0` 占位符注入构建戳做缓存失效。

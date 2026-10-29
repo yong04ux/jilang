@@ -106,6 +106,94 @@ interface EditingState {
 
 /* ---------------------------------------------------------------- 页面 */
 
+
+/* ------------------------------------------------------------------ 分区导航
+   设置页是 5 张卡的纵向长页，没有分区导航就得靠滚。这里加一条吸顶的
+   分区条：点一下滚到对应卡片，滚到哪张就高亮哪个，同时把 ?section= 同步回
+   地址（沿用页面已有的深链语义）。
+
+   刻意**不改**卡片的 id 与内部结构：?section= 与 #section-* 是探针契约。 */
+const SECTION_ITEMS = [
+  { key: 'account', label: '账号' },
+  { key: 'model', label: '模型与密钥' },
+  { key: 'data', label: '数据源' },
+  { key: 'team', label: '团队与角色' },
+  { key: 'audit', label: '审计日志' },
+]
+
+function useActiveSection(
+  keys: string[],
+  enabled: boolean,
+): { active: string; setActive: (key: string) => void } {
+  const [active, setActive] = useState(keys[0] || '')
+  const id = keys.join(',')
+
+  useEffect(() => {
+    if (!enabled) return
+    const pick = () => {
+      // 取「已经滚过判定线」的最后一个分区；判定线在顶栏 + 分区条之下
+      let current = keys[0] || ''
+      for (const key of keys) {
+        const el = document.getElementById(`section-${key}`)
+        if (el && el.getBoundingClientRect().top <= 110) current = key
+      }
+      /* 滚到底时页面已经没有余量把最后一个分区顶到判定线上，
+         此时直接选最后一项 —— 否则点「团队与角色」会一直高亮上一项。 */
+      const atBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8
+      if (atBottom && keys.length) current = keys[keys.length - 1]
+      setActive(current)
+    }
+    pick()
+    window.addEventListener('scroll', pick, { passive: true })
+    return () => window.removeEventListener('scroll', pick)
+    // keys 由调用方按权限算出来，用字符串比较避免每次渲染重绑监听
+  }, [id, enabled])
+
+  return { active, setActive }
+}
+
+function SectionNav({
+  items,
+  active,
+  onJump,
+}: {
+  items: { key: string; label: string }[]
+  active: string
+  onJump: (key: string) => void
+}) {
+  return (
+    <nav
+      className="sticky top-12 z-10 -mx-1 mb-4 flex gap-4 overflow-x-auto border-b border-border bg-background px-1"
+      aria-label="设置分区"
+      id="settings-nav"
+    >
+      {items.map((item) => {
+        const on = item.key === active
+        return (
+          <button
+            key={item.key}
+            type="button"
+            data-section-nav={item.key}
+            aria-current={on ? 'true' : undefined}
+            onClick={() => onJump(item.key)}
+            className={
+              // 下划线式，与 components/ui/tabs 的语言一致：
+              // 当前项用品牌蓝描边 + 前景色文字，其余静默
+              'relative -mb-px shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-2 pt-2 text-[13px] transition-colors ' +
+              (on
+                ? 'border-primary font-medium text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground')
+            }
+          >
+            {item.label}
+          </button>
+        )
+      })}
+    </nav>
+  )
+}
+
 export function SettingsPage({ section }: { section?: string }) {
   const [providers, setProviders] = useState<Dict | null>(null)
   const [tenant, setTenant] = useState<Dict | null>(null)
@@ -375,6 +463,26 @@ export function SettingsPage({ section }: { section?: string }) {
     return map
   }, [members])
 
+  /* 当前角色能看到的分区：审计只对管理员出现，导航条也不能列出来 */
+  const sectionItems = useMemo(
+    () => (manage ? SECTION_ITEMS : SECTION_ITEMS.filter((item) => item.key !== 'audit')),
+    [manage],
+  )
+  const { active: activeSection, setActive: setActiveSection } = useActiveSection(
+    sectionItems.map((item) => item.key),
+    ready,
+  )
+
+  const jumpToSection = (key: string) => {
+    const target = document.getElementById(`section-${key}`)
+    if (!target) return
+    // 先即时高亮：平滑滚动要几百毫秒，等滚完再变色会显得没反应
+    setActiveSection(key)
+    target.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    // 静默改地址：与任务抽屉同一套做法，不走路由，页面不重挂
+    history.replaceState({}, '', `/settings?section=${key}`)
+  }
+
   /* ?section=account|model|data|team|audit → 滚动到对应卡片（旧实现同样支持） */
   useEffect(() => {
     if (!ready || !section) return
@@ -398,9 +506,11 @@ export function SettingsPage({ section }: { section?: string }) {
   return (
     <PageFrame>
       <PageShell title="设置" desc="账号、模型密钥、团队成员与数据来源。">
+        <SectionNav items={sectionItems} active={activeSection} onJump={jumpToSection} />
+
         <div className="settings-grid">
           {/* ---------------- 账号 ---------------- */}
-          <div className="card" id="section-account">
+          <div className="card scroll-mt-28" id="section-account">
             <div className="card-head">
               <div>
                 <div className="card-title">账号</div>
@@ -443,7 +553,7 @@ export function SettingsPage({ section }: { section?: string }) {
           </div>
 
           {/* ---------------- 模型与密钥 ---------------- */}
-          <div className="card" id="section-model">
+          <div className="card scroll-mt-28" id="section-model">
             <div className="card-head">
               <div>
                 <div className="card-title">模型与密钥</div>
@@ -706,7 +816,7 @@ export function SettingsPage({ section }: { section?: string }) {
           </div>
 
           {/* ---------------- 数据源 ---------------- */}
-          <div className="card" id="section-data">
+          <div className="card scroll-mt-28" id="section-data">
             <div className="card-head">
               <div>
                 <div className="card-title">数据源</div>
@@ -747,7 +857,7 @@ export function SettingsPage({ section }: { section?: string }) {
           </div>
 
           {/* ---------------- 团队 ---------------- */}
-          <div className="card" id="section-team">
+          <div className="card scroll-mt-28" id="section-team">
             <div className="card-head">
               <div>
                 <div className="card-title">团队与角色</div>
@@ -843,7 +953,7 @@ export function SettingsPage({ section }: { section?: string }) {
 
           {/* ---------------- 审计 ---------------- */}
           {manage ? (
-            <div className="card card-pad" id="section-audit">
+            <div className="card card-pad scroll-mt-28" id="section-audit">
               <div className="row between gap-2">
                 <div>
                   <div className="card-title">审计日志</div>
