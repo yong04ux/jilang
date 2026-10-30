@@ -7,7 +7,7 @@
  *   filter  只跑文件名包含该子串的探针
  *
  * 说明：这些探针是「无第三方依赖的 Edge CDP 脚本」（Node >= 22 的原生 WebSocket +
- * 本机 Microsoft Edge headless）。它们断言的是 DOM 契约，所以迁移后只要 id/class
+ * 本机 Microsoft Edge headless）。它们断言的是 DOM 契约，所以只要 id/class
  * 不变就应当继续通过 —— 这正是「无功能回退」的自动化证据。
  */
 import { spawn } from 'node:child_process'
@@ -32,7 +32,7 @@ const PROBES = [
   'ui_store_shot.mjs',
 ]
 
-/** 端口硬编码在脚本里、不接受 base 的探针（单独提示，不参与本轮） */
+/** 端口硬编码在脚本里、不接受 base 的探针（单独提示，不参与本次汇总） */
 const HARDCODED = ['ui_check_logout.mjs', 'ui_check_account_switch.mjs', 'ui_diag_store.mjs']
 
 const run = (file) =>

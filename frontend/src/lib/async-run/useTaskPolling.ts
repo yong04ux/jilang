@@ -1,7 +1,7 @@
 /**
  * 轮询 hook：把 `createPoller` 的生命周期挂到组件上。
  *
- * 三条取消路径都要覆盖（旧实现靠 `state.poller` 手工 stop，容易漏）：
+ * 三条取消路径都要覆盖（现有实现靠 `state.poller` 手工 stop，容易漏）：
  *  1. 组件卸载（切页、关闭抽屉）；
  *  2. taskId 变化（换了任务）；
  *  3. enabled 变 false（比如用户折叠了结果面板）。

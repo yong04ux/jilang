@@ -1,6 +1,6 @@
-"""Listing 生成子图（Phase 3）测试。
+"""Listing 生成子图测试。
 
-覆盖计划 §11 Phase 3 的验收：
+覆盖范围：
 1. Listing 可独立运行；
 2. 不会自行编造缺失的产品参数（没事实就停，不是硬写）；
 3. 质量失败后只做有限修订；
@@ -211,7 +211,7 @@ def test_persist_is_idempotent_per_task(temp_settings):
 
     db = Database(temp_settings.database_url)
     db.create_user("u-idem", "idem_user", "hash")
-    # 只有通过质检才会落库（计划 §6.2 的 passed -> persist_draft），
+    # 只有通过质检才会落库，
     # 所以这里用一个"首次就通过"的 Provider，专门验幂等而不是质检分支。
     provider = FlakyModelProvider(fail_times=0)
 

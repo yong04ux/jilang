@@ -1,21 +1,12 @@
 /**
- * Agent 市场 —— 新设计语言的参考实现（shadcn/ui + Tailwind）
+ * Agent 市场：按卡片列出可用 Agent，点「使用此 Agent」带到工作台。
  *
- * ── 这次改造的边界 ────────────────────────────────────────────────
- * 只换「内容区」：页头仍走 PageShell（.page/.page-head/.page-title 是既有
- * 布局契约，多个探针依赖它），列表与卡片换成 components/ui 的 Card/Badge。
- * 这样改动的视觉收益明确，回归面可控。
+ * 卡片用 components/ui 的 Card/Badge，页头走 PageShell（.page/.page-head/.page-title
+ * 是布局契约）。标题行与能力标签各自成层，长描述不会把按钮挤走；
+ * 加载态用 Skeleton，空态与错误态给可操作入口。
  *
- * ── 与旧实现的差异（都是有意的） ──────────────────────────────────
- * 1. 卡片用 Flex 两行结构而非 `.card-pad` 内边距堆叠：标题行与能力标签
- *    各自成层，长描述不再把按钮挤走。
- * 2. 名称首字做成带底色的方形标识（原 `.skill-icon`），与技能页观感统一。
- * 3. 能力标签改用 Badge（描边、11px），不再用 `.tag` 的实心底。
- * 4. 加载态用 Skeleton 骨架（原来是单条灰块在 160px 高的盒子里）。
- * 5. 空态与错误态改为显式文案 + 可操作入口，不再只给一句提示。
- *
- * 断言的钩子：`[data-agent-card]` 与 `[data-agent-run]` —— 探针按语义断言，
- * 不再依赖 `.card` 这种会被样式改版影响的类名。
+ * 断言钩子：`[data-agent-card]`、`[data-agent-run]` —— 按语义断言，
+ * 不依赖会被样式改版影响的类名。
  */
 import { useEffect, useState } from 'react'
 import { Bot, Play, TriangleAlert } from 'lucide-react'

@@ -1,11 +1,11 @@
 /**
- * 任务中心 —— 从旧 `js/pages/tasks.js` 迁移。
+ * 任务中心：任务列表、待审批与详情抽屉。
  *
  * 两条必须保住的行为：
  *  1. **抽屉改地址不重绘**：点行打开详情时只 `history.replaceState` 到 /tasks/{id}，
  *     不经过路由，所以列表不会重挂、滚动位置不丢；刷新该地址才是「列表 + 抽屉」。
  *  2. **运行中任务自动刷新**：抽屉打开时按 1s 轮询任务详情，终态后刷新列表。
- *     这里用的是 S3 修过的 poller（连续失败 5 次才放弃，而不是抖动一次就停）。
+ *     轮询用 `lib/async-run/poller`，连续失败 5 次才放弃，抖动一次不停。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -335,7 +335,7 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(initialTaskId ?? null)
   const [version, setVersion] = useState(0)
 
-  /* 搜索 250ms 防抖；与旧实现一致，只在值真的变了才触发加载 */
+  /* 搜索 250ms 防抖；与现有实现一致，只在值真的变了才触发加载 */
   useEffect(() => {
     const next = searchText.trim()
     const timer = window.setTimeout(() => {

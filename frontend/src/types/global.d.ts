@@ -1,9 +1,8 @@
 /**
- * 迁移期与旧模块互操作的类型声明。
+ * 全局对象声明：页面模块与外壳之间通过 window 上的门面互通。
  *
- * 为什么需要：S2 起外壳由 React 接管，但页面模块（js/pages/*.js）还是旧代码，
- * 两边要靠 window 上的全局对象互通。这些声明只描述「会用到的部分」，
- * 全部保持宽松类型 —— 目的是让 TS 编译通过，不是给旧代码补类型。
+ * 只描述「会用到的部分」，全部保持宽松类型 —— 目的是让 TS 编译通过，
+ * 不给页面模块补类型。
  */
 
 export interface LegacyNavItem {
@@ -18,7 +17,7 @@ export interface LegacyNavGroup {
   items: LegacyNavItem[]
 }
 
-/** 旧页面模块的统一签名：(root, params, query) => void | Promise<unknown> */
+/** 页面模块模块的统一签名：(root, params, query) => void | Promise<unknown> */
 export type LegacyPageLoader = (
   root: HTMLElement,
   params?: Record<string, string>,
@@ -58,7 +57,7 @@ declare global {
       animate(el: Element, frames: unknown, opts?: Record<string, unknown>): Promise<unknown>
       [key: string]: unknown
     }
-    /** 旧传输层（js/api.js）：迁移期页面还在用它，401 处理必须与 TS 实现共用同一个回调 */
+    /** 传输层门面：页面模块按它发请求，401 处理与 TS 实现共用同一个回调 */
     CPApi?: {
       get(path: string): Promise<unknown>
       post(path: string, body?: unknown): Promise<unknown>
@@ -67,7 +66,7 @@ declare global {
       postForm(path: string, form: FormData): Promise<unknown>
       onUnauthorized(fn: (() => void) | null): void
     }
-    /** 图表：仍是旧实现（S3 决定等首个消费页面再迁），React 页面通过 ref 挂宿主元素 */
+    /** 图表门面：React 页面通过 ref 挂宿主元素，交给它绘制 */
     CPChart?: {
       line(host: HTMLElement, spec: Record<string, unknown>): void
       bars(host: HTMLElement, spec: Record<string, unknown>): void
@@ -77,7 +76,7 @@ declare global {
       pct(value: unknown): string
       format(value: unknown, kind?: string, code?: string): string
     }
-    /** 任务步骤时间线：仍是旧实现（S3 只迁了状态机），产出 HTML 字符串 */
+    /** 任务步骤时间线：产出 HTML 字符串 */
     CPAsyncRun?: {
       stepList(steps: unknown[], plan: unknown[]): string
       planLabel(name: string): string
@@ -86,15 +85,15 @@ declare global {
       cancel(taskId: string): Promise<string>
       resultTabs(options: Record<string, unknown>): string
     }
-    /** 分栏与排序（TS 实现，迁移期以门面形式提供） */
+    /** 分栏与排序 */
     CPPanels?: any
-    /** 文案翻译层（TS 实现，迁移期以门面形式提供） */
+    /** 文案翻译层 */
     CPLabel?: any
-    /** 参数表单生成器（TS 实现，迁移期以门面形式提供） */
+    /** 参数表单生成器 */
     CPSchemaForm?: any
-    /** 报告 / Listing 渲染器（TS 实现，迁移期以门面形式提供） */
+    /** 报告 / Listing 渲染器 */
     CPRender?: any
-    /** 迁移期门面（见 app/bootstrap.ts）：旧页面与仓库探针都离不开它们 */
+    /** 门面（见 app/bootstrap.ts）：页面模块与验收脚本都依赖它们 */
     CPAuth?: {
       load(silent?: boolean): Promise<unknown>
       logout(): Promise<void>

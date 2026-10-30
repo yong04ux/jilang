@@ -6,8 +6,8 @@
  * flex 链依赖这条结构，`.view-root > .mount-slot > .view` 少一层布局就塌。
  *
  * 外壳的**样式**（app 网格 / 侧栏 / 顶栏）已全部改为 Tailwind；
- * 保留 `.app` `.sidebar` `.topbar` 这些类名只是探针钩子，不承载样式。
- * 窄屏强制退回图标栏由 useShellNarrow 在 JS 里决定，不再用 CSS 强覆盖。
+ * 保留 `.app` `.sidebar` `.topbar` 这些类名只是验收脚本钩子，不承载样式。
+ * 窄屏强制退回图标栏由 useShellNarrow 在 JS 里决定，不靠 CSS 强覆盖。
  */
 import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'

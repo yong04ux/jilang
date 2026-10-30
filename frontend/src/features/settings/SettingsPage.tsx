@@ -1,16 +1,17 @@
 /**
- * 设置 —— 从旧 `js/pages/settings.js` 迁移。
+ * 设置：账号、模型密钥、数据源、团队与审计。
  *
- * 三条关键约束（原文保留）：
+ * 三条关键约束：
  *  - Key 只显示掩码；保存后立即生效；
- *  - 固定 demo 账号禁止写入任何配置（后端 403，前端提前拦）；
+ *  - demo 共享账号禁止写入任何配置（后端 403，前端提前拦）；
  *  - 自定义 base_url 必须显式勾选，否则只允许预置厂商域名（防 SSRF）。
  *
- * 一处结构性改动：旧实现在每次保存/激活/测试/删除后手工
- * `invalidateHealth() → getHealth(true) → refreshShell()` 三连，
- * 目的是让顶栏那块「厂商 · 模型」重读。React 里顶栏订阅的是同一个 health store，
- * 所以只需 `invalidateHealth() + refresh(true)`，顶栏与本页同时更新，
- * 不会出现「测过了顶栏还显示未验证」。
+ * 顶栏与本页订阅同一个 health store：改完配置只需
+ * `invalidateHealth() + refresh(true)`，两边同时更新，不会出现
+ * 「刚测过，顶栏还显示未验证」。
+ *
+ * 分区按需加载：进场只取模型配置与租户；团队、数据源滚进视野才请求，
+ * 审计在打开弹窗时才请求。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -112,7 +113,7 @@ interface EditingState {
    分区条：点一下滚到对应卡片，滚到哪张就高亮哪个，同时把 ?section= 同步回
    地址（沿用页面已有的深链语义）。
 
-   刻意**不改**卡片的 id 与内部结构：?section= 与 #section-* 是探针契约。 */
+   刻意**不改**卡片的 id 与内部结构：?section= 与 #section-* 是验收脚本契约。 */
 const SECTION_ITEMS = [
   { key: 'account', label: '账号' },
   { key: 'model', label: '模型与密钥' },
@@ -208,8 +209,8 @@ export function SettingsPage({ section }: { section?: string }) {
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  /* 表单是非受控的（ref + defaultValue），与旧实现一致：
-     探针/脚本用 `el.value = x; dispatch('input')` 填表时必须生效，
+  /* 表单是非受控的（ref + defaultValue），与现有实现一致：
+     验收脚本/脚本用 `el.value = x; dispatch('input')` 填表时必须生效，
      受控输入会把这类赋值吞掉（React 的 value tracker 认为没变）。 */
   const formKey = useRef(0)
   const labelRef = useRef<HTMLInputElement>(null)
@@ -343,7 +344,7 @@ export function SettingsPage({ section }: { section?: string }) {
     })
   }
 
-  /** 换厂商：清空并填入该厂商的预置地址与默认模型（旧实现直接写 DOM，这里同样写 DOM） */
+  /** 换厂商：清空并填入该厂商的预置地址与默认模型（现有实现直接写 DOM，这里同样写 DOM） */
   const changeProvider = (key: string) => {
     const preset = presets.find((p) => p.key === key)
     setProviderKey(key)
@@ -515,7 +516,7 @@ export function SettingsPage({ section }: { section?: string }) {
     history.replaceState({}, '', `/settings?section=${key}`)
   }
 
-  /* ?section=account|model|data|team|audit → 滚动到对应卡片（旧实现同样支持） */
+  /* ?section=account|model|data|team|audit → 滚动到对应卡片（现有实现同样支持） */
   useEffect(() => {
     if (!ready || !section) return
     const target = document.getElementById(`section-${section}`)

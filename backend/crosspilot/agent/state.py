@@ -1,14 +1,13 @@
-"""Listing 子图的状态契约（计划 §6.2 / Phase 3）。
+"""Listing 子图的状态契约。
 
 为什么不能再共用裸 dict
 ======================
 
-Phase 0 盘点 §6.1 指出主图状态是 ``StateGraph(dict)``，键的集合靠约定。
-拆子图后这个做法会立刻出问题：
+主图状态是 ``StateGraph(dict)``，键的集合靠约定；拆成子图后这种做法会出问题：
 
-- 子图的输入输出要对外承诺（组合工作流、技能入口、Phase 6 的 checkpoint 都要用）；
+- 子图的输入输出要对外承诺（组合工作流、技能入口、的 checkpoint 都要用）；
 - 裸 dict 无法表达"这个键一定存在"，每个节点都得 ``state.get(k) or {}``；
-- Phase 6 接 checkpointer 时状态必须可序列化，随手塞 Pydantic 对象会埋雷。
+- 接 checkpointer 时状态必须可序列化，随手塞 Pydantic 对象会埋雷。
 
 因此这里用 ``TypedDict`` 声明键，并约定**状态里只放 JSON 可序列化的值**
 （dict / list / str / int / bool / None）。需要对象时在节点内临时构造，
@@ -46,7 +45,7 @@ class ListingState(TypedDict, total=False):
     #: 竞品报告（可选；只取差异化方向与关键词）
     analysis_report: dict[str, Any] | None
     #: 是否由本子图负责落库。主图调用时为 False——它有自己的 persist 节点，
-    #: 两处都写会留下半份数据（Phase 1 已确立"唯一写库点"的约定）。
+    #: 两处都写会留下半份数据。
     persist: bool
     #: 任务 id，落库与幂等判重用
     task_id: str | None
@@ -82,7 +81,7 @@ OUTCOME_CANCELLED = "cancelled"
 
 
 class CompetitorState(TypedDict, total=False):
-    """竞品分析子图的状态（计划 §6.1）。
+    """竞品分析子图的状态。
 
     与 Listing 的关键差别：这里**没有模型修订环节**。分析是确定性统计，
     没有"改措辞"的余地——数据不足只能标 partial 并说明原因，不能靠重试变好。
@@ -114,7 +113,7 @@ class CompetitorState(TypedDict, total=False):
 
 
 class CombinedState(TypedDict, total=False):
-    """组合工作流状态（Phase 5）：竞品分析 + Listing 生成。
+    """组合工作流状态：竞品分析 + Listing 生成。
 
     暂停点是 ``confirm_partial`` 节点——它**只做一件事**：``interrupt()`` 并
     把用户的决定放回状态。

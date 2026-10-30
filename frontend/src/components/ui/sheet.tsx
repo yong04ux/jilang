@@ -1,8 +1,8 @@
 /**
- * shadcn/ui · Sheet —— 从侧边滑出的面板（移动端导航、详情抽屉）
+ * shadcn/ui · Sheet —— 从侧边滑出的面板（移动端导航、详情抽屉）。
  *
- * 与项目既有 .drawer 的分工：新代码用 Sheet；任务详情抽屉仍走旧实现，
- * 因为它依赖 history.replaceState 的深链语义，改造留到任务中心那一轮。
+ * 与 `.drawer` 的分工：组件内的新交互用 Sheet；任务详情抽屉需要
+ * history.replaceState 的深链语义，继续用 `.drawer`。
  */
 import * as React from 'react'
 import * as SheetPrimitive from '@radix-ui/react-dialog'

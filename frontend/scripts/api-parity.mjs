@@ -18,18 +18,18 @@ import { pathToFileURL } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const root = dirname(here)
 
-// 旧实现已随 S8 删除：没有基线就跳过（脚本保留，fixture 仍有参考价值）
+// 没有对照基线时跳过（脚本保留，fixture 仍有参考价值）
 if (!existsSync(resolve(root, 'js'))) {
-  console.log('\n跳过：frontend/js/ 已删除（S8），无对照基线\n')
+  console.log('\n跳过：frontend/js/ 已删除（），无对照基线\n')
   process.exit(0)
 }
 
-// 旧实现：读源码放进一个假 window 里执行
+// 对照实现：读源码放进一个假 window 里执行
 const legacyWin = {}
 new Function('window', readFileSync(resolve(root, 'js/api.js'), 'utf8'))(legacyWin)
 const legacy = legacyWin.CPApi
 if (!legacy) {
-  console.error('无法加载旧实现 js/api.js')
+  console.error('无法加载对照实现 js/api.js')
   process.exit(1)
 }
 

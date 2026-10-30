@@ -57,7 +57,7 @@ def auth_status(
     token = extract_token(request)
     user = resolve_session(ctx.db, token) if token else None
     settings = ctx.settings
-    # 只查一次：旧实现 needs_setup 与 user_count 各查一遍
+    # 只查一次：needs_setup 与 user_count 都需要同一份统计
     user_count = ctx.db.count_users()
     return {
         "needs_setup": user_count == 0,

@@ -358,7 +358,7 @@ class Database:
 
     @contextmanager
     def _connect_direct(self) -> Iterator[Any]:
-        """没有 psycopg_pool 时的退路：每次新建连接（行为与改造前一致）。"""
+        """没有 psycopg_pool 时的退路：每次新建连接。"""
         import psycopg
         from psycopg.rows import dict_row
 
@@ -1597,7 +1597,7 @@ class Database:
             return cursor.rowcount == 1
 
     def add_llm_calls(self, rows: list[dict[str, Any]]) -> None:
-        """批量写入模型调用记录（Phase 7 遥测）。
+        """批量写入模型调用记录。
 
         只记元数据，不记文本。失败不抛：遥测写不进去不该让任务失败。
         """

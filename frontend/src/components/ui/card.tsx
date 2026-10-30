@@ -1,8 +1,7 @@
 /**
  * shadcn/ui · Card
  *
- * 与项目既有纪律一致：**卡片零阴影**，靠 --border 表达层次（design.md v2.0）。
- * 圆角用 --radius-lg（12px），与 .card 的取值同源。
+ * 卡片零阴影，靠 --border 表达层次；圆角用 --radius-lg（12px），与 .card 同源。
  */
 import * as React from 'react'
 import { cn } from '@/lib/utils'

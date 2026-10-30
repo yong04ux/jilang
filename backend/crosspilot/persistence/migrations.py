@@ -530,7 +530,7 @@ def _task_reuse_guards(connection) -> None:
 
 
 def _llm_calls(connection) -> None:
-    """0016：模型调用遥测表（Phase 7）。
+    """0016：模型调用遥测表。
 
     只存元数据，**不存 prompt / 响应正文**：里面可能有租户的商品资料，
     而且日志会无限膨胀。排查需要的是"哪个节点、哪个模型、几秒、多少 token、

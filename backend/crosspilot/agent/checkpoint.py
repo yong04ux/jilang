@@ -1,4 +1,4 @@
-"""LangGraph Checkpoint（Phase 6：持久化、清理、后端可查）。
+"""LangGraph Checkpoint。
 
 为什么必须有这一层
 ==================

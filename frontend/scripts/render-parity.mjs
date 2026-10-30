@@ -18,13 +18,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const root = dirname(here)
 
-// 旧实现已随 S8 删除：没有基线就跳过（脚本保留，fixture 仍有参考价值）
+// 没有对照基线时跳过（脚本保留，fixture 仍有参考价值）
 if (!existsSync(resolve(root, 'js'))) {
-  console.log('\n跳过：frontend/js/ 已删除（S8），无对照基线\n')
+  console.log('\n跳过：frontend/js/ 已删除（），无对照基线\n')
   process.exit(0)
 }
 
-/* ---- 旧实现 ---- */
+/* ---- 对照实现 ---- */
 const legacyWindow = {}
 const load = (file) =>
   new Function('window', readFileSync(resolve(root, 'js', file), 'utf8'))(legacyWindow)

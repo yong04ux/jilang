@@ -1,23 +1,20 @@
 /**
- * 工作台 —— 首屏门面。
+ * 工作台（/dashboard）：首屏门面。
  *
- * 三条纪律（原注释保留，改造时一条没动）：
+ * 三条纪律：
  *  - 所有数字来自 /api/dashboard 与 /api/marketplace/metrics，前端不推算任何指标；
  *  - 还没有数据的模块保持空态，不显示推测性指标；
  *  - 趋势全 0 时不画贴底零线 —— 那是「空壳图」，什么信息都没给。
  *
- * ── 本轮改造（Phase 4-1）────────────────────────────────────────────
- * 结构：KPI 行 / 经营概览 / 任务趋势 / 最近报告 / 近期任务 / 最近 Listing /
- * 数据源状态，全部换成 Card + Table + Badge + Alert + Skeleton。
+ * 结构：KPI 行 / 经营概览 / 任务趋势 / 最近报告 / 近期任务 / 最近 Listing / 数据源状态，
+ * 用 Card + Table + Badge + Alert + Skeleton 拼。
  *
- * **趋势图仍是 `lib/charts.ts` 的手写内联 SVG，没有换 Recharts**：
- * 它已有 28 项字节级对照、零依赖，而我们只有折线一种图；换库会给本页 chunk
- * 增加约 90 KB，收益只有「可交互 tooltip」。要换单独做，并给出体积对比。
- * `#dash-trend` 这个 id 是 CPChart 的宿主，也是探针钩子，别改。
+ * 趋势图用 `lib/charts.ts` 的手写内联 SVG：零依赖，28 项字节级对照；换 Recharts 会给
+ * 本页 chunk 增加约 90 KB，收益只有可交互 tooltip，要用时单独评估体积。
+ * `#dash-trend` 是 CPChart 的宿主，也是验收脚本钩子，别改。
  *
- * 探针钩子已从样式类名换成语义属性：
- *   [data-kpi] / [data-kpi-label] / [data-dash-card] / [data-task-table]
- * 空的占位符 `.cp-chart-empty` 由本文件自己注入，保留类名。
+ * 验收脚本钩子走语义属性：`[data-kpi]` / `[data-kpi-label]` / `[data-dash-card]` /
+ * `[data-task-table]`；空图占位符 `.cp-chart-empty` 由本文件注入，保留类名。
  */
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { FileText, ListChecks, ScrollText, Sparkles, TriangleAlert } from 'lucide-react'

@@ -3,7 +3,7 @@
  *
  * layout.css:379-392 用 `.view-root > .mount-slot` 与 `.mount-slot > .view`
  * 两级 flex 把高度撑满，少一层页面就会塌成内容高度。
- * 旧页面由 LegacyPage 提供这两层，React 页面由这里提供，两者 DOM 形状一致。
+ * 页面模块由 LegacyPage 提供这两层，React 页面由这里提供，两者 DOM 形状一致。
  */
 import type { ReactNode } from 'react'
 

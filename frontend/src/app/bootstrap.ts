@@ -1,11 +1,10 @@
 /**
- * 迁移期的全局门面对接层。
+ * 全局门面对接层。
  *
- * React 接管外壳后，旧代码仍在两个方向依赖 `window.CP*`：
- *   1. 旧页面模块：`window.CPShell.getHealth()` / `window.CPAuth.user`（settings.js:58,289,478）；
- *   2. 仓库里的 Edge 探针：`window.CPAuth.load/logout/user`、`window.CPRouter.go`。
- * 这两类都不能因为迁移而消失，所以这里把同名门面指向 React 侧的实现，
- * 保证「一处实现、两种消费端」。S8 旧目录删除后再统一清理。
+ * 两类消费端通过 `window.CP*` 使用同一份实现：
+ *   1. 以 HTML 字符串渲染的页面模块，例如 `window.CPShell.getHealth()`、`window.CPAuth.user`；
+ *   2. 验收脚本，例如 `window.CPAuth.load/logout/user`、`window.CPRouter.go`。
+ * 这里只做「把 React 侧实现挂到同名门面上」，不承担任何业务逻辑。
  */
 import { go, normalize, renderPath, installRouterListeners } from './router'
 import { getHealth, invalidateHealth, useHealthStore } from '@/lib/health/health'

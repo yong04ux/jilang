@@ -1,5 +1,5 @@
 /**
- * 技能广场 / 技能详情 —— 从旧 `js/pages/skills.js` 迁移。
+ * 技能广场 / 技能详情。
  *
  * 两级视图共用一个路由（查询参数而不是新增路由），为了保住已在用的深链：
  * 数据校验跑完会跳到 `/skills?skill=competitor_analysis&batch=<id>`。
@@ -7,9 +7,8 @@
  * 能力名称/分类/说明/入参全部来自 `GET /api/skills`（skillsCache），
  * 前端只保留「卡片长什么样」（features/skills/presentation.ts）。
  *
- * 表单与结果仍是 HTML 字符串：参数表单由 `features/schema-form` 按 JSON Schema 生成、
- * 用同一套 `read()` 读回；结果由 `features/render` 与 `features/skills/blocks` 生成。
- * 这样与旧页面的 DOM 契约完全一致，探针不用改。
+ * 表单与结果都是 HTML 字符串：参数表单由 `lib/schema-form` 按 JSON Schema 生成、
+ * 用同一套 `read()` 读回；结果由 `lib/render` 与 `features/skills/blocks` 生成。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
@@ -38,7 +37,7 @@ interface GridFilter {
   q: string
 }
 
-/* 旧页面的 filter 是模块级 state，切到详情再回来筛选条件还在。
+/* 页面模块的 filter 是模块级 state，切到详情再回来筛选条件还在。
    这里用一个模块级对象保持同样体验（不想为此引入全局 store）。 */
 const gridFilter: GridFilter = { source: 'all', cat: 'all', q: '' }
 
@@ -155,7 +154,7 @@ function SkillsGrid({ skills }: { skills: Skill[] }) {
     setFilter(next)
   }
 
-  /* 搜索框用原生 input 监听而不是 React onChange：探针/脚本用
+  /* 搜索框用原生 input 监听而不是 React onChange：验收脚本/脚本用
      `el.value = x; dispatchEvent(new Event('input'))` 填值时，React 的 value tracker
      会认为值没变从而跳过 onChange（受控输入尤其明显）。这里直接听原生事件。 */
   useEffect(() => {
@@ -638,7 +637,7 @@ export function SkillsPage({ query }: { query: Record<string, string> }) {
   return (
     <PageFrame>
       {/* key 必须带 skill.key：否则换技能时组件被复用，上一个技能的
-          结果与运行状态会残留（旧实现靠 render() 里的 reset() 清干净） */}
+          结果与运行状态会残留（现有实现靠 render() 里的 reset() 清干净） */}
       {skill ? (
         <SkillDetail key={skill.key} skill={skill} batch={batch} />
       ) : (

@@ -4,7 +4,7 @@
  *
  * 为什么要这一层：这些函数产出的是**字符串**，直接写进 innerHTML。
  * 差一个空格、一个类名、一个全角括号，页面就变形或文案变样，而 DOM 探针
- * 未必覆盖得到。迁移期间两套实现并存（旧页面捕获旧引用、新代码用 TS），
+ * 未必覆盖得到。两套实现并存（页面模块用全局引用、新代码用 TS），
  * 只有输出逐字节一致，才敢说「行为没变」。
  *
  * 用法：node scripts/primitives-parity.mjs
@@ -16,13 +16,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const root = dirname(here)
 
-// 旧实现已随 S8 删除：没有基线就跳过（脚本保留，fixture 仍有参考价值）
+// 没有对照基线时跳过（脚本保留，fixture 仍有参考价值）
 if (!existsSync(resolve(root, 'js'))) {
-  console.log('\n跳过：frontend/js/ 已删除（S8），无对照基线\n')
+  console.log('\n跳过：frontend/js/ 已删除（），无对照基线\n')
   process.exit(0)
 }
 
-/* ---- 旧实现：塞进假 window 里执行 IIFE ---- */
+/* ---- 对照实现：塞进假 window 里执行 IIFE ---- */
 const legacyWindow = {}
 const load = (file) =>
   new Function('window', readFileSync(resolve(root, 'js', file), 'utf8'))(legacyWindow)

@@ -134,13 +134,13 @@ def _report_from(payload: ReportInput) -> AnalysisReport:
 
 
 def _exec_competitor_analysis(ctx: SkillContext, payload: BaseModel) -> Any:
-    """竞品分析走**子图**（Phase 4）。
+    """竞品分析走**子图**。
 
     子图：校验 → 选数据源 → 取数（有限重试）→ 归一化 → 充分性检查 →
     统计 → 校验 → 归纳（样本不足时标 partial）。
 
-    注意：分析本身**不调模型**（用户 2026-10-27 的决定），``ctx.provider``
-    只用来标注引擎名。``persist=False``：技能入口不落库。
+    注意：分析本身**不调模型**，``ctx.provider`` 只用来标注引擎名。
+    ``persist=False``：技能入口不落库。
     """
     assert isinstance(payload, CompetitorAnalysisInput)
     from ..market.competitor_provider import MODE_IMPORTED, build_competitor_provider
@@ -168,12 +168,12 @@ def _exec_competitor_analysis(ctx: SkillContext, payload: BaseModel) -> Any:
 
 
 def _exec_listing_generation(ctx: SkillContext, payload: BaseModel) -> Any:
-    """Listing 生成走**子图**（Phase 3），不再是单次函数调用。
+    """Listing 生成走**子图**，不再是单次函数调用。
 
     子图包含：事实整理 → 站点规则 → 竞品洞察 → 关键事实检查 → 生成 →
     质检 →（有限修订）。因此 ``executor_type`` 是 ``graph``。
 
-    这里 ``persist=False``：技能入口不落库（Phase 1 的约定），产物由调用方决定。
+    这里 ``persist=False``：技能入口不落库，产物由调用方决定。
     缺事实时抛 ``SkillMissingInput``，让界面引导用户补资料，而不是报"参数错误"。
     """
     assert isinstance(payload, ListingGenerationInput)
@@ -271,7 +271,7 @@ SKILL_DEFINITIONS: tuple[SkillDefinition, ...] = (
         input_model=CompetitorAnalysisInput,
         output_schema=_ANALYSIS_OUTPUT,
         executor=_exec_competitor_analysis,
-        # Phase 4：走子图（取数 → 归一化 → 充分性 → 统计 → 校验 → 归纳）
+        # 走子图（取数 → 归一化 → 充分性 → 统计 → 校验 → 归纳）
         executor_type="graph",
         dependencies=(DEP_PROVIDER,),
         # 纯统计，不含模型调用；预算给足以覆盖未来真实取数的网络往返
@@ -286,7 +286,7 @@ SKILL_DEFINITIONS: tuple[SkillDefinition, ...] = (
         input_model=ListingGenerationInput,
         output_schema=_LISTING_OUTPUT,
         executor=_exec_listing_generation,
-        # Phase 3：走子图（事实 → 规则 → 洞察 → 生成 → 质检 → 有限修订）
+        # 走子图（事实 → 规则 → 洞察 → 生成 → 质检 → 有限修订）
         executor_type="graph",
         dependencies=(DEP_PROVIDER, DEP_LLM),
         # 生成要过模型，且可能修订一次（重跑一遍），预算按两轮留
@@ -352,7 +352,7 @@ SKILL_DEFINITIONS: tuple[SkillDefinition, ...] = (
         name="关键词布局",
         summary="无搜索量数据时只做词表整理与布局建议，不计算机会分。",
         version=VERSION,
-        # 没有实现：只留声明，明确不可执行（计划 §5.1「注册成功不等于可以执行」）
+        # 没有实现：只留声明，明确不可执行
         input_model=None,
         input_schema={
             "type": "object",

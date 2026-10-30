@@ -569,7 +569,7 @@ class ProviderConfigService:
         前者换配置（连带 key / base_url），后者只换模型名。
         """
         # 模型设置行同时提供 active_config_id 与温度/超时等参数：只查一次，
-        # 避免旧实现里 "取 active id" 和 "取模型参数" 各查一遍。
+        # "取 active id" 和 "取模型参数" 共用这一次查询。
         model_row = self.db.get_model_settings(user_id) or {}
         active_id = config_id or model_row.get("active_config_id")
         if not active_id:

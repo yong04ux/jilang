@@ -1,10 +1,9 @@
 """``SKILL_REGISTRY``：平台能力的唯一真源。
 
-改造前同一件能力存在三份互不相关的描述（``agent/skills.py`` 的函数、
-``agent/registry.py`` 的静态 JSON、``frontend/js/catalog.js`` 的硬编码数组），
-点「运行」只能把一句 prompt 填进对话框——这就是 PRD §5.1 要解决的根因。
+同一件能力只能有一份描述。函数、元数据与前端目录各写一份时，点「运行」
+只能把一句 prompt 填进对话框，真正的执行路径却不存在。
 
-现在：
+这里：
 
 - ``SKILL_REGISTRY`` 是代码里唯一的能力清单，``executor`` 就是可执行的那个函数；
 - ``agent/registry.seed_registry`` 从它派生写入 ``skill_definitions``（租户自定义仍走那张表）；

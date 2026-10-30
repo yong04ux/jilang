@@ -1,9 +1,6 @@
 /**
- * 技能结果分块 —— 从旧 `js/pages/skills.js:555-748` 迁移。
- *
- * 每种能力有自己的产出形状，所以按 key 分派到对应的块。产出 HTML 字符串，
- * 由页面塞进结果区（与旧实现一致）；`competitor_analysis` / `listing_generation`
- * 直接复用 `features/render` 的报告与 Listing 渲染器。
+ * 技能结果分块：按能力 key 分派到对应的产出块，产出 HTML 字符串由页面塞进结果区。
+ * `competitor_analysis` / `listing_generation` 直接复用 `lib/render` 的报告与 Listing 渲染器。
  */
 import { esc, icon } from '@/lib/ui'
 import { kindBadge, money, renderListing, renderReport } from '@/lib/render/render.ts'

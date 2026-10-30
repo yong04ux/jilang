@@ -450,7 +450,7 @@
   height: var(--h-sm);
   padding: 0 12px;
   border: 1px solid var(--border);
-  /* 不用胶囊形（design.md §5）：对标 LinkFox 的筛选标签，6px 圆角 */
+  /* 不用胶囊形：筛选标签统一 6px 圆角 */
   border-radius: var(--radius-sm);
   background: var(--card);
   color: var(--ink-soft);

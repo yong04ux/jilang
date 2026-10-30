@@ -8,7 +8,7 @@
  * hostEl 必须是已插入文档的容器 —— 宽度按容器实测值算，窗口变化会重绘。
  *
  * 这个模块**不 import 任何东西**（连 ui 都不引），因此可以在 Node 里被加载、
- * 也可以被浏览器探针对比旧实现（见 scripts/charts-parity.mjs）。
+ * 也可以被浏览器验收脚本对比现有实现（见 scripts/charts-parity.mjs）。
  */
 
 export interface ChartPoint {

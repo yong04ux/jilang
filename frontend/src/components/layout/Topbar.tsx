@@ -1,16 +1,12 @@
 /**
  * 顶栏：抽屉开关 + 面包屑 + 生成方式标识 + AI 助手入口。
  *
- * 本轮（Phase 3）从 layout.css 的 `.topbar-*` / `.crumb*` / `.proto-flag`
- * / `.pill-action` 改写成 Tailwind，样式规则同步从 layout.css 删除，
- * 避免两套并存互相压。
- *
- * 保留的 id 是**对外契约**，别改：
- *   #nav-open        —— 移动端抽屉入口（ui_shots_auth 会点它）
- *   #provider-flag   —— 生成方式标识（ui_settings_models 比对文案变化）
+ * 保留的 id 是对外契约，别改：
+ *   #nav-open        —— 移动端抽屉入口
+ *   #provider-flag   —— 生成方式标识
  *   #crumb           —— 面包屑容器
  *
- * 断点用 tailwind.css 里定义的 shell/wide/narrow，取值与原 CSS 一致。
+ * 断点用 tailwind.css 里的 shell / wide / narrow 三档。
  */
 import { Info, Menu, TriangleAlert } from 'lucide-react'
 import { useHealthStore, providerFlagText } from '@/lib/health/health'

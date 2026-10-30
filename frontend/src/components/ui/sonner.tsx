@@ -1,10 +1,9 @@
 /**
- * shadcn/ui · Sonner（Toast 渲染器）
+ * shadcn/ui · Sonner（Toast 渲染器）。
  *
- * 为什么不直接替换 `lib/ui.ts` 的 `toast()`：
- * 那个函数被 7 个页面、约 30 处调用，且探针断言了 `.toast` 的 DOM。
- * 这一轮只提供**新组件可用的** toast 入口，旧调用点保持不动；
- * 等页面逐个改造时再统一收敛。
+ * 对外仍以 `lib/ui.ts` 的 `toast()` 为准：它被 7 个页面、约 30 处调用，
+ * `.toast` 的 DOM 也是验收脚本的锚点。这里提供组件内部用的 toast 入口，
+ * 两者共用同一套样式与队列。
  */
 import { Toaster as SonnerToaster } from 'sonner'
 

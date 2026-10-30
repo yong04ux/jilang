@@ -1,7 +1,7 @@
 /**
  * 动效层 —— Motion（原 Framer Motion）的等价实现，基于 Web Animations API。
  *
- * 三条纪律（design.md:161-173）：
+ * 三条纪律（见 design.md 动效规范）：
  *  1. 曲线与时长一律从 tokens.css 的 `--ease-*` / `--dur-*` 读，不写死数字；
  *  2. `prefers-reduced-motion: reduce` 下所有动画归零，直接落终态；
  *  3. JS 与 CSS 用同一套节奏，避免「边框先到、位移后到」。

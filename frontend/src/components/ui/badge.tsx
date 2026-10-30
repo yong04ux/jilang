@@ -1,8 +1,7 @@
 /**
  * shadcn/ui · Badge
  *
- * 语义色用在「状态」上，不用在「装饰」上 —— 与 design.md
- * 「品牌蓝只给主操作」的纪律一致：default 才是蓝色实心，其余是描边。
+ * 语义色只用于「状态」，不用于装饰：default 是蓝色实心（主状态），其余是描边。
  */
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'

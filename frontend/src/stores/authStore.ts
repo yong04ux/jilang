@@ -4,7 +4,7 @@
  * 对应旧 `js/auth.js` 的状态部分：currentUser / allowRegister / demoAccount / guestTtl。
  * 渲染由 `layout/AuthGate.tsx` 负责，这里只管状态与接口调用，两边不混。
  *
- * `gateOpen` 独立于 `user`：旧实现在 401 时只把登录门亮出来、并不清 user
+ * `gateOpen` 独立于 `user`：现有实现在 401 时只把登录门亮出来、并不清 user
  * （app.js:108-114 先读 wasSignedIn 再 show），行为上必须一致。
  */
 import { create } from 'zustand'
@@ -96,7 +96,7 @@ export async function logout(): Promise<void> {
   try {
     await api.post('/api/auth/logout', {})
   } catch {
-    /* 退出失败也要把界面切回登录门，否则用户卡在旧页面上 */
+    /* 退出失败也要把界面切回登录门，否则用户卡在页面模块上 */
   }
   useAuthStore.setState({ user: null, me: null, gateOpen: true, gateError: null })
   window.dispatchEvent(new CustomEvent('cp:logout'))

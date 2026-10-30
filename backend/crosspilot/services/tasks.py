@@ -25,14 +25,14 @@ from ..persistence.db import Database
 STATUS_QUEUED = "queued"
 STATUS_RUNNING = "running"
 STATUS_AWAITING_APPROVAL = "awaiting_approval"
-#: 缺少关键事实，等用户补充后重跑（Phase 3）。**不是**失败：
+#: 缺少关键事实，等用户补充后重跑。**不是**失败：
 #: 任务已经跑到"能判断缺什么"的程度了。
 STATUS_WAITING_INPUT = "waiting_for_input"
-#: 工作流停在中断点，等用户确认是否继续（Phase 5）。
+#: 工作流停在中断点，等用户确认是否继续。
 #: 与 ``waiting_for_input`` 的区别：这个**可以原地恢复**（checkpoint 还在），
 #: 不需要从头重跑；而 ``waiting_for_input`` 只能重试。
 STATUS_WAITING_REVIEW = "waiting_for_review"
-#: 部分完成：有产物但没通过质量门禁，需要人工复核（Phase 3）。
+#: 部分完成：有产物但没通过质量门禁，需要人工复核。
 STATUS_PARTIAL = "partial"
 STATUS_SUCCEEDED = "succeeded"
 STATUS_FAILED = "failed"

@@ -130,7 +130,7 @@ def test_run_with_goal_and_data_uses_resolved_parameters(client):
         "/api/agent/runs",
             json={
                 "goal": "分析“EcoSip Insulated Bottle”在美国的竞品并生成英文 Listing",
-                # Phase 3 起：要生成 Listing 就必须有可引用的事实，
+                #  起：要生成 Listing 就必须有可引用的事实，
                 # 否则会停在"等待补充资料"而不是产出一份编造出来的草稿。
                 "own_specs": {"容量": "750ml"},
                 "own_key_features": ["双层真空保温"],

@@ -1,7 +1,7 @@
 /**
- * 数据资产 —— 从旧 `js/pages/data.js` 迁移。
+ * 数据资产：文件导入、字段映射与数据集列表。
  *
- * 三步导入是真实接口，不是前端假流程：
+ * 三步导入走真实接口，不是前端假流程：
  *   POST /api/import/preview → 存文件 + 识别列 + 逐行校验（不写业务数据）
  *   POST /api/import/remap   → 按新映射重新校验
  *   POST /api/import/commit  → 按映射写入批次（不可重复提交）

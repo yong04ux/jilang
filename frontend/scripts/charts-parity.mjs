@@ -15,9 +15,9 @@ import { dirname, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 
-// 旧实现已随 S8 删除：没有基线就跳过（脚本保留，fixture 仍有参考价值）
+// 没有对照基线时跳过（脚本保留，fixture 仍有参考价值）
 if (!existsSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'js'))) {
-  console.log('\n跳过：frontend/js/ 已删除（S8），无对照基线\n')
+  console.log('\n跳过：frontend/js/ 已删除（），无对照基线\n')
   process.exit(0)
 }
 
@@ -44,7 +44,7 @@ const check = (ok, label, detail = '') => {
   }
 }
 
-/* 在页面里执行的比对代码（主页面 = TS，iframe = 旧实现） */
+/* 在页面里执行的比对代码（主页面 = TS，iframe = 对照实现） */
 const COMPARE = `
 (async () => {
   const W = 600;
@@ -63,7 +63,7 @@ const COMPARE = `
   document.body.appendChild(iframe);
   await new Promise((r) => { iframe.onload = r; setTimeout(r, 3000); });
 
-  // iframe 里单独加载旧实现
+  // iframe 里单独加载对照实现
   await new Promise((resolve, reject) => {
     const s = iframe.contentDocument.createElement('script');
     s.src = '/js/charts.js';

@@ -1,13 +1,13 @@
 /**
- * 迁移期适配器：把旧页面模块原样挂进 React 树。
+ * 适配器：把「自己往容器里写 HTML」的页面模块挂进 React 树。
  *
- * 复刻旧 `mountPage`（app.js:12-48）的四件事：
- *  1. 每次挂载给一个全新 `.mount-slot`（布局依赖 `.view-root > .mount-slot > .view` 这条链）；
- *  2. 调 `loader(host, params, query)`，页面自己往 host 里写 HTML；
- *  3. 异步失败时只在「还挂着」的情况下写错误块（切走了就不糊到新页面上）；
- *  4. 挂载后 `CPIcon.hydrate` + `CPMotion.stagger` 进场 + 焦点复位 + 刷新顶栏标识。
+ * 每次挂载做四件事：
+ *   1. 给一个全新 `.mount-slot`（布局依赖 `.view-root > .mount-slot > .view` 这条链）；
+ *   2. 调 `loader(host, params, query)`，页面自己往 host 里写 HTML；
+ *   3. 异步失败时只在「还挂着」的情况下写错误块（已经切走就不覆盖新页面）；
+ *   4. 挂载后 `CPIcon.hydrate` + `CPMotion.stagger` 进场 + 焦点复位 + 刷新顶栏标识。
  *
- * 关键约束：宿主 div 的子节点由旧代码用 innerHTML 管理，React 不渲染任何子节点，
+ * 关键约束：宿主 div 的子节点由页面模块用 innerHTML 管理，React 不渲染任何子节点，
  * 因此不会与 innerHTML 抢所有权。
  */
 import { useEffect, useRef } from 'react'

@@ -31,7 +31,7 @@ export default function App() {
 
   const match = matchRoutes(ROUTES, snapshot.path)
   const activeKey = match.route ? match.route.navKey : NOT_FOUND_NAV_KEY
-  // 未登录 / 登录门亮着时不渲染业务页面：旧实现直接把 #view-root 清空
+  // 未登录 / 登录门亮着时不渲染业务页面：现有实现直接把 #view-root 清空
   const pageReady = Boolean(user) && !gateOpen
   const Page = match.route?.Page
   const routeKey = `${snapshot.path}#${snapshot.nonce}`
@@ -50,8 +50,8 @@ export default function App() {
       showGate(wasSignedIn ? '登录已过期，请重新登录' : null)
     }
     api.onUnauthorized(onUnauthorized)
-    // 旧页面走的是 js/api.js 那套客户端，它的 401 也必须能亮登录门，
-    // 否则迁移期会话过期时会停在「页面加载失败」而不是登录页。
+    // 页面模块走的是 js/api.js 那套客户端，它的 401 也必须能亮登录门，
+    // 否则会话过期时会停在「页面加载失败」而不是登录页。
     window.CPApi?.onUnauthorized(onUnauthorized)
 
     // 4. 读会话

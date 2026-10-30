@@ -39,7 +39,7 @@ interface DetailLike {
   errors?: Array<{ field?: string; row?: number; message?: string }>
 }
 
-/** 把后端 detail 拼成中文可读文案；与旧实现逐字一致 */
+/** 把后端 detail 拼成中文可读文案；与现有实现逐字一致 */
 export function describe(detail: unknown, status: number): string {
   if (!detail) return `请求失败（HTTP ${status}）`
   if (typeof detail === "string") return detail

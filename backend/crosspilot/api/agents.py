@@ -537,7 +537,7 @@ async def run_agent_endpoint(
 
     competitors = data.get("competitors") or []
     if not competitors or payload.import_batch_id:
-        # 竞品来源统一走 Provider（计划 §9）。导入是当前唯一可用实现；
+        # 竞品来源统一走 Provider。导入是当前唯一可用实现；
         # 真实数据源未接入时 Provider 会明确报错，不会退回导入数据冒充实采。
         try:
             competitor_provider = build_competitor_provider(
@@ -757,7 +757,7 @@ async def run_combined_endpoint(
 ) -> dict[str, Any]:
     """组合工作流：竞品分析 → （partial 时暂停等确认）→ Listing 生成。
 
-    Phase 5 下**和 ``/api/agent/runs`` 走同一条路**：``with_listing=true`` 就是
+    下**和 ``/api/agent/runs`` 走同一条路**：``with_listing=true`` 就是
     分派到组合工作流。这个端点只是"参数更窄、不接自然语言目标"的入口，
     不再自己另起一套编排——那正是收敛前的毛病。
 

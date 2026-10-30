@@ -1,16 +1,12 @@
-/**
- * 账号菜单：悬停展开、点击切换、Esc 收起并回焦、点击外部收起。
- * 行为逐条对齐旧 shell.js（含 160ms 悬停延迟关闭）。
+/** 账号菜单：悬停展开、点击切换、Esc 收起并回焦、点击外部收起（含 160ms 悬停延迟关闭）。
  *
- * Phase 3 把 layout.css 的 `.account-*` 全部改成 Tailwind。展开态由 `expanded`
- * prop 决定（原先靠 `.app.is-expanded` 后代选择器）：
- *   - 图标栏：按钮只留头像，菜单弹在**侧栏右侧**，底边与按钮底对齐
- *   - 文字栏：按钮显示姓名+角色，菜单弹在按钮**上方**
+ * 展开态由 `expanded` prop 决定：
+ *   - 图标栏：按钮只留头像，菜单弹在侧栏右侧，底边与按钮底对齐；
+ *   - 文字栏：按钮显示姓名+角色，菜单弹在按钮上方。
  *
- * 保留的 id（App.tsx 的 document 点击委托按 `#user-logout` 判退出，
- * 别改）：#account-wrap #user-chip #account-avatar #account-name #account-role
- *      #account-menu #menu-avatar #menu-name #menu-sub #menu-model #menu-worker
- *      #user-logout
+ * 保留的 id 是 App.tsx 的 document 点击委托依赖的锚点，别改：
+ *   #account-wrap #user-chip #account-avatar #account-name #account-role
+ *   #account-menu #menu-avatar #menu-name #menu-sub #menu-model #menu-worker #user-logout
  */
 import { useEffect, useRef, useState } from 'react'
 import { Database, LogOut, Settings2, Store } from 'lucide-react'
@@ -85,7 +81,7 @@ export function AccountMenu({ expanded }: { expanded: boolean }) {
     }, 160)
   }
 
-  /* 打开时淡入（旧实现是 CPMotion.fadeIn(menu, {y:4, duration:140})） */
+  /* 打开时淡入（现有实现是 CPMotion.fadeIn(menu, {y:4, duration:140})） */
   useEffect(() => {
     if (!open) return
     const menu = menuRef.current

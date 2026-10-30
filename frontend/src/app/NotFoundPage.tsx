@@ -1,8 +1,4 @@
-/**
- * 404 页 —— 从旧 `js/pages/misc.js:89-98` 迁移。
- *
- * 文案纪律：不解释「为什么还没做」，只给出现在能去哪。
- */
+/** 404 页：当前路径没有对应页面时显示，给一个回工作台的入口。 */
 import { Icon } from '@/components/shared/Icon'
 import { PageFrame, PageShell } from '@/components/shared/PageShell'
 

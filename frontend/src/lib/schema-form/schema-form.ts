@@ -14,7 +14,7 @@ import { api } from '../../lib/api.ts'
 
 type Dict = Record<string, any>
 
-/* schema 里的 $defs：旧实现挂在 window.__cpSchemaDefs 上，这里改成模块内变量。
+/* schema 里的 $defs：现有实现挂在 window.__cpSchemaDefs 上，这里改成模块内变量。
    一次只渲染一张表单，不存在并发覆盖的问题。 */
 let schemaDefs: Record<string, Dict> = {}
 

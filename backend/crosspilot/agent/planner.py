@@ -135,7 +135,7 @@ def _product_from_text(text: str) -> str:
         " ",
         text,
     )
-    cleaned = re.sub(r"\s+", " ", cleaned).strip(" ，,。.：:；;、-")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip("，,。.：:；;、-")
     if not cleaned:
         return text.strip()[:80]
     return cleaned[:80]
@@ -232,7 +232,7 @@ def resolve_goal(
 def plan_for(with_listing: bool) -> list[str]:
     """执行计划骨架（与 ``agent/workflows.py`` 的分派结果一致）。
 
-    Phase 5 起计划不再是"图里有哪些节点"，而是「主图三阶段 + 所选工作流的步骤」。
+    计划不再是"图里有哪些节点"，而是「主图三阶段 + 所选工作流的步骤」。
     保留这个函数名是因为 ``api/agents.py`` 与既有测试都按它取计划；
     实现委托给 workflows，**分派判据只有一处**。
     """

@@ -3,7 +3,7 @@
  * 轮询状态机行为测试（无框架，直接跑 TS）。
  *
  * 为什么单独测这个：它决定「任务跑起来了但界面一直不动」这类事故。
- * 旧实现在单次网络失败后不再排下一次 setTimeout，探针覆盖不到（探针环境不抖动网络），
+ * 对照实现在单次网络失败后不再排下一次 setTimeout，探针覆盖不到（探针环境不抖动网络），
  * 所以这里用注入的 fetchTask 精确复现。
  *
  * 用法：node scripts/poller-check.mjs
@@ -152,7 +152,7 @@ check(MAX_CONSECUTIVE_FAILURES === 5, '连续失败上限 = 5', String(MAX_CONSE
   check(calls === snapshot, 'stop() 后不再发请求', `又发了 ${calls - snapshot} 次`)
 }
 
-/* 5. waiting_for_* / partial 等非 RUNNING 状态一律停止轮询（与旧实现一致） */
+/* 5. waiting_for_* / partial 等非 RUNNING 状态一律停止轮询（与对照实现一致） */
 {
   for (const status of ['awaiting_approval', 'waiting_for_input', 'waiting_for_review', 'partial']) {
     let calls = 0

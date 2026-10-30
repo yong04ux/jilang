@@ -88,7 +88,7 @@ class AgentRunResponse(BaseModel):
     engine: dict[str, Any] | None = None
     degraded: bool = False
     degraded_reason: str = ""
-    #: 组合工作流暂停时的待确认内容（Phase 5）。非暂停时为 None。
+    #: 组合工作流暂停时的待确认内容。非暂停时为 None。
     pending: dict[str, Any] | None = None
 
 
@@ -106,7 +106,7 @@ class TaskResult(BaseModel):
 
 
 class CombinedRunRequest(BaseModel):
-    """组合工作流请求（Phase 5）：竞品分析 → （partial 时确认）→ Listing。
+    """组合工作流请求：竞品分析 → （partial 时确认）→ Listing。
 
     与 ``AgentRunRequest`` 的区别：这里**只服务组合工作流**，不接自然语言目标，
     也不接受 ``agent_key``。字段与 ``AgentRunRequest`` 的同名项语义一致。

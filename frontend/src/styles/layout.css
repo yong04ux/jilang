@@ -10,7 +10,7 @@
    网格与侧栏：layout/RootLayout.tsx + layout/Sidebar.tsx
    账号菜单：layout/AccountMenu.tsx（展开态由 prop 决定，不再用 .app.is-expanded）
 
-   保留 `.app` `.sidebar` `.topbar` `.nav-item` 这几个类名纯粹是**探针钩子**，
+   保留 `.app` `.sidebar` `.topbar` `.nav-item` 这几个类名，只为给验收脚本稳定的锚点，
    它们在本文件里已经没有样式了 —— 别照着它们写新样式。
    窄屏退回图标栏由 hooks/useMediaQuery.ts 的 useShellNarrow() 决定。
    ---------------------------------------------------------------------------- */
@@ -61,7 +61,7 @@
    断点用 src/styles/tailwind.css 里的 shell / wide / narrow（取值与原来的
    981 / 1180 / 720 一致）。
 
-   保留 `.topbar` / `#topbar` 这两个名字只是**探针钩子**（ui_shots_login 会判断
+   保留 `.topbar` / `#topbar` 这两个名字只为给验收脚本锚点（ui_shots_login 会判断
    `.topbar` 是否存在），它们不再承载样式 —— 别照着它们写新样式。
    ---------------------------------------------------------------------------- */
 

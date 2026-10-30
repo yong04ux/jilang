@@ -75,7 +75,7 @@ async def get_task(
         "engine": output.get("engine"),
         "report": None,
         "listing": None,
-        # 组合工作流（Phase 5）额外字段：没有时是 None，不编空对象
+        # 组合工作流额外字段：没有时是 None，不编空对象
         "report_id": output.get("report_id"),
         "listing_id": output.get("listing_id"),
         "analysis_outcome": output.get("analysis_outcome"),
@@ -288,7 +288,7 @@ async def confirm_task_endpoint(
     tenant: TenantContext = Depends(require_tenant),
     api: ApiContext = Depends(get_ctx),
 ) -> dict[str, Any]:
-    """组合工作流暂停点的确认（Phase 5）。
+    """组合工作流暂停点的确认。
 
     四道校验，顺序有讲究（**先校验、后抢占**，否则抢占完发现不能跑，
     任务就卡在 running 了）：
@@ -407,7 +407,7 @@ async def task_trace_endpoint(
     tenant: TenantContext = Depends(require_tenant),
     api: ApiContext = Depends(get_ctx),
 ) -> dict[str, Any]:
-    """按任务 ID 还原执行链（Phase 7 可观测性）。
+    """按任务 ID 还原执行链。
 
     一次返回三样东西，都从持久化数据里读，不额外埋点：
 

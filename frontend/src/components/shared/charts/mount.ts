@@ -21,7 +21,7 @@ const roots = new Map<HTMLElement, Root>()
 export function mountChart(host: HTMLElement | null, node: ReactNode): void {
   if (!host) return
   // `cp-chart` 是「这个宿主里有图表」的稳定标记：旧 charts.ts 会加，
-  // 探针（ui_skills_shot / ui_store_shot）按它断言，这里保持同名。
+  // 验收脚本（ui_skills_shot / ui_store_shot）按它断言，这里保持同名。
   host.classList.add('cp-chart')
   let root = roots.get(host)
   if (!root) {
