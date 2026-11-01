@@ -203,13 +203,13 @@ def render_markdown(result: dict[str, Any], diff: dict[str, list[str]] | None = 
         "",
         "## 分维度",
         "",
-        "| 维度 | 用例 | 通过 | 未通过 | 耗时(ms) |",
-        "| --- | ---: | ---: | ---: | ---: |",
+        "| 维度 | 用例 | 通过 | 已知问题 | 未通过 | 耗时(ms) |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for key, stat in result["dimensions"].items():
         lines.append(
             f"| {_DIMENSION_LABEL.get(key, key)} | {stat['cases']} | {stat['passed']} | "
-            f"{stat['failed']} | {stat['total_ms']} |"
+            f"{stat.get('known', 0)} | {stat['failed']} | {stat['total_ms']} |"
         )
 
     lines += [
@@ -225,6 +225,21 @@ def render_markdown(result: dict[str, Any], diff: dict[str, list[str]] | None = 
         lines += ["", "| 错误分类 | 条数 |", "| --- | ---: |"]
         for code, count in sorted(result["errors"].items(), key=lambda kv: -kv[1]):
             lines.append(f"| {code} | {count} |")
+
+    known_issues = result.get("known_issues") or []
+    if known_issues:
+        reasons: dict[str, int] = {}
+        for item in known_issues:
+            reasons[item["reason"]] = reasons.get(item["reason"], 0) + 1
+        lines += [
+            "",
+            "## 已知问题（不计通过率、不阻断门禁）",
+            "",
+            f"共 {len(known_issues)} 条，分 {len(reasons)} 类：",
+            "",
+        ]
+        for reason, count in sorted(reasons.items(), key=lambda kv: -kv[1]):
+            lines.append(f"- **{count} 条**：{reason}")
 
     if diff:
         lines += ["", "## 与基线比较", ""]
