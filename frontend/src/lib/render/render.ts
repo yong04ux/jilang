@@ -126,15 +126,20 @@ function priceSection(price: Dict | null | undefined): string {
 function competitorTable(report: Dict): string {
   const rows = (report.competitor_snapshots || [])
     .map((c: Dict) => {
+      // 有图才出图；没有就留一个同尺寸的占位，避免各行名字起点参差
+      const thumb = c.image
+        ? `<img class="cp-thumb" src="${esc(c.image)}" alt="" loading="lazy" width="40" height="40" />`
+        : `<span class="cp-thumb cp-thumb-empty" aria-hidden="true"></span>`
       return (
         `<tr>` +
-        `<td><strong>${esc(c.name)}</strong>${c.is_demo ? ' ' + mockFlag() : ''}` +
+        `<td><div class="cp-comp">${thumb}<div>` +
+        `<strong>${esc(c.name)}</strong>${c.is_demo ? ' ' + mockFlag() : ''}` +
         `<div class="t-xs t-faint">${esc(c.brand || '')}${c.brand && c.missing_fields ? ' · ' : ''}` +
         `${
           c.missing_fields && c.missing_fields.length
             ? '还缺 ' + esc(c.missing_fields.map((k: string) => labelField(k)).join('、'))
             : ''
-        }</div></td>` +
+        }</div></div></div></td>` +
         `<td class="num">${money(c.price, c.currency)}</td>` +
         `<td class="num">${c.rating === null || c.rating === undefined ? '—' : Number(c.rating).toFixed(1)}</td>` +
         `<td class="num">${c.review_count === null || c.review_count === undefined ? '—' : c.review_count}</td>` +

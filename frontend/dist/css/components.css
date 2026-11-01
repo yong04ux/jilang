@@ -347,6 +347,20 @@
 .table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table td strong { color: var(--foreground); font-weight: 600; }
 
+/* 竞品缩略图：40px 方图 + 1px 边框。没有图时留同尺寸占位，
+   让各行的商品名起点对齐——否则有图行会整体右移，表格看着是歪的。 */
+.cp-comp { display: flex; align-items: center; gap: 10px; }
+.cp-thumb {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #fff;
+  object-fit: cover;
+}
+.cp-thumb-empty { display: block; background: var(--background); }
+
 /* 窄屏收起次要列，先让主信息（任务 / 状态 / 时间）保持可读 */
 @media (max-width: 1180px) {
   .table .col-optional { display: none; }

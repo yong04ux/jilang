@@ -1000,6 +1000,7 @@ def _snapshots(data: NormalizedData) -> list[ProductSnapshot]:
                 review_count=competitor.review_count,
                 review_samples=len(competitor.reviews),
                 key_features=competitor.key_features,
+                image=competitor.image,
                 is_demo=competitor.is_demo,
                 data_completeness=completeness,
                 missing_fields=missing,
