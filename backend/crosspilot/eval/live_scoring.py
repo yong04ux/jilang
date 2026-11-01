@@ -25,17 +25,81 @@ from .live_cases import LLMCase
 
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
 
+#: 取"声称的数字"时排除标识符里的数字：``(F01)`` 是卖点编号引用、``S02`` 是规格编号，
+#: 它们不是参数。前面紧挨字母或数字的一律不算。
+_CLAIM_RE = re.compile(r"(?<![A-Za-z0-9])\d+(?:\.\d+)?")
+
 #: 编号/标签里的数字不是"参数"，不能当成编造。
 #: 模型和规则引擎都爱写「1. ...」「卖点1：」「Point 2」，这些数字没有信息量。
-_ORDINAL_LINE = re.compile(r"(?im)^\s*\d+[.)、:：]\s*")
+# 行首和句中都可能出现「1. ...」「2、...」：文本是先拼接再匹配的，
+# 只认行首会把「…stoneware 1. Microwave」里的 1 当成参数。
+_ORDINAL_LINE = re.compile(r"(?im)(?:^|\s)\d+[.)、:：](?=\s)")
 _LABEL_NUMBER = re.compile(r"(卖点|规格|feature|point|item|spec|step)\s*\d+", re.I)
+
+#: 单位换算：给美国站写 oz / inch / lb 是**正确做法**，不是编造。
+#: 不认这些换算，评测就会把"写得好"判成"编得凶"——比不做评测更糟。
+_UNIT_FAMILIES: tuple[dict[str, float], ...] = (
+    # 质量 → 克
+    {"g": 1.0, "gram": 1.0, "grams": 1.0, "kg": 1000.0, "oz": 28.3495, "ounce": 28.3495, "lb": 453.592, "lbs": 453.592, "pound": 453.592},
+    # 体积 → 毫升
+    {"ml": 1.0, "毫升": 1.0, "l": 1000.0, "liter": 1000.0, "litre": 1000.0, "floz": 29.5735, "fl oz": 29.5735, "oz": 29.5735},
+    # 长度 → 毫米
+    {"mm": 1.0, "cm": 10.0, "m": 1000.0, "in": 25.4, "inch": 25.4, "inches": 25.4, "ft": 304.8, "feet": 304.8},
+    # 温度（特殊换算，单独处理）
+)
+
+_VALUE_UNIT = re.compile(r"(\d+(?:\.\d+)?)\s*(fl oz|floz|[a-z]+|毫升)")
+
+#: 允许的偏差：换算四舍五入后与原值可能有差，相对 2% 或绝对 0.15 取大者
+_TOLERANCE_ABS = 0.15
+_TOLERANCE_REL = 0.02
 
 
 def _claim_numbers(text: str) -> list[str]:
     """只取**声称的参数**，先把编号和标签里的数字去掉。"""
     cleaned = _ORDINAL_LINE.sub(" ", text)
     cleaned = _LABEL_NUMBER.sub(r"\1", cleaned)
-    return _NUMBER_RE.findall(cleaned)
+    return _CLAIM_RE.findall(cleaned)
+
+
+def _raw_values(case: Any) -> list[float]:
+    """输入里出现的所有数字（原样）。"""
+    product = case.request.get("product") or {}
+    parts = [
+        " ".join(f"{k} {v}" for k, v in (product.get("specifications") or {}).items()),
+        " ".join(product.get("key_features") or []),
+        str(product.get("price") or ""),
+        str(product.get("name") or ""),
+    ]
+    return [float(item) for item in _NUMBER_RE.findall(" ".join(parts))]
+
+
+def _converted_values(case: Any) -> list[float]:
+    """把「数字 + 单位」换算成同族其它单位，得到一批**合法**的等价数字。"""
+    product = case.request.get("product") or {}
+    source = " ".join(f"{k} {v}" for k, v in (product.get("specifications") or {}).items())
+    source += " " + " ".join(product.get("key_features") or [])
+
+    values: list[float] = []
+    for match in _VALUE_UNIT.finditer(source.lower()):
+        amount, unit = float(match.group(1)), match.group(2).strip()
+        # 不 break：``oz`` 同时属于质量和体积两族，只取第一族会把
+        # 24 oz → 710 ml 这条正确换算漏掉，反而判成编造。
+        for family in _UNIT_FAMILIES:
+            if unit not in family:
+                continue
+            base = amount * family[unit]
+            for factor in family.values():
+                values.append(base / factor)
+    return values
+
+
+def _is_traceable(value: float, allowed: list[float]) -> bool:
+    for candidate in allowed:
+        tolerance = max(_TOLERANCE_ABS, abs(candidate) * _TOLERANCE_REL)
+        if abs(value - candidate) <= tolerance:
+            return True
+    return False
 
 #: 判据权重（合计 100）
 WEIGHTS = {
@@ -101,8 +165,13 @@ def _visible_text(draft: dict[str, Any]) -> str:
     chunks = [str(draft.get("title") or ""), str(draft.get("description") or "")]
     for item in _bullet_texts(draft):
         chunks.append(item["text"])
-    for keyword in draft.get("search_terms") or []:
-        chunks.append(str(keyword))
+    keywords = draft.get("search_terms") or []
+    # search_terms 可能是逗号串而不是列表：按字符遍历会把 "24 oz" 拆成 "2"/"4"，
+    # 于是被误判成编造。这里两种情况分开处理。
+    if isinstance(keywords, str):
+        chunks.append(keywords)
+    else:
+        chunks.extend(str(keyword) for keyword in keywords)
     return " ".join(chunks)
 
 
@@ -124,10 +193,13 @@ def score_draft(case: LLMCase, draft: dict[str, Any]) -> DraftScore:
     description = str(draft.get("description") or "").strip()
 
     # -- 红线：编造数字 ----------------------------------------------------
-    corpus = _corpus(case)
+    # 只放行「输入里原有的数字」和「由输入单位换算出来的数字」。
+    # 例如 420g 写成 14.8 oz 是合规换算（美国站本来就该写 oz），
+    # 而 72 小时保温不是从任何输入推出来的，照判编造。
+    allowed = _raw_values(case) + _converted_values(case)
     fabricated: list[str] = []
     for token in _claim_numbers(_visible_text(draft)):
-        if token not in corpus:
+        if not _is_traceable(float(token), allowed):
             fabricated.append(token)
     if fabricated:
         # 唯一一个"直接判 0"的地方：宁可误判，也不能放过不存在的参数

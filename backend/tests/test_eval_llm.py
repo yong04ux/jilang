@@ -108,6 +108,33 @@ def test_empty_draft_scores_zero():
     assert not result.passed
 
 
+def test_unit_conversion_is_not_fabrication():
+    """420g 写成 14.8 oz、24oz 写成 710ml 是合规换算，美国站本来就该这么写。"""
+    case = _case("llm-insulated-bottle")
+    draft = _good_draft(case)
+    draft["bullets"][0]["body"] += " Weighs 14.8 oz and holds 710 ml."
+    result = score_draft(case, draft)
+    assert not any("编造" in f for f in result.failures), result.failures
+
+
+def test_search_terms_as_string_is_not_character_split():
+    """search_terms 是逗号串时不能被按字符拆开，否则「24 oz」会变成「2」「4」。"""
+    case = _case("llm-insulated-bottle")
+    draft = _good_draft(case)
+    draft["search_terms"] = "24 oz insulated tumbler for travel"
+    result = score_draft(case, draft)
+    assert not any("编造" in f for f in result.failures), result.failures
+
+
+def test_feature_reference_codes_are_not_fabrication():
+    """模型会用 (F01)/(F02) 标注引用的是哪条卖点，那不是参数。"""
+    case = _case("llm-filter-pitcher")
+    draft = _good_draft(case)
+    draft["bullets"][0]["body"] += " Fast filtration (F01) keeps things moving, lid (F02) opens."
+    result = score_draft(case, draft)
+    assert not any("编造" in f for f in result.failures), result.failures
+
+
 def test_rule_provider_is_rejected_as_llm_engine():
     """没有真模型时必须报错，不能让规则引擎的产出冒充模型质量。"""
     with pytest.raises(LiveEvalError):

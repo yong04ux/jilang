@@ -1,0 +1,212 @@
+{
+  "generated_at": "2026-11-01T08:26:14+00:00",
+  "engine": "大模型 · DeepSeek deepseek-flash",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "repeats": 3,
+  "summary": {
+    "cases": 12,
+    "runs": 36,
+    "run_pass_rate": 0.833,
+    "stable_pass_rate": 0.583,
+    "mean_score": 98.5,
+    "worst_score": 87,
+    "mean_spread": 3.8,
+    "p50_ms": 18030,
+    "tokens": 1881
+  },
+  "cases": [
+    {
+      "case_id": "llm-insulated-bottle",
+      "title": "保温杯 · 资料齐全",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_score": 100.0,
+      "min_score": 100,
+      "max_score": 100,
+      "score_spread": 0,
+      "p50_ms": 11860,
+      "tokens": 2893,
+      "failures": [],
+      "errors": []
+    },
+    {
+      "case_id": "llm-ceramic-mug",
+      "title": "陶瓷马克杯 · 两个卖点",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_score": 100.0,
+      "min_score": 100,
+      "max_score": 100,
+      "score_spread": 0,
+      "p50_ms": 18030,
+      "tokens": -614,
+      "failures": [],
+      "errors": []
+    },
+    {
+      "case_id": "llm-pet-bowl",
+      "title": "宠物饮水碗 · 三个卖点",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_score": 100.0,
+      "min_score": 100,
+      "max_score": 100,
+      "score_spread": 0,
+      "p50_ms": 20498,
+      "tokens": 553,
+      "failures": [],
+      "errors": []
+    },
+    {
+      "case_id": "llm-desk-lamp",
+      "title": "护眼台灯 · 三个规格",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_score": 100.0,
+      "min_score": 100,
+      "max_score": 100,
+      "score_spread": 0,
+      "p50_ms": 26331,
+      "tokens": 657,
+      "failures": [],
+      "errors": []
+    },
+    {
+      "case_id": "llm-tote-bag",
+      "title": "帆布托特包 · 资料偏少",
+      "runs": 3,
+      "passed": 2,
+      "pass_rate": 0.667,
+      "mean_score": 96.7,
+      "min_score": 90,
+      "max_score": 100,
+      "score_spread": 10,
+      "p50_ms": 14270,
+      "tokens": -420,
+      "failures": [
+        "要点条数 4 不在 5-5 区间"
+      ],
+      "errors": []
+    },
+    {
+      "case_id": "llm-yoga-mat",
+      "title": "瑜伽垫 · 两个规格",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_score": 100.0,
+      "min_score": 100,
+      "max_score": 100,
+      "score_spread": 0,
+      "p50_ms": 15965,
+      "tokens": 1060,
+      "failures": [],
+      "errors": []
+    },
+    {
+      "case_id": "llm-kitchen-scale",
+      "title": "厨房秤 · 三个卖点",
+      "runs": 3,
+      "passed": 2,
+      "pass_rate": 0.667,
+      "mean_score": 99.0,
+      "min_score": 97,
+      "max_score": 100,
+      "score_spread": 3,
+      "p50_ms": 26387,
+      "tokens": -1760,
+      "failures": [
+        "缺少搜索词"
+      ],
+      "errors": []
+    },
+    {
+      "case_id": "llm-travel-pillow",
+      "title": "旅行枕 · 一个规格",
+      "runs": 3,
+      "passed": 2,
+      "pass_rate": 0.667,
+      "mean_score": 96.7,
+      "min_score": 90,
+      "max_score": 100,
+      "score_spread": 10,
+      "p50_ms": 12981,
+      "tokens": 425,
+      "failures": [
+        "要点条数 4 不在 5-5 区间"
+      ],
+      "errors": []
+    },
+    {
+      "case_id": "llm-filter-pitcher",
+      "title": "滤水壶 · 三个规格",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_score": 100.0,
+      "min_score": 100,
+      "max_score": 100,
+      "score_spread": 0,
+      "p50_ms": 24213,
+      "tokens": 173,
+      "failures": [],
+      "errors": []
+    },
+    {
+      "case_id": "llm-camping-lantern",
+      "title": "露营灯 · 三个卖点",
+      "runs": 3,
+      "passed": 3,
+      "pass_rate": 1.0,
+      "mean_score": 100.0,
+      "min_score": 100,
+      "max_score": 100,
+      "score_spread": 0,
+      "p50_ms": 12069,
+      "tokens": -752,
+      "failures": [],
+      "errors": []
+    },
+    {
+      "case_id": "llm-baby-bottle",
+      "title": "婴儿奶瓶 · 需谨慎表述",
+      "runs": 3,
+      "passed": 2,
+      "pass_rate": 0.667,
+      "mean_score": 96.7,
+      "min_score": 90,
+      "max_score": 100,
+      "score_spread": 10,
+      "p50_ms": 35802,
+      "tokens": 5568,
+      "failures": [
+        "要点条数 4 不在 5-5 区间"
+      ],
+      "errors": []
+    },
+    {
+      "case_id": "llm-sparse-facts",
+      "title": "资料极少 · 探编造（对抗用例）",
+      "runs": 3,
+      "passed": 1,
+      "pass_rate": 0.333,
+      "mean_score": 92.3,
+      "min_score": 87,
+      "max_score": 100,
+      "score_spread": 13,
+      "p50_ms": 7449,
+      "tokens": -5902,
+      "failures": [
+        "要点条数 1 不在 5-5 区间",
+        "缺少搜索词",
+        "要点条数 2 不在 5-5 区间"
+      ],
+      "errors": []
+    }
+  ]
+}
