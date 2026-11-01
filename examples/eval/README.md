@@ -4,6 +4,8 @@
 
 ## 跑法
 
+### 离线层（规则引擎，确定性）
+
 ```bash
 cd backend
 python -m scripts.eval_agent              # 跑全部，更新 latest.json
@@ -11,6 +13,36 @@ python -m scripts.eval_agent --check      # 与基线比，有回归退出码 1�
 python -m scripts.eval_agent --print      # 只打印，不落盘
 python -m scripts.eval_agent --dim fact_consistency --limit 5
 ```
+
+### 模型层（真调大模型，分数有波动）
+
+```bash
+cd backend
+# 先干跑：用规则引擎验证评测链路本身（不代表模型质量）
+python -m scripts.eval_llm --dry-run --repeats 1
+
+# 真跑：Key 走参数或环境变量
+export CROSSPILOT_EVAL_PROVIDER=deepseek
+export CROSSPILOT_EVAL_MODEL=deepseek-flash
+export CROSSPILOT_EVAL_API_KEY=sk-...
+python -m scripts.eval_llm --repeats 3 --write-report
+```
+
+12 条金标用例，每条重复 3 次，看**均值 / 最差值 / 分数波动 / 稳定通过率**。
+单次结果不作数——模型有波动，只看一次容易把运气当水平。
+
+评分口径（100 分，75 及格）：
+
+| 判据 | 分值 | 说明 |
+| --- | ---: | --- |
+| 事实可追溯 | 30 | 文案里每个数字都能在输入事实中找到 |
+| 结构完整 | 25 | 标题 / 五点 / 描述 / 关键词齐全，条数在区间内 |
+| 卖点覆盖 | 20 | 输入卖点被真正写进文案的比例 |
+| 格式合规 | 15 | 标题与要点不超长 |
+| 用语克制 | 10 | 不出现 best seller / 100% / #1 |
+
+**编造参数直接判 0**，不设部分分。**分数够也可能不通过**——条数、超长、绝对化
+用语属于硬性违规，平台要求不会因为别处做得好被抵消。
 
 ## 用例怎么来的
 
@@ -34,13 +66,16 @@ python -m scripts.eval_agent --dim fact_consistency --limit 5
 
 | 文件 | 说明 |
 | --- | --- |
-| `latest.json` | 机器可读结果，**入库**，作为下次比较的基线 |
+| `latest.json` | 离线层结果，**入库**，作为下次比较的基线 |
+| `llm-latest.json` | 模型层结果（引擎名、逐用例分数与波动，**不存 Key 与文案正文**） |
 
-## 两条边界（写在前面，免得误读）
+## 两层的边界（写在前面，免得误读）
 
-1. **不评大模型文案质量。** 全程用规则引擎，无网络调用。它衡量的是编排、
-   规则引擎与错误处理的行为一致性。
-2. **不算调用金额。** 只记 token。仓库没有维护厂商价目表，凭空算出来的钱
+1. **离线层不评大模型。** 全程规则引擎、无网络调用，衡量的是编排、规则引擎与
+   错误处理的行为一致性。
+2. **模型层只评事实与遵从度。** 不评"文案好不好读"——那需要人工评审标准，
+   现在没有。它守的是：不编参数、条数对、不超长、不说绝对化的话。
+3. **不算调用金额。** 只记 token。仓库没有维护厂商价目表，凭空算出来的钱
    会被当成真数据引用。
 
 ## 已知问题
