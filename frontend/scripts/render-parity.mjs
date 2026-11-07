@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 渲染层语义对照：旧 `js/{schema-form,render}.js` ↔ 新 `src/features/{schema-form,render}`。
+ * 渲染层语义对照：旧 `js/{schema-form,render}.js` ↔ 新 `src/lib/{schema-form,render}`。
  *
  * 这两个模块产出的是整块 HTML 字符串，直接塞进 innerHTML。
  * 少一个空格、错一个类名、漏一层转义，页面就变形或漏渲染，而探针只断言
@@ -18,13 +18,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const root = dirname(here)
 
-// 旧实现已随 S8 删除：没有基线就跳过（脚本保留，fixture 仍有参考价值）
+// 没有对照基线时跳过（脚本保留，fixture 仍有参考价值）
 if (!existsSync(resolve(root, 'js'))) {
-  console.log('\n跳过：frontend/js/ 已删除（S8），无对照基线\n')
+  console.log('\n跳过：frontend/js/ 已删除（），无对照基线\n')
   process.exit(0)
 }
 
-/* ---- 旧实现 ---- */
+/* ---- 对照实现 ---- */
 const legacyWindow = {}
 const load = (file) =>
   new Function('window', readFileSync(resolve(root, 'js', file), 'utf8'))(legacyWindow)
@@ -39,9 +39,9 @@ const oldForm = legacyWindow.CPSchemaForm
 const oldRender = legacyWindow.CPRender
 
 const newForm = await import(
-  pathToFileURL(resolve(root, 'src/features/schema-form/schema-form.ts')).href
+  pathToFileURL(resolve(root, 'src/lib/schema-form/schema-form.ts')).href
 )
-const newRender = await import(pathToFileURL(resolve(root, 'src/features/render/render.ts')).href)
+const newRender = await import(pathToFileURL(resolve(root, 'src/lib/render/render.ts')).href)
 
 let failed = 0
 let passed = 0

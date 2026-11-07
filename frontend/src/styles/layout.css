@@ -1,0 +1,422 @@
+/* ============================================================================
+   激浪 · Layout —— 反调印刷的应用外壳
+   导航换轴：68px 图标栏 → 84px 竖排书脊（writing-mode: vertical-rl）
+   顶栏换形：单行面包屑 → 跑马灯状态条 + 编号条
+   本页无 Tailwind：外壳的样式全部在这里，组件只出结构与语义类名。
+   ========================================================================== */
+
+/* ----------------------------------------------------------------------------
+   外壳网格
+   ---------------------------------------------------------------------------- */
+
+.app {
+  display: grid;
+  grid-template-columns: var(--spine-w) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* 书脊：整条压成墨底，中文竖排，编号用等宽 */
+.sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  height: 100vh;
+  padding: 14px 0 12px;
+  background: var(--ink);
+  border-right: var(--bd-lg);
+  overflow: visible;
+}
+
+.spine-brand {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  background: var(--acid-lime);
+  border: 2px solid var(--acid-lime);
+  box-shadow: 3px 3px 0 var(--acid-magenta);
+  transition: transform var(--dur-1) var(--ease-out);
+}
+.spine-brand:hover { transform: translate(-1px, -1px); }
+.spine-brand img { width: 34px; height: 34px; }
+
+/* 竖排导航条 */
+.sidebar-nav {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 2px;
+  overflow: auto;
+  scrollbar-width: none;
+}
+.sidebar-nav::-webkit-scrollbar { display: none; }
+
+.sidebar-group {
+  display: contents; /* 分组靠分隔线表达，不打断竖排流 */
+}
+.sidebar-group + .sidebar-group .nav-item:first-child {
+  border-top: 2px solid #35322C;
+  margin-top: 6px;
+  padding-top: 14px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 9px 0;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: .06em;
+  color: #A8A093;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  white-space: nowrap; /* 竖排里换行会折成两列，书脊必须一条到底 */
+  transition: color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+.nav-item:hover { color: var(--acid-lime); text-decoration: none; }
+.nav-item .icon, .nav-item svg { display: none; } /* 书脊里文字已经够重，图标全部让位 */
+.nav-item[aria-current="page"] {
+  color: var(--ink);
+  background: var(--acid-lime);
+  border-left-color: var(--acid-magenta);
+  font-weight: 900;
+  padding-left: 8px;
+}
+
+.sidebar-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding-top: 10px;
+  border-top: 2px solid #35322C;
+}
+
+/* 账号章：书脊里只留一个方头字母块（换头像后是方图），水平居中 */
+#account-wrap { display: grid; place-items: center; justify-items: center; }
+.account-chip {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--ink);
+  background: var(--paper-2);
+  border: 2px solid var(--paper-2);
+  box-shadow: 3px 3px 0 var(--acid-cyan);
+}
+.account-chip:hover { transform: translate(-1px, -1px); }
+.account-chip img,
+#account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 账号菜单：从书脊右下角向右弹出、底边对齐，别从底部掉出视口；
+   与书脊同边贴合，指针横移时不会跨出悬停区导致菜单提前收起。 */
+.account-menu {
+  position: absolute;
+  left: 100%;
+  bottom: 0;
+  top: auto;
+  width: 292px;
+  border: var(--bd);
+  background: var(--paper-2);
+  box-shadow: var(--hard-ink);
+}
+/* 菜单内部沿用纸面/墨块语言，别退回 shadcn 的圆头像与浅灰卡 */
+.account-menu a,
+.account-menu button { color: var(--ink); }
+.account-menu #menu-avatar {
+  border-radius: 0;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: var(--acid-lime);
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-weight: 900;
+}
+#menu-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.account-menu > div:nth-of-type(2) {
+  border: 2px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper-3);
+}
+.account-menu [role="menuitem"]:hover {
+  background: var(--acid-lime);
+  color: var(--ink);
+}
+
+/* ----------------------------------------------------------------------------
+   主区
+   ---------------------------------------------------------------------------- */
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.view-root {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  outline: none;
+}
+
+/* 每次路由挂载都会新建一个 .mount-slot 容器（见 app.js 的 mountPage）。
+   目的是让上一页慢回来的异步渲染只能写进已经脱离文档的旧容器，
+   不会把新页面覆盖掉。这里把 flex 链补上，保持原布局不变。 */
+.view-root > .mount-slot {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.view-root > .view,
+.view-root > .mount-slot > .view {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ----------------------------------------------------------------------------
+   顶栏 = 跑马灯状态条 + 编号条
+   ---------------------------------------------------------------------------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: auto;
+  padding: 0;
+  background: var(--paper-2);
+  border-bottom: var(--bd-lg);
+}
+
+.ticker {
+  display: flex;
+  align-items: stretch;
+  height: var(--ticker-h);
+  background: var(--acid-lime);
+  border-bottom: 2px solid var(--ink);
+  overflow: hidden;
+}
+.ticker-seg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  height: 100%;
+  padding: 0 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink);
+  border-right: 2px solid var(--ink);
+}
+.ticker-seg[data-tone="alert"] { background: var(--acid-magenta); color: var(--paper-2); }
+.ticker-seg[data-tone="muted"] { background: transparent; color: var(--ink-3); }
+.ticker-seg[data-tone="live"] { background: var(--acid-cyan); }
+
+/* 跑马灯：一条永动的说明带，把「示例数据」这类真话讲到底 */
+.ticker-marq {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: var(--paper-2);
+  border-right: 2px solid var(--ink);
+}
+.ticker-marq span {
+  display: block;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .2em;
+  color: var(--ink-3);
+  animation: ticker-slide var(--dur-4) linear infinite;
+}
+@keyframes ticker-slide {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-marq span { animation: none; }
+}
+
+.ticker-right { margin-left: auto; display: flex; height: 100%; }
+.ticker-cta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 18px;
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: .08em;
+  color: var(--acid-lime);
+  background: var(--ink);
+  border-left: 2px solid var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.ticker-cta:hover { background: var(--primary-hover); color: #fff; text-decoration: none; }
+
+/* 编号条：原来的面包屑降级成「第几号 / 路径」 */
+.crumb-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--crumb-h);
+  padding: 0 24px;
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper-2);
+}
+.crumb-bar nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.crumb-bar nav a { color: var(--ink-3); text-decoration: none; }
+.crumb-bar nav a:hover { color: var(--ink); text-decoration: underline; }
+.crumb-bar nav .crumb-current {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing: .04em;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crumb-meta {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.crumb-meta b { color: var(--ink); font-weight: 800; }
+
+/* 抽屉入口：书脊上的品牌块兼任，这里只留窄屏的补充按钮 */
+.nav-open-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--ink);
+  color: var(--acid-lime);
+  border: 2px solid var(--ink);
+}
+
+/* ----------------------------------------------------------------------------
+   页面容器
+   ---------------------------------------------------------------------------- */
+
+.page {
+  flex: 1 1 auto;
+  width: 100%;
+  padding: 26px;
+}
+
+.page-inner {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+.page-title {
+  font-family: var(--font-sans);
+  font-size: var(--fs-hero);
+  font-weight: 900;
+  letter-spacing: var(--tr-tight);
+  line-height: var(--lh-tight);
+  /* 丝网印错位：所有页面共用同一份，别按页挑 */
+  text-shadow: 3px 2px 0 var(--acid-magenta);
+}
+.page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* 视图切换的进场由 js/motion.js 负责，CSS 只做兜底 */
+.view { animation: view-in var(--dur-2) var(--ease-out); }
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .view { animation: none; }
+}
+
+/* ----------------------------------------------------------------------------
+   响应式
+   ---------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .page { padding: 20px 18px; }
+  .page-title { font-size: 38px; }
+}
+
+@media (max-width: 980px) {
+  :root { --spine-w: 62px; }
+  .app { grid-template-columns: var(--spine-w) minmax(0, 1fr); }
+  .nav-item { font-size: 13px; letter-spacing: .1em; padding: 10px 0; }
+  .nav-open-btn { display: inline-flex; }
+  .crumb-bar nav .crumb-root, .crumb-bar nav .crumb-sep { display: none; }
+}
+
+@media (max-width: 720px) {
+  .page { padding: 16px 12px; }
+  .page-head { flex-direction: column; align-items: stretch; }
+  .page-title { font-size: 32px; }
+  .ticker-seg[data-tone="muted"] { display: none; }
+  .crumb-meta { display: none; }
+}

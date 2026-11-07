@@ -35,7 +35,18 @@ INTENTIONALLY_UNROUTED = {
     "/knowledge",
 }
 
-CSS_FILES = ["tokens", "base", "components", "layout", "pages", "store", "skills"]
+CSS_FILES = [
+    "tokens",
+    "base",
+    "components",
+    "layout",
+    "pages",
+    "store",
+    "skills",
+    # 由 `npm run build:css` 从 src/styles/tailwind.css 生成，落盘为固定文件名
+    # （不用内容哈希），这样仍走服务端的 ?v=0 构建戳失效机制。
+    "tailwind",
+]
 
 
 def normalize(path: str) -> str:
@@ -56,7 +67,14 @@ html = INDEX.read_text(encoding="utf-8")
 css_refs = re.findall(r'href="(/css/[\w.-]+\.css)\?([^"]*)"', html)
 print(f"样式引用: {len(css_refs)} 个")
 
-missing_css = [path for path, _ in css_refs if not (WEB / path.lstrip("/")).is_file()]
+def css_source(path: str) -> Path:
+    """/css/x.css 的来源：手写样式在 src/styles，tailwind 产物在 css/。"""
+    name = path.rsplit("/", 1)[-1]
+    built = WEB / path.lstrip("/")
+    return built if built.is_file() else WEB / "src" / "styles" / name
+
+
+missing_css = [path for path, _ in css_refs if not css_source(path).is_file()]
 if missing_css:
     failures.append(f"index.html 引用了不存在的样式: {missing_css}")
 

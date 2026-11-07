@@ -1,13 +1,13 @@
-"""Listing 生成的前置资料整理（计划 §6.2 的确定性节点，Service 层）。
+"""Listing 生成的前置资料整理。
 
 为什么单独一层
 ==============
 
-Phase 3 要把 Listing 流程拆成子图，节点应该**只做编排**：
+要把 Listing 流程拆成子图，节点应该**只做编排**：
 取资料、判缺失、调模型、校验、落库，每一步的判断都该是可单测的纯函数。
 
-改造前这些判断全部埋在 ``engine/listing_llm.generate_listing`` 一个 200 行函数里，
-于是「缺哪些必填属性」这种确定性事实，只能通过"跑一遍生成"才知道。
+这些判断若埋在 ``engine/listing_llm.generate_listing`` 里，「缺哪些必填属性」
+这种确定性事实就只能靠"跑一遍生成"才知道。
 
 这里的四个函数**都不调模型、不访问数据库**：
 
@@ -18,7 +18,7 @@ Phase 3 要把 Listing 流程拆成子图，节点应该**只做编排**：
 
 ``resolve_product_facts`` 与 ``generate_listing`` 都会调用 ``build_fact_sheet``。
 这是刻意的重复计算：``build_fact_sheet`` 是纯函数且便宜，而把 FactSheet 塞进
-图状态会破坏"状态必须可序列化"（Phase 6 要接 checkpointer）。
+图状态会破坏"状态必须可序列化"。
 """
 
 from __future__ import annotations

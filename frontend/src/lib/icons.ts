@@ -1,7 +1,7 @@
 /**
  * 图标表 —— 与旧 `js/icons.js` 的数据逐条一致（Lucide v1.61，24 栅格 / 2px 描边 / 圆头）。
  *
- * 旧页面的 HTML 字符串里到处是 `<span data-icon>`，靠 `hydrate()` 补图；
+ * 页面模块的 HTML 字符串里到处是 `<span data-icon>`，靠 `hydrate()` 补图；
  * 新代码用 `<Icon name>` 组件。两边共用这一份数据，避免出现两套图标表。
  */
 const P: Record<string, string> = {
@@ -87,7 +87,7 @@ const P: Record<string, string> = {
     '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
 }
 
-/** 旧 key 兼容：`check_circle` / `cross` 这类写法散落在旧页面里 */
+/** 别名 key 兼容：`check_circle` / `cross` 这类写法散落在页面模块里 */
 const ALIAS: Record<string, string> = {
   alert: 'alert',
   check_circle: 'check',

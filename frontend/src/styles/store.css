@@ -1,0 +1,895 @@
+/* ============================================================================
+   激浪 · 店铺与渠道（/stores 四个子页）
+   语言：**收据 / 台账**。暖白纸面 + 3px 墨框 + 硬投影，表头是墨底酸柠的横带，
+   行用 2px 点线骑缝，数字列等宽 + tabular-nums + 右对齐，页脚是巨型等宽合计，
+   来源标记走圆形骑缝章。圆角一律为 0。
+   只改视觉：`.st-*` 类名与表格结构是验收脚本的锚点，一个都没动。
+   ========================================================================== */
+
+/* 经营看板指标网格最多 9 列，窄了会把等宽标签挤断 */
+.page--store { --store-max: 1320px; }
+.page--store .page-inner { max-width: var(--store-max); }
+
+/* ----------------------------------------------------------------------------
+   子页切换：墨底酸柠的分段条
+   ---------------------------------------------------------------------------- */
+
+.st-tabs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 0 0 18px;
+  border: var(--bd-lg);
+  background: var(--ink);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.st-tabs::-webkit-scrollbar { display: none; }
+
+.st-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--paper-3);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+/* 分段条的骑缝线：酸柠描边，只在装饰层 */
+.st-tab:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(216, 255, 61, .34);
+}
+.st-tab.is-active:not(:last-child)::after { background: var(--ink); }
+.st-tab:hover { color: var(--acid-lime); background: rgba(216, 255, 61, .1); text-decoration: none; }
+.st-tab.is-active {
+  background: var(--acid-lime);
+  color: var(--ink);
+  font-weight: 900;
+}
+.st-tab:focus-visible { outline: 3px solid var(--acid-lime); outline-offset: -6px; }
+
+/* ----------------------------------------------------------------------------
+   工具栏：店铺 / 站点 / 时间范围 / 明细类型 —— 一条墨框横带
+   ---------------------------------------------------------------------------- */
+
+.st-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  border: var(--bd-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
+}
+.st-toolbar > * {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 12px;
+  border-right: 2px solid var(--ink);
+}
+.st-toolbar > *:last-child { border-right: 0; }
+/* datalist 是候选数据，不能被上面的 flex 拉出来变成一行正文 */
+.st-toolbar > datalist { display: none; }
+.st-toolbar-right { margin-left: auto; }
+
+.st-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+}
+.st-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 100%;
+  min-width: 184px;
+  padding: 0 30px 0 11px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  box-shadow: inset 2px 2px 0 rgba(17, 16, 20, .06);
+  cursor: pointer;
+}
+.st-select select:focus-visible { outline: 3px solid var(--acid-magenta); outline-offset: 1px; }
+.st-select .icon {
+  position: absolute;
+  right: 9px;
+  width: 14px;
+  height: 14px;
+  color: var(--ink);
+  pointer-events: none;
+}
+.st-select--site select { min-width: 116px; }
+.st-select--asin { flex: 1 1 260px; min-width: 220px; max-width: 420px; }
+.st-select--asin input {
+  width: 100%;
+  height: 34px;
+  padding: 0 34px 0 32px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  box-shadow: inset 2px 2px 0 rgba(17, 16, 20, .06);
+}
+.st-select--asin input::placeholder { color: var(--ink-3); letter-spacing: .04em; }
+.st-select--asin input:focus { outline: 3px solid var(--acid-magenta); outline-offset: 1px; }
+.st-select--asin .icon { left: 9px; right: auto; color: var(--ink-3); }
+
+/* 分段筛选：墨框容器，选中格填酸柠 */
+.st-seg {
+  display: inline-flex;
+  align-items: stretch;
+  padding: 0;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper);
+}
+.st-seg button {
+  height: 30px;
+  padding: 0 13px;
+  border: 0;
+  border-right: 2px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+.st-seg button:last-child { border-right: 0; }
+.st-seg button:hover { background: rgba(216, 255, 61, .4); color: var(--ink); }
+.st-seg button.is-active { background: var(--acid-lime); color: var(--ink); font-weight: 800; }
+
+/* ----------------------------------------------------------------------------
+   卡片：一张收据
+   ---------------------------------------------------------------------------- */
+
+.st-card {
+  position: relative;
+  background: var(--card);
+  border: var(--bd-lg);
+  border-radius: 0;
+  box-shadow: var(--hard-ink);
+  overflow: visible;
+}
+.st-card + .st-card,
+.st-card + .st-grid-2,
+.st-card + .st-toolbar,
+.st-stack > * + * { margin-top: 18px; }
+.st-grid-2 + .st-card,
+.st-toolbar + .st-card { margin-top: 0; }
+
+.st-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 56px;
+  padding: 10px 18px;
+  border-bottom: var(--bd-lg);
+  background: var(--paper-3);
+}
+.st-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-lg);
+  font-weight: 900;
+  letter-spacing: -.02em;
+  color: var(--foreground);
+}
+.st-card-head > .st-card-title,
+.st-card-head .st-card-title { font-size: var(--fs-xl); letter-spacing: var(--tr-tight); }
+.st-card-title .icon { width: 14px; height: 14px; color: var(--ink-3); }
+.st-card-extra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.st-card-body { padding: 14px 18px 18px; }
+.st-card-body--flush { padding: 0; }
+
+.st-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.st-grid-2 > * { min-width: 0; }
+
+/* 没有卡头的裸标题（添加示例店铺表单） */
+.st-card > .st-card-title {
+  padding: 14px 16px 0;
+  font-size: var(--fs-xl);
+}
+
+/* ----------------------------------------------------------------------------
+   指标格：第一格是巨型墨底，其余纸面等宽
+   ---------------------------------------------------------------------------- */
+
+.st-metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.st-metrics--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.st-metrics--ads { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+.st-metrics--five { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+.st-metric {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 96px;
+  padding: 11px 13px 12px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper-2);
+  box-shadow: var(--shadow-xs);
+}
+.st-metric-label {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+.st-metric-value {
+  margin-top: 8px;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.st-metric-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 2px 6px;
+  border: 2px solid currentColor;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
+}
+.st-metric-delta.is-good { color: var(--success); background: var(--acid-lime); }
+.st-metric-delta.is-bad { color: var(--ink); background: var(--acid-magenta); }
+.st-metric-delta.is-flat { color: var(--ink-3); background: var(--paper-3); }
+
+/* 首格＝台账上的巨型合计：墨底 + 酸柠数字 */
+.st-metrics > .st-metric:first-child {
+  background: var(--ink);
+  border-color: var(--ink);
+  box-shadow: var(--hard-mag);
+}
+.st-metrics > .st-metric:first-child .st-metric-label { color: var(--paper-3); }
+.st-metrics > .st-metric:first-child .st-metric-value {
+  color: var(--acid-lime);
+  font-size: 28px;
+}
+
+/* 9 列的广告指标最窄，字号与内边距一起收，保证 "$1,128.85" 不掉字 */
+.st-metrics--ads .st-metric { min-height: 86px; padding: 9px 10px 10px; }
+.st-metrics--ads .st-metric-label { font-size: 9px; letter-spacing: .1em; }
+.st-metrics--ads .st-metric-value { font-size: 17px; letter-spacing: -.02em; }
+.st-metrics--ads > .st-metric:first-child .st-metric-value { font-size: 18px; }
+.st-metrics--ads .st-metric-delta { font-size: 9px; padding: 1px 4px; }
+.st-metrics--five .st-metric-value { font-size: 24px; }
+.st-metrics--five > .st-metric:first-child .st-metric-value { font-size: 26px; }
+
+/* ----------------------------------------------------------------------------
+   待处理事项：纸面格 + 撞色书脊（颜色只做描边与底，文字始终在场）
+   ---------------------------------------------------------------------------- */
+
+.st-todos {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.st-todo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 104px;
+  padding: 11px 13px;
+  border: var(--bd);
+  border-left-width: 12px;
+  border-radius: 0;
+  background: var(--paper-2);
+  box-shadow: var(--shadow-xs);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out);
+}
+.st-todo:hover { background: var(--paper); transform: translate(-1px, -1px); }
+.st-todo > span:first-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.st-todo strong {
+  margin-top: 6px;
+  color: var(--ink);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.05em;
+  font-variant-numeric: tabular-nums;
+}
+.st-todo small {
+  margin-top: auto;
+  padding-top: 6px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-3);
+}
+.st-todo--danger { border-left-color: var(--acid-magenta); }
+.st-todo--warning { border-left-color: var(--acid-orange); }
+.st-todo--ok { border-left-color: var(--acid-lime-deep); }
+
+/* ----------------------------------------------------------------------------
+   表格：点线骑缝的明细行
+   ---------------------------------------------------------------------------- */
+
+.st-table-wrap {
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper);
+  overflow: auto;
+}
+.st-card-body--flush .st-table-wrap { border: 0; border-radius: 0; background: transparent; }
+
+.st-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--ink-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+}
+.st-table th {
+  height: 38px;
+  padding: 0 14px;
+  border-bottom: var(--bd-lg);
+  background: var(--ink);
+  color: var(--acid-lime);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+.st-table td {
+  height: 46px;
+  padding: 8px 14px;
+  border-bottom: 2px dotted var(--ink-3);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.st-table tbody tr:last-child td { border-bottom: 0; }
+.st-table tbody tr { transition: background var(--dur-1) var(--ease-out); }
+.st-table tbody tr:hover > td { background: rgba(216, 255, 61, .5); color: var(--ink); }
+.st-table th.num { text-align: right; }
+.st-table td.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
+}
+.st-table .t-muted { color: var(--ink-3); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.st-table td[colspan] { white-space: normal; }
+
+.st-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper-3);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+}
+.st-cell-product { display: flex; align-items: center; gap: 10px; min-width: 0; }.st-cell-product > div { display: flex; flex-direction: column; min-width: 0; }
+.st-cell-product a,
+.st-cell-product strong {
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  font-weight: 900;
+  letter-spacing: -.01em;
+  text-decoration: none;
+}
+.st-cell-product a { color: var(--primary); }
+.st-cell-product a:hover { text-decoration: underline; text-decoration-thickness: 2px; }
+.st-cell-product span {
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.st-cell-product small { color: var(--ink-3); font-size: 10px; font-family: var(--font-mono); letter-spacing: .06em; }
+
+/* 行内展开的明细：两列工单 */
+.st-detail-row > td,
+.st-detail-row:hover > td {
+  padding: 0;
+  background: var(--paper);
+  border-top: var(--bd);
+  border-bottom: var(--bd);
+  white-space: normal;
+}
+.st-detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 28px;
+  padding: 12px 18px 14px;
+}
+.st-detail-row-item {
+  display: grid;
+  grid-template-columns: minmax(96px, 38%) minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  min-width: 0;
+  padding: 6px 0;
+  border-bottom: 2px dotted var(--ink-3);
+  font-size: var(--fs-xs);
+}
+.st-detail-row-item dt {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+}
+.st-detail-row-item dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.st-detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.st-detail-toggle:hover { background: var(--acid-lime); }
+.st-detail-toggle .icon { width: 12px; height: 12px; }
+
+/* ----------------------------------------------------------------------------
+   状态徽标：盖章（撞色只做底与描边，文字永远是墨）
+   ---------------------------------------------------------------------------- */
+
+.st-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+.st-pill--ok { background: var(--acid-lime); color: var(--success); }
+.st-pill--warning { background: var(--acid-orange); color: var(--warning); }
+.st-pill--danger { background: var(--acid-magenta); color: var(--ink); }
+.st-pill--muted { background: var(--paper-3); color: var(--ink-2); }
+/* 在途 / 进行中：电青底 + 墨字 */
+.st-pill--brand { background: var(--acid-cyan); color: var(--ink); }
+/* 示例数据：虚线印章 + 微倾斜，和「已连接」的实底框一眼分开 */
+.st-pill--sample {
+  border: 2px dashed var(--stamp);
+  background: var(--paper);
+  color: var(--stamp);
+  font-weight: 800;
+  transform: rotate(var(--tilt-stamp));
+}
+
+/* ----------------------------------------------------------------------------
+   横向占比条（库龄分布 / 地区分布）
+   ---------------------------------------------------------------------------- */
+
+.st-breakdown { display: flex; flex-direction: column; gap: 9px; }
+.st-breakdown-row {
+  display: grid;
+  grid-template-columns: 84px minmax(80px, 1fr) 112px;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.st-breakdown-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; letter-spacing: .08em; }
+.st-breakdown-bar {
+  height: 14px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper);
+  overflow: hidden;
+}
+.st-breakdown-bar > span {
+  display: block;
+  min-width: 2px;
+  height: 100%;
+  border-right: 2px solid var(--ink);
+  border-radius: 0;
+  background: repeating-linear-gradient(45deg, var(--acid-lime-deep) 0 5px, var(--acid-lime) 5px 10px);
+}
+.st-breakdown-value {
+  color: var(--ink);
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------------------------
+   单品摘要卡
+   ---------------------------------------------------------------------------- */
+
+.st-product {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: var(--bd-lg);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: var(--hard-ink);
+}
+.st-product-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--ink);
+  color: var(--acid-lime);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  letter-spacing: .02em;
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.st-product-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* 表格里的商品主图：有图才出列，缺图留同尺寸虚线空框 */
+.st-col-thumb { width: 56px; padding-right: 0; }
+.st-thumb {
+  display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border: 2px solid var(--ink);
+  background: var(--paper-3);
+}
+.st-thumb-empty { border-style: dashed; border-color: var(--ink-3); background: transparent; }
+.st-product-main { flex: 1 1 auto; min-width: 0; }
+.st-product-meta { display: flex; align-items: center; gap: 9px; font-size: var(--fs-xs); color: var(--ink-3); }
+.st-product-meta > span { font-family: var(--font-mono); letter-spacing: .1em; }
+.st-product-title {
+  margin: 7px 0 0;
+  color: var(--foreground);
+  font-size: var(--fs-xl);
+  font-weight: 900;
+  letter-spacing: var(--tr-tight);
+  line-height: var(--lh-tight);
+}
+.st-product-sub { margin: 6px 0 0; color: var(--ink-3); font-family: var(--font-serif); font-size: var(--fs-sm); }
+.st-product-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(96px, 1fr));
+  margin-left: auto;
+}
+.st-product-stats > div { padding: 2px 18px; border-left: 2px dotted var(--ink-3); }
+.st-product-stats dt {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+}
+.st-product-stats dd {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 6px 0 0;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+.st-product-stats dd small { color: var(--ink-3); font-size: 10px; font-weight: 400; }
+
+/* ----------------------------------------------------------------------------
+   未绑定店铺：三步引导（工单工序）
+   ---------------------------------------------------------------------------- */
+
+.st-card:has(#st-unbound-add) .st-card-head > .st-card-title { font-size: var(--fs-xl); }
+.st-card:has(#st-unbound-add) .st-card-body > p {
+  margin: 0 0 14px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
+  color: var(--ink-2);
+  line-height: var(--lh-relaxed);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.st-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin-top: 26px;
+  border: var(--bd-lg);
+  background: var(--card);
+  box-shadow: var(--hard-ink);
+}
+.st-step { position: relative; padding: 16px 18px 18px; }
+.st-step + .st-step { border-left: 2px dotted var(--ink-3); }
+.st-step-no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--ink);
+  color: var(--acid-lime);
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  line-height: 1;
+  box-shadow: var(--shadow-xs);
+}
+.st-step-title { margin: 12px 0 0; font-size: var(--fs-md); font-weight: 900; letter-spacing: -.02em; }
+.st-step-desc {
+  margin: 6px 0 0;
+  color: var(--ink-3);
+  font-family: var(--font-serif);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+.st-safety {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: var(--bd);
+  border-left-width: 12px;
+  border-left-color: var(--primary);
+  border-radius: 0;
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font-family: var(--font-serif);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+.st-safety .icon { flex: 0 0 auto; width: 16px; height: 16px; color: var(--ink); margin-top: 1px; }
+
+/* ----------------------------------------------------------------------------
+   收据页脚：巨型等宽合计 + 圆形骑缝章
+   ---------------------------------------------------------------------------- */
+
+.st-receipt-foot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: -3px;
+  padding: 14px 18px;
+  border: var(--bd-lg);
+  background: var(--paper-2);
+  box-shadow: var(--hard-ink);
+  overflow: hidden;
+}
+.st-receipt-foot-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.st-receipt-foot-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-num);
+  font-weight: 800;
+  line-height: .8;
+  letter-spacing: -.05em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.st-receipt-foot-unit {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--ink-3);
+}
+.st-receipt-seal {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  margin-top: -46px;
+  border: 3px solid var(--stamp);
+  border-radius: 50%;
+  background: rgba(229, 0, 79, .05);
+  color: var(--stamp);
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: var(--fs-sm);
+  letter-spacing: .1em;
+  line-height: 1.3;
+  text-align: center;
+  transform: rotate(-12deg);
+  opacity: .9;
+}
+.st-receipt-seal small {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: .1em;
+}
+/* 已同步（非示例）走墨底，避免把真实数据盖成红色告警 */
+.st-receipt-seal--live {
+  border-color: var(--ink);
+  background: rgba(216, 255, 61, .12);
+  color: var(--ink);
+}
+
+/* ----------------------------------------------------------------------------
+   提示与骨架
+   ---------------------------------------------------------------------------- */
+
+.st-note {
+  margin-bottom: 12px;
+  padding: 10px 13px;
+  border: var(--bd);
+  border-left-width: 12px;
+  border-left-color: var(--acid-orange);
+  border-radius: 0;
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font-family: var(--font-serif);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+.st-note--warning { background: var(--acid-orange); border-left-color: var(--ink); color: var(--ink); font-weight: 700; }
+
+.st-loading { display: flex; flex-direction: column; gap: 14px; }
+
+/* ----------------------------------------------------------------------------
+   响应式
+   ---------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .st-metrics--ads { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .st-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .st-todos { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 860px) {
+  .st-grid-2 { grid-template-columns: 1fr; }
+  .st-steps { grid-template-columns: 1fr; }
+  .st-step + .st-step { border-left: 0; border-top: 2px dotted var(--ink-3); }
+  .st-detail { grid-template-columns: 1fr; }
+  .st-product { flex-wrap: wrap; }
+  .st-product-stats { width: 100%; margin-left: 0; }
+  .st-product-stats > div:first-child { border-left: 0; padding-left: 0; }
+  .st-receipt-foot-num { font-size: 44px; }
+  .st-receipt-seal { display: none; }
+}
+
+@media (max-width: 620px) {
+  .st-metrics,
+  .st-metrics--three,
+  .st-metrics--five,
+  .st-metrics--ads { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .st-todos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .st-toolbar > * { border-right: 0; }
+  .st-toolbar .st-select { flex: 1 1 auto; }
+  .st-toolbar .st-select select { min-width: 0; width: 100%; }
+}

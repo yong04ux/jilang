@@ -84,21 +84,21 @@ async function main() {
 
   // 关闭 Listing（临时账号未配 Key，Listing 会被 BYOK 拦），执行
   await ev('(() => { const c = document.getElementById("wb-with-listing"); if (c) c.checked = false; return true })()')
-  await ev('document.getElementById("wb-run").click()')
+  await ev('document.getElementById("wb-run-task").click()')
 
   const runMode = await waitFor('!!document.getElementById("wb-run")', 15000)
   check('进入左对话 + 右结果两栏', runMode)
   check('有右侧结果面板', await ev('!!document.getElementById("wb-res-pane")'))
-  check('结果 Tab 两个（步骤 / 数据）', (await ev('document.querySelectorAll("[data-res-tab]").length')) === 2)
+  check('结果 Tab 含步骤与概要', (await ev('document.querySelectorAll("[data-res-tab]").length')) >= 2)
 
   const done = await waitFor('!document.querySelector(".badge-running") && !!document.getElementById("wb-run")', 40000)
   check('执行完成', done)
   check('步骤来自真实 task_steps', (await ev('document.querySelectorAll(".timeline-item").length')) >= 4)
 
-  // 切到「数据」Tab 看结果块
-  await ev('document.querySelector(\'[data-res-tab="data"]\').click()')
+  // 切到「概要」Tab 看结论与质检
+  await ev('document.querySelector(\'[data-res-tab="overview"]\').click()')
   await sleep(600)
-  check('数据 Tab 渲染结果块', (await ev('document.querySelectorAll(".result-block").length')) >= 2)
+  check('概要 Tab 渲染结果块', (await ev('document.querySelectorAll(".result-block").length')) >= 2)
   await shot('workbench-run-data')
 
   // 切回「步骤」Tab

@@ -71,6 +71,7 @@ _CATALOGS: dict[str, tuple[dict[str, Any], ...]] = {
             "asin": "B07X1MOCK1",
             "sku": "ECO-BTL-750-BLK",
             "name": "EcoSip Insulated Water Bottle 750ml - Matte Black",
+            "image": "/media/products/ecosip-bottle-black.png",
             "price": 28.99,
             "rating": 4.6,
             "review_count": 12480,

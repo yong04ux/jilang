@@ -1,11 +1,10 @@
-"""统一错误分类（计划 §7.3）。
+"""统一错误分类。
 
 为什么要有这一层
 ================
 
-Phase 0 盘点的结论（`docs/agent-runtime-current-state.md` §6.6）：改造前所有失败
-统一写成 ``code="agent_step_failed"``，``message`` 是
-``f"{type(exc).__name__}: {exc}"`` 的字符串拼接。后果是：
+如果所有失败都写成 ``code="agent_step_failed"``、``message`` 直接拼
+``f"{type(exc).__name__}: {exc}"``，后果是：
 
 - 界面上分不清「参数填错」和「模型服务挂了」，用户只能干瞪眼；
 - 节点无法按类型决定要不要重试，只能全都不重试或全都重试；
@@ -31,7 +30,7 @@ from typing import Any
 
 
 class ErrorCategory(str, Enum):
-    """计划 §7.3 的 10 类。取值直接落进 ``tasks.error_code``。"""
+    """ 的 10 类。取值直接落进 ``tasks.error_code``。"""
 
     VALIDATION_ERROR = "validation_error"
     MISSING_INPUT = "missing_input"
@@ -55,7 +54,7 @@ class ErrorPolicy:
     user_action: str = ""
 
 
-#: 默认策略（计划 §7.3 的「默认处理」列）
+#: 默认策略
 POLICIES: dict[ErrorCategory, ErrorPolicy] = {
     ErrorCategory.VALIDATION_ERROR: ErrorPolicy(False, 422, "fix_input"),
     ErrorCategory.MISSING_INPUT: ErrorPolicy(False, 422, "provide_input"),

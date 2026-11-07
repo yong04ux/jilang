@@ -204,18 +204,23 @@ async function main() {
   await ev('(() => { const t = document.getElementById("composer-input"); t.value = "帮我分析蓝牙耳机的竞品"; t.dispatchEvent(new Event("input", {bubbles:true})); return true })()')
   await ev('document.getElementById("composer-send").click()')
   check('输入框提交能进参数确认', await waitFor('!!document.getElementById("wb-product")', 15000))
-  /* 参数卡是本页长出来的内容：首页骨架（大标题、底部输入框）必须还在，
-     不能整页被替换成另一张页面——用户要的是「本页面输出」。 */
-  const paramsInPlace = await ev(`(() => ({
-    hero: !!document.querySelector(".wb-hero-title"),
-    card: !!document.getElementById("wb-params"),
-    composer: !!document.getElementById("composer-input"),
+  /* 参数确认是独立的一屏「新建任务」：面包屑 + 四段表单 + 右侧执行信息栏。
+     首页骨架（大标题、底部输入框）不再出现，路由仍然是 /workbench。 */
+  const paramsPage = await ev(`(() => ({
+    title: (document.querySelector('.wb-task-title') || {}).textContent || '',
+    sections: document.querySelectorAll('.wb-sec').length,
+    aside: document.querySelectorAll('.wb-aside-card').length,
+    runBtn: !!document.getElementById('wb-run-task'),
+    hero: !!document.querySelector('.wb-hero-title'),
     url: location.pathname,
   }))()`)
-  check('参数确认不整页替换首页',
-    paramsInPlace.hero && paramsInPlace.card && paramsInPlace.composer,
-    `hero=${paramsInPlace.hero} card=${paramsInPlace.card} composer=${paramsInPlace.composer}`)
-  check('参数确认不换路由', paramsInPlace.url === '/workbench', paramsInPlace.url)
+  check('参数确认是独立的新建任务页',
+    paramsPage.title === '新建任务' && paramsPage.hero === false,
+    `title=${paramsPage.title} hero=${paramsPage.hero}`)
+  check('四个编号区块都在', paramsPage.sections === 4, paramsPage.sections)
+  check('右侧有执行计划与技能信息', paramsPage.aside >= 3, paramsPage.aside)
+  check('主按钮固定在右栏', paramsPage.runBtn === true)
+  check('参数确认不换路由', paramsPage.url === '/workbench', paramsPage.url)
 
   /* ---------- 视觉纪律 ---------- */
   await ev('(() => { const b = document.querySelector(\'[data-act="back"]\'); if (b) b.click(); return true })()')

@@ -1,4 +1,4 @@
-"""组合工作流（Phase 5）测试：partial 暂停、确认、恢复。
+"""组合工作流测试：partial 暂停、确认、恢复。
 
 覆盖需求列的 7 个场景 + 三条约束：
 
@@ -181,7 +181,7 @@ def test_confirm_cancel_ends_without_listing(client):
 def test_missing_product_facts_block_before_confirmation(client):
     """商品事实缺失时**直接拦住**，不会白问一次"要不要继续"。
 
-    Phase 5 收敛后把事实检查提到了确认之前：事实缺了必然生成不了，
+     收敛后把事实检查提到了确认之前：事实缺了必然生成不了，
     这时候再弹确认只是浪费用户一次点击。
     """
     headers = register(client, "cw_nofacts")
@@ -282,9 +282,9 @@ def test_cross_tenant_confirm_is_404(client):
 
 
 def test_paused_task_survives_saver_restart(client):
-    """Phase 6 起 checkpoint 落库：丢掉 saver 实例（≈ 进程重启）仍能恢复。
+    """ 起 checkpoint 落库：丢掉 saver 实例（≈ 进程重启）仍能恢复。
 
-    Phase 5 时这条用例断言的是"重启后 409 无法恢复"；现在状态在数据库里，
+     时这条用例断言的是"重启后 409 无法恢复"；现在状态在数据库里，
     正确行为反过来了——真正"状态丢了"的场景由
     ``test_recovery.test_confirm_after_checkpoint_loss_reports_clearly`` 覆盖
     （显式删掉线程），那里仍然必须给 409。

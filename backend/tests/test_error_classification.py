@@ -1,4 +1,4 @@
-"""统一错误分类（Phase 2 · 计划 §7.3）测试。
+"""统一错误分类测试。
 
 要点：
 1. 分类由**异常类型**决定，不靠猜消息；
@@ -183,7 +183,7 @@ def test_missing_competitors_is_missing_input_not_validation(client):
 def test_rate_limited_model_call_maps_to_429_and_persists_category(client, monkeypatch):
     """最贵的一类失败：模型限流必须让任务记成 rate_limited，而不是"未知错误"。
 
-    打桩点在 Provider 而不是 ``agent.skills``：Phase 3 起 Listing 生成走子图，
+    打桩点在 Provider 而不是 ``agent.skills``： 起 Listing 生成走子图，
     链路是 ``子图 → provider.generate``，不再经过 ``skills.generate_listing``。
     """
     from crosspilot.llm.providers import RuleProvider

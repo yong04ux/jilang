@@ -1,6 +1,6 @@
-"""组合工作流的**恢复**编排（Phase 5）。
+"""组合工作流的**恢复**编排。
 
-Phase 5 下这一步只剩"恢复"这一件事：
+下这一步只剩"恢复"这一件事：
 
 - 首次执行已经统一到 ``agent/workflows.py``（主图分派后直接跑组合子图）；
 - 结果收尾统一到 ``workflows.apply_result``；
@@ -31,6 +31,7 @@ from ..agent.workflows import (
     is_paused,
     pending_payload,
     result_output,
+    spec_for,
 )
 from ..persistence.db import Database
 
@@ -39,20 +40,9 @@ from ..persistence.db import Database
 TASK_TYPE = "combined_workflow"
 
 #: 恢复时给 ``apply_result`` 用的 spec（组合流程的步骤骨架）。
-_COMBINED_SPEC = WorkflowSpec(
-    kind=KIND_COMBINED,
-    label="竞品分析 + Listing 生成",
-    step_names=(
-        "validate_request",
-        "run_analysis",
-        "prepare_confirmation",
-        "confirm_partial",
-        "check_listing_facts",
-        "run_listing",
-        "settle",
-    ),
-    needs_llm=True,
-)
+#: **不在这里另抄一份步骤**：抄一份就会和 workflows 里的定义各改各的，
+#: 而这条 spec 决定时间线怎么对齐，漂移了用户会看到"计划外步骤"。
+_COMBINED_SPEC = spec_for(KIND_COMBINED)
 
 
 class CombinedRunError(RuntimeError):

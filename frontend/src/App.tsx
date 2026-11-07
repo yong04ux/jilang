@@ -8,17 +8,18 @@
  *   4. /api/auth/status → 已登录才 loadMe 并渲染页面；
  *   5. cp:authenticated / cp:logout 常驻监听（换账号必须能刷新）。
  */
-import { useEffect } from 'react'
-import { RootLayout } from '@/layout/RootLayout'
-import { NavDrawer } from '@/layout/NavDrawer'
-import { AuthGate } from '@/layout/AuthGate'
-import { NotFoundPage } from '@/pages/NotFoundPage'
+import { Suspense, useEffect } from 'react'
+import { RootLayout } from '@/components/layout/RootLayout'
+import { NavDrawer } from '@/components/layout/NavDrawer'
+import { AuthGate } from '@/components/layout/AuthGate'
+import { NotFoundPage } from '@/app/NotFoundPage'
+import { PageFallback } from '@/components/shared/PageFallback'
 import { ROUTES, NOT_FOUND_NAV_KEY } from './app/routes'
 import { matchRoutes, parseQuery, renderPath } from './app/router'
 import { useRouteSnapshot } from './app/useRoute'
 import { api } from '@/lib/api'
 import { loadAuth, loadMe, logout, showGate, useAuthStore } from '@/stores/authStore'
-import { useHealthStore } from '@/features/health/health'
+import { useHealthStore } from '@/lib/health/health'
 import { useUiStore } from '@/stores/uiStore'
 
 export default function App() {
@@ -30,7 +31,7 @@ export default function App() {
 
   const match = matchRoutes(ROUTES, snapshot.path)
   const activeKey = match.route ? match.route.navKey : NOT_FOUND_NAV_KEY
-  // 未登录 / 登录门亮着时不渲染业务页面：旧实现直接把 #view-root 清空
+  // 未登录 / 登录门亮着时不渲染业务页面：现有实现直接把 #view-root 清空
   const pageReady = Boolean(user) && !gateOpen
   const Page = match.route?.Page
   const routeKey = `${snapshot.path}#${snapshot.nonce}`
@@ -49,8 +50,8 @@ export default function App() {
       showGate(wasSignedIn ? '登录已过期，请重新登录' : null)
     }
     api.onUnauthorized(onUnauthorized)
-    // 旧页面走的是 js/api.js 那套客户端，它的 401 也必须能亮登录门，
-    // 否则迁移期会话过期时会停在「页面加载失败」而不是登录页。
+    // 页面模块走的是 js/api.js 那套客户端，它的 401 也必须能亮登录门，
+    // 否则会话过期时会停在「页面加载失败」而不是登录页。
     window.CPApi?.onUnauthorized(onUnauthorized)
 
     // 4. 读会话
@@ -91,11 +92,14 @@ export default function App() {
     <>
       <RootLayout activeKey={activeKey}>
         {pageReady ? (
-          Page ? (
-            <Page key={routeKey} params={match.params} query={query} path={match.path} />
-          ) : (
-            <NotFoundPage key={routeKey} />
-          )
+          /* 页面都是 lazy 的：chunk 未到时先给同形状骨架，避免布局塌陷 */
+          <Suspense fallback={<PageFallback />}>
+            {Page ? (
+              <Page key={routeKey} params={match.params} query={query} path={match.path} />
+            ) : (
+              <NotFoundPage key={routeKey} />
+            )}
+          </Suspense>
         ) : null}
       </RootLayout>
 

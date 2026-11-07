@@ -1,20 +1,35 @@
 /**
- * 路由表的唯一真源。路径、顺序、navKey 与旧 `js/app.js:50-75` 一一对应。
+ * 路由表的唯一真源：路径、顺序、navKey 与后端 SPA_ROUTES 对应。
  *
- * S2 阶段所有页面都还是旧模块，用 LegacyPage 适配器挂入；
- * 每迁完一页就把对应的 `legacy(...)` 换成真组件，路径不变。
+ * 每个页面都是 `lazy(() => import(...))`：首屏只下载外壳与登录门，
+ * 页面 chunk 在首次进入时才拉，这是压低首屏 JS 的主要手段。
+ *
+ * 命名导出的页面在这里映射成 default，保持路由表只关心「一个组件」。
  */
-import { LegacyPage } from '@/legacy/LegacyPage'
-import { AgentsPage } from '@/pages/agents/AgentsPage'
-import { DashboardPage } from '@/pages/dashboard/DashboardPage'
-import { TasksPage } from '@/pages/tasks/TasksPage'
-import { DataPage } from '@/pages/data/DataPage'
-import { SettingsPage } from '@/pages/settings/SettingsPage'
-import { SkillsPage } from '@/pages/skills/SkillsPage'
-import { StoresPage } from '@/pages/stores/StoresPage'
-import { entry as workbenchEntry } from '@/pages/workbench/workbench'
+import { lazy } from 'react'
+import { LegacyPage } from '@/app/legacy'
 import type { LegacyPageLoader } from '@/types/global'
 import type { RouteDef, RoutePageProps } from './router'
+
+const DashboardPage = lazy(() =>
+  import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+)
+const TasksPage = lazy(() =>
+  import('@/features/tasks/TasksPage').then((m) => ({ default: m.TasksPage })),
+)
+const DataPage = lazy(() => import('@/features/data-assets/DataPage').then((m) => ({ default: m.DataPage })))
+const AgentsPage = lazy(() =>
+  import('@/features/agents/AgentsPage').then((m) => ({ default: m.AgentsPage })),
+)
+const SkillsPage = lazy(() =>
+  import('@/features/skills/SkillsPage').then((m) => ({ default: m.SkillsPage })),
+)
+const StoresPage = lazy(() =>
+  import('@/features/stores/StoresPage').then((m) => ({ default: m.StoresPage })),
+)
+const SettingsPage = lazy(() =>
+  import('@/features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })),
+)
 
 function legacy(loader: LegacyPageLoader) {
   return function LegacyRoute({ params, query }: RoutePageProps) {
@@ -22,11 +37,12 @@ function legacy(loader: LegacyPageLoader) {
   }
 }
 
-/* 旧页面模块在经典脚本里定义，晚于本模块求值也没关系：
-   这里只是包一层取值函数，真正读取发生在挂载时。 */
-/* workbench 已搬进 src（逐字搬运，见该文件头部的迁移说明） */
+/* workbench 是 1600 行字符串渲染，单独切一个 chunk。
+   依赖在模块内部懒取（见该文件 header），所以动态 import 是安全的。 */
 const workbenchLoader: LegacyPageLoader = (root, params, query) =>
-  workbenchEntry(root, params as Record<string, string>, query as Record<string, string>)
+  import('@/features/workbench/workbench').then((m) =>
+    m.entry(root, params as Record<string, string>, query as Record<string, string>),
+  )
 
 /* 深链 /tasks/{id}：同一个组件，只是带上初始抽屉任务。
    点行开抽屉走的是 history.replaceState，不经路由，所以列表不会重挂。 */

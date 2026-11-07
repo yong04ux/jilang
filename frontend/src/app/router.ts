@@ -7,7 +7,7 @@
  *  2. `force` 跳过上面的捷径，强制 push 一条历史；
  *  3. 只拦截带 `data-link` 的站内链接，且跳过外链、`#`、修饰键与中键。
  *
- * 另外提供「不通知路由的静默改地址」语义 —— 旧页面（tasks 抽屉、stores 筛选）
+ * 另外提供「不通知路由的静默改地址」语义 —— 页面模块（tasks 抽屉、stores 筛选）
  * 直接调 `history.replaceState`，地址变了但页面不重绘。React 侧只要不监听
  * history 变动就天然等价，所以这里不额外处理。
  */
@@ -130,7 +130,7 @@ const listeners = new Set<() => void>()
  * 提交路由变更。
  *
  * **必须同步生效**：旧 `CPRouter.go()` 是「pushState 后立刻调用 handler 写 DOM」，
- * 调用方（旧页面代码、仓库里的探针）都依赖「go() 返回时 DOM 已经是新页面」。
+ * 调用方（页面模块代码、仓库里的验收脚本）都依赖「go() 返回时 DOM 已经是新页面」。
  * 例如 ui_skills_shot 会在 go() 之后马上 `querySelector('#sk-form')` 并点运行按钮，
  * 若这里只是通知订阅者、等 React 异步提交，拿到的会是上一页的表单，点错按钮。
  */

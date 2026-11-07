@@ -23,7 +23,7 @@ def read_data_asset(
 ) -> list[dict[str, Any]]:
     """读取竞品数据资产。
 
-    实现已下沉到 ``market.competitor_provider``（计划 §9）：数据来源的判断
+    实现已下沉到 ``market.competitor_provider``：数据来源的判断
     （显式行 / 导入批次 / 租户归属）只应有一处。这里保留原签名与返回类型，
     因为既有调用方与测试按「返回行数组」编写。
 

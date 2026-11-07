@@ -116,7 +116,7 @@ async function main() {
 
   // 关闭 Listing（避免真实模型调用），然后执行
   await ev(`(() => { const c = document.getElementById('wb-with-listing'); if (c) c.checked = false; return true; })()`)
-  await ev('document.getElementById("wb-run").click()')
+  await ev('document.getElementById("wb-run-task").click()')
   const done = await waitFor(
     '!!document.querySelector(".wb-run") && !document.querySelector(".badge-running")',
     30000,

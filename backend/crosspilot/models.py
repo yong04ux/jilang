@@ -141,6 +141,9 @@ class CompetitorProduct(BaseModel):
     key_features: list[str] = Field(default_factory=list)
     specifications: dict[str, str] = Field(default_factory=dict)
     reviews: list[ReviewSample] = Field(default_factory=list)
+    #: 商品图地址（``/media/...``）。只用于展示，不计入字段完整度——
+    #: 缺图不影响分析结论，把图算进完整度会让"没图"看起来像"数据不全"。
+    image: str | None = None
     is_demo: bool = True
     source_ref: str | None = Field(
         default=None, description="原始数据出处，例如导入文件名或 API 批次号"
@@ -321,7 +324,7 @@ class ListingGenerationRequest(BaseModel):
     banned_terms: list[str] = Field(default_factory=list)
     target_length_hint: Literal["short", "medium", "long"] = "medium"
     data_source: str = "manual"
-    #: 质检修订用的附加约束（Phase 3 的质量修订循环）。
+    #: 质检修订用的附加约束。
     #: 由子图在重试生成时填入上一版的具体问题，**不是**给外部调用方的常规参数；
     #: 留成普通字段而不是单开一个方法，是因为它最终只影响提示词，不改变产出结构。
     revision_notes: list[str] = Field(default_factory=list)
@@ -378,6 +381,7 @@ class ProductSnapshot(BaseModel):
     review_count: int | None = None
     review_samples: int = 0
     key_features: list[str] = Field(default_factory=list)
+    image: str | None = None
     is_demo: bool = True
     data_completeness: float = Field(ge=0, le=1, description="核心字段填充率")
     missing_fields: list[str] = Field(default_factory=list)

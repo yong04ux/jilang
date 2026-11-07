@@ -166,6 +166,8 @@ def public_user(user: dict[str, Any]) -> dict[str, Any]:
         "is_admin": bool(user.get("is_admin")),
         "is_guest": bool(user.get("is_guest")),
         "guest_expires_at": user.get("guest_expires_at"),
+        "avatar": user.get("avatar"),
+        "phone": user.get("phone"),
         "created_at": user.get("created_at"),
         "last_login_at": user.get("last_login_at"),
     }
@@ -199,7 +201,7 @@ def register_user(
         is_admin=is_first,
     )
     db.touch_last_login(user_id)
-    # 每个新用户自动拥有一个个人租户，保证多租户改造后新账号立即可用
+    # 每个新用户自动拥有一个个人租户，注册后立即可用
     from .tenancy import create_personal_tenant
 
     create_personal_tenant(db, user_id, name)

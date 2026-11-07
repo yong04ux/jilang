@@ -1,12 +1,5 @@
 /**
- * 分栏与排序 —— 从旧 `js/panels.js` 迁移。
- *
- * 1) `split(container, opts)`：react-resizable-panels 的等价实现。
- *    在前两个子节点之间插一条 1px 拖拽条，比例写进 `--split-a` 并落 localStorage；
- *    <=960px 时由 CSS 接管、自动退化为上下堆叠。
- * 2) `sortable(list, opts)`：dnd-kit 的等价实现，基于原生 draggable。
- *
- * 与 charts 一样不 import 任何东西，方便在浏览器里与旧实现逐项对照。
+ * 分栏与排序：可拖拽的分割面板与表格排序。
  */
 
 type SplitContainer = HTMLElement & { __cpSplit?: SplitApi }

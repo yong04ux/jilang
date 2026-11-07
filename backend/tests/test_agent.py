@@ -99,7 +99,7 @@ def test_agent_run_without_listing(client):
 
     assert body["task_id"]
     assert body["status"] == "succeeded"
-    # Phase 5：主图收敛为 validate → dispatch → 收尾，中间是竞品分析子图的步骤
+    # 主图收敛为 validate → dispatch → 收尾，中间是竞品分析子图的步骤
     assert body["plan"] == plan_for(False)
     assert body["report"]["product_name"]
     assert body["listing"] is None
@@ -222,7 +222,7 @@ def test_market_summary_does_not_invent_numbers(client):
 def test_agent_run_failure_marks_task_failed(client, monkeypatch):
     """执行期异常必须落成 failed 任务，并保留失败步骤。
 
-    状态码与错误码由统一分类决定（2026-10-27）：节点里的未知异常属于
+    状态码与错误码由统一分类决定：节点里的未知异常属于
     ``internal_error`` → 500（不是 502，502 是上游返回异常，这里是本进程出错）。
     """
     headers = register(client, "agent_run7")
@@ -231,7 +231,7 @@ def test_agent_run_failure_marks_task_failed(client, monkeypatch):
         raise RuntimeError("skill exploded")
 
     # 让图里的竞品分析节点失败（比 provider 构造失败更贴近真实故障）。
-    # Phase 5 起竞品子图直接调 engine.analysis.run_analysis，打桩点随之改变。
+    #  起竞品子图直接调 engine.analysis.run_analysis，打桩点随之改变。
     monkeypatch.setattr("crosspilot.engine.analysis.run_analysis", boom)
     resp = client.post("/api/agent/runs", json=agent_payload(), headers=headers)
     assert resp.status_code == 500
@@ -281,7 +281,7 @@ def test_listing_only_run_without_competitors(client):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["status"] == "succeeded"
-    # 计划里没有竞品分析与市场总结（Phase 5 起计划 = 主图三阶段 + 所选工作流步骤）
+    # 计划里没有竞品分析与市场总结
     assert body["plan"] == workflows.choose({"listing_only": True}).plan()
     assert body["report"] is None
     assert body["listing"]["listing_id"]

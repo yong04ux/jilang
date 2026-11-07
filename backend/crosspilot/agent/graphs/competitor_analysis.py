@@ -1,4 +1,4 @@
-"""竞品分析子图（计划 §6.1 / Phase 4）。
+"""竞品分析子图。
 
 节点图
 ======
@@ -17,8 +17,8 @@
 ================================================
 
 **① 没有 `revise_analysis` 节点。**
-计划 §6.1 画了「retryable_issue -> revise_analysis (bounded)」，前提是
-`analyze_market` 会调用模型。但用户 2026-10-27 已决定**分析不调模型**——
+ 画了「retryable_issue -> revise_analysis (bounded)」，前提是
+`analyze_market` 会调用模型。这里的分析**不调模型**——
 数字必须来自 `engine.analysis` 的确定性计算。既然产出是算出来的，
 就没有"改措辞重试"这回事：样本不够只能如实标 partial，重跑一遍还是同样的数字。
 **重试只保留在取数环节**（`fetch_competitors`），那是唯一可能"再试一次就好了"的地方。
@@ -364,7 +364,7 @@ class CompetitorGraph:
     def _provenance(state: dict[str, Any]) -> dict[str, Any]:
         """来源标记：数据从哪来、什么时候取的、是不是示例数据。
 
-        计划 §9 要求「保存 Provider、数据时间、Mock 标记和证据引用」。
+         要求「保存 Provider、数据时间、Mock 标记和证据引用」。
         Mock 标记在本分支的等价物是 ``is_demo``（没有 ``is_mock`` 这一维，
         不为对齐文档而编一个）。
         """

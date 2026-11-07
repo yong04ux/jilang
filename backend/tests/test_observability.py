@@ -1,6 +1,6 @@
-"""Phase 7：可观测性测试（执行链追踪、模型调用遥测、敏感信息）。
+"""可观测性测试（执行链追踪、模型调用遥测、敏感信息）。
 
-覆盖计划 §11 Phase 7 的验收：
+覆盖范围：
 - 可从任务 ID 追踪执行链；
 - 能定位失败节点与错误类型；
 - 遥测只记元数据，不含 prompt / 响应正文，不含凭据。
@@ -72,7 +72,7 @@ def test_trace_reconstructs_execution_chain(client):
 def test_trace_points_at_failed_node(client, monkeypatch):
     """能定位失败节点与错误类型——排查时最需要的两件事。
 
-    注意：组合工作流把竞品子图当成自己的一步来跑（Phase 5 的决定），
+    注意：组合工作流把竞品子图当成自己的一步来跑，
     所以失败节点记在**外层步骤** ``run_analysis`` 上，而不是子图内部的
     ``analyze_market``。时间线因此是"粗一档"的，但不会出现两套重复步骤。
     """

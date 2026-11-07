@@ -3,8 +3,7 @@
 为什么需要这一层
 ================
 
-Phase 0 盘点（``docs/agent-runtime-current-state.md`` §6.2）的结论是：
-当时同一件能力有两份互不相干的描述——
+同一件能力只能有一份可执行的描述，否则会出现两份互不相干的说法——
 
 - ``agent/registry.py`` 的 ``SKILLS``：静态 JSON，只有 ``status``；
 - ``agent/skills.py`` 的裸函数：真正能跑的代码。
@@ -18,7 +17,7 @@ Phase 0 盘点（``docs/agent-runtime-current-state.md`` §6.2）的结论是：
 
 1. ``SkillDefinition``：一份能力声明，**必须显式回答"有没有执行器"**；
 2. ``SkillContext``：执行所需的上下文（Provider / 租户 / 预算），不塞进参数；
-3. ``SkillResult``：统一结果信封（计划 §5.2）。
+3. ``SkillResult``：统一结果信封。
 
 刻意不做的事
 ------------
@@ -37,7 +36,7 @@ from typing import Any, Callable, Literal, Protocol
 from pydantic import BaseModel
 
 #: 执行器类型。``function`` = 一次函数调用；``graph`` = 需要多步状态/分支，
-#: 由 LangGraph 子图执行（Phase 3 起才会出现，当前全部是 ``function``）。
+#: 由 LangGraph 子图执行。
 ExecutorType = Literal["function", "graph"]
 
 #: 定义状态，与 ``skill_definitions`` 表的取值保持一致。
@@ -104,7 +103,7 @@ class Executor(Protocol):
 
 @dataclass(frozen=True)
 class SkillDefinition:
-    """一个能力的完整声明（计划 §5.1 要求的字段一个不少）。
+    """一个能力的完整声明。
 
     ``executable`` 是**派生属性**而不是独立字段：它必须由
     「已启用 + 绑定了执行器」算出来。写成独立字段就会出现
@@ -138,7 +137,7 @@ class SkillDefinition:
 
     @property
     def executable(self) -> bool:
-        """是否**真的**能跑。注册成功 ≠ 可以执行（计划 §5.1）。"""
+        """是否**真的**能跑。注册成功 ≠ 可以执行。"""
         return self.enabled and self.executor is not None
 
     # -- 契约导出 ----------------------------------------------------------
@@ -183,7 +182,7 @@ class SkillDefinition:
 
 
 # ---------------------------------------------------------------------------
-# 统一结果信封（计划 §5.2）
+# 统一结果信封
 # ---------------------------------------------------------------------------
 
 
@@ -191,9 +190,9 @@ class SkillDefinition:
 class SkillResult:
     """技能执行结果。
 
-    ``result_ref`` 当前恒为 ``None``：Phase 1 的执行入口**不落库**，
+    ``result_ref`` 当前恒为 ``None``：执行入口**不落库**，
     产物由调用方决定是否保存（图里的 ``persist`` 节点统一保存，
-    避免失败的任务留下半份数据）。落库改造在 Phase 3/6。
+    避免失败的任务留下半份数据）。
     """
 
     skill_key: str

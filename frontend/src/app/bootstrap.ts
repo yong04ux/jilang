@@ -1,14 +1,13 @@
 /**
- * 迁移期的全局门面对接层。
+ * 全局门面对接层。
  *
- * React 接管外壳后，旧代码仍在两个方向依赖 `window.CP*`：
- *   1. 旧页面模块：`window.CPShell.getHealth()` / `window.CPAuth.user`（settings.js:58,289,478）；
- *   2. 仓库里的 Edge 探针：`window.CPAuth.load/logout/user`、`window.CPRouter.go`。
- * 这两类都不能因为迁移而消失，所以这里把同名门面指向 React 侧的实现，
- * 保证「一处实现、两种消费端」。S8 旧目录删除后再统一清理。
+ * 两类消费端通过 `window.CP*` 使用同一份实现：
+ *   1. 以 HTML 字符串渲染的页面模块，例如 `window.CPShell.getHealth()`、`window.CPAuth.user`；
+ *   2. 验收脚本，例如 `window.CPAuth.load/logout/user`、`window.CPRouter.go`。
+ * 这里只做「把 React 侧实现挂到同名门面上」，不承担任何业务逻辑。
  */
 import { go, normalize, renderPath, installRouterListeners } from './router'
-import { getHealth, invalidateHealth, useHealthStore } from '@/features/health/health'
+import { getHealth, invalidateHealth, useHealthStore } from '@/lib/health/health'
 import { loadAuth, loadMe, logout, showGate, useAuthStore } from '@/stores/authStore'
 import { useUiStore } from '@/stores/uiStore'
 import { chartApi } from '@/lib/charts'
@@ -19,11 +18,11 @@ import { panelsApi } from '@/lib/panels'
 import { labelApi } from '@/lib/labels'
 import { uiApi } from '@/lib/ui'
 import { catalogApi } from '@/lib/catalog'
-import { schemaFormApi } from '@/features/schema-form/schema-form.ts'
-import { renderApi } from '@/features/render/render.ts'
-import { presentApi } from '@/features/async-run/present'
-import { createPoller, isRunning, RUNNING } from '@/features/async-run/poller'
-import { cancelTask, fetchTaskDetail } from '@/features/async-run/tasks-api'
+import { schemaFormApi } from '@/lib/schema-form/schema-form.ts'
+import { renderApi } from '@/lib/render/render.ts'
+import { presentApi } from '@/lib/async-run/present'
+import { createPoller, isRunning, RUNNING } from '@/lib/async-run/poller'
+import { cancelTask, fetchTaskDetail } from '@/lib/async-run/tasks-api'
 
 function navLabels(): Record<string, string> {
   const labels: Record<string, string> = {}
@@ -91,7 +90,6 @@ export function installLegacyGlobals(): void {
     },
     // 面包屑与选中态改由路由表的 navKey 推导，这里保留空实现以免旧调用点报错
     setNavKey: () => undefined,
-    setExpanded: (value: boolean) => useUiStore.getState().setExpanded(value),
     openDrawer: () => useUiStore.getState().setDrawerOpen(true),
     closeDrawer: () => useUiStore.getState().setDrawerOpen(false),
     mountBanner: () => undefined,

@@ -41,9 +41,9 @@ def _schema(properties: dict[str, str], required: list[str] | None = None) -> st
 # ---------------------------------------------------------------------------
 #
 # ``SKILLS`` **不再单独维护**：它从 ``agent/definitions.SKILL_DEFINITIONS``
-# 派生。改造前这里是手写的静态 JSON，和 ``agent/skills.py`` 的函数对不上
-# （两个有元数据没实现、两个有实现没元数据），导致「技能库」页面把跑不了的
-# 技能列成可用。现在唯一真源是 definitions，本表只负责落库与租户覆盖。
+# 派生。手写静态 JSON 容易和 ``agent/skills.py`` 的函数对不上（有元数据没实现、
+# 有实现没元数据），导致「技能库」页面把跑不了的技能列成可用。唯一真源是
+# definitions，本表只负责落库与租户覆盖。
 #
 # ``status`` 的语义也收敛了：``available`` 表示"有实现"，``dev`` 表示"只有声明"。
 # 真正的可执行判定是 ``SkillDefinition.executable``（见 contracts.py），
@@ -90,8 +90,8 @@ AGENTS: list[dict[str, Any]] = [
         "name": "激浪主控 Agent",
         "summary": "解析目标、编排 Skills、交付结构化结果。",
         "description": (
-            "目标解析优先调用模型（失败或未配置时降级为规则解析，并在任务上标 degraded）。"
-            "执行节点由确定性规则决定，因此质检不会被跳过；报告与草稿会落库并可追溯。"
+            "目标解析优先交给模型；模型不可用时按规则推断，并在结果里如实标注。"
+            "执行工序固定，质检不会被跳过；报告与草稿都会保存，可随时回看。"
         ),
         "input": _schema(
             {"product_name": "string", "competitors": "array", "with_listing": "boolean", "goal": "string"},

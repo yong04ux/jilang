@@ -401,7 +401,7 @@ def _build_prompts(
         differentiation=diff_block,
         keywords=keyword_block,
     )
-    # 质量修订（Phase 3）：带着上一版的具体问题重新生成，而不是让它自由发挥。
+    # 质量修订：带着上一版的具体问题重新生成，而不是让它自由发挥。
     # 只在提示词层面加约束——产出结构与首次生成完全一致，因此下游质检不用改。
     revision_notes = [
         str(note).strip() for note in (request.revision_notes or []) if str(note).strip()

@@ -1,10 +1,11 @@
 """账号、认证与会话。
 
-包含：注册 / 登录 / 登出 / 一键体验 / 改密 / 管理员用户列表 / 租户与成员。
+包含：注册 / 登录 / 登出 / 一键体验 / 改密 / 头像 / 管理员用户列表 / 租户与成员。
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -57,7 +58,7 @@ def auth_status(
     token = extract_token(request)
     user = resolve_session(ctx.db, token) if token else None
     settings = ctx.settings
-    # 只查一次：旧实现 needs_setup 与 user_count 各查一遍
+    # 只查一次：needs_setup 与 user_count 都需要同一份统计
     user_count = ctx.db.count_users()
     return {
         "needs_setup": user_count == 0,
@@ -212,12 +213,103 @@ def auth_me(
     return {"user": public_user(user)}
 
 
+_AVATAR_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$")
+_AVATAR_MAX_CHARS = 400_000
+
+
+def _reject_shared_demo(ctx: ApiContext, user: dict[str, Any]) -> None:
+    """共享体验账号是所有访客共用的，改了用户名/密码就等于把入口锁死。"""
+    if str(user.get("username") or "").lower() == (ctx.settings.demo_username or "demo").lower():
+        raise HTTPException(
+            status_code=403,
+            detail="共享体验账号不能修改用户名或密码；请用「一键体验」创建你自己的临时账号",
+        )
+
+
+@router.put("/api/auth/display-name")
+def update_display_name(
+    payload: dict[str, Any],
+    ctx: ApiContext = Depends(get_ctx),
+    user: dict[str, Any] = Depends(require_user),
+) -> dict[str, Any]:
+    """昵称可改，用户名不可改：用户名登录时要对，改名只会让人登不上。"""
+    _reject_shared_demo(ctx, user)
+    nickname = str(payload.get("display_name") or "").strip()
+    if not nickname or len(nickname) > 32:
+        raise HTTPException(status_code=422, detail="昵称需要 1-32 个字符")
+    ctx.db.update_display_name(user["user_id"], nickname)
+    updated = ctx.db.get_user(user["user_id"]) or {**user, "display_name": nickname}
+    return {"ok": True, "user": public_user(updated)}
+
+
+_PHONE_RE = re.compile(r"^\+?[0-9]{6,20}$")
+
+
+def _normalize_phone(raw: Any) -> str | None:
+    """去掉空格与短横线，并把大陆号码统一成 11 位（+86 / 0086 视为同一号码）。
+
+    不猜国家码：只有明确带 86 前缀时才剥掉，其它号码保留原样。
+    """
+    text = re.sub(r"[\s-]", "", str(raw or ""))
+    if not text:
+        return None
+    if text.startswith("0086"):
+        text = text[4:]
+    elif text.startswith("+86"):
+        text = text[3:]
+    if not _PHONE_RE.match(text):
+        raise HTTPException(status_code=422, detail="手机号格式不正确，请填 6-20 位数字，可带国际区号")
+    return text
+
+
+@router.put("/api/auth/phone")
+def update_phone(
+    payload: dict[str, Any],
+    ctx: ApiContext = Depends(get_ctx),
+    user: dict[str, Any] = Depends(require_user),
+) -> dict[str, Any]:
+    _reject_shared_demo(ctx, user)
+    phone = _normalize_phone(payload.get("phone"))
+    if phone is not None:
+        occupied = ctx.db.get_user_by_phone(phone)
+        if occupied is not None and occupied["user_id"] != user["user_id"]:
+            raise HTTPException(status_code=409, detail="这个手机号已经绑定了其它账号")
+    try:
+        ctx.db.update_phone(user["user_id"], phone)
+    except Exception as exc:  # noqa: BLE001 - 并发写入会撞唯一索引
+        raise HTTPException(status_code=409, detail="这个手机号已经绑定了其它账号") from exc
+    updated = ctx.db.get_user(user["user_id"]) or {**user, "phone": phone}
+    return {"ok": True, "user": public_user(updated)}
+
+
+@router.put("/api/auth/avatar")
+def update_avatar(
+    payload: dict[str, Any],
+    ctx: ApiContext = Depends(get_ctx),
+    user: dict[str, Any] = Depends(require_user),
+) -> dict[str, Any]:
+    """设置或清除头像。``avatar`` 传 null / 空串表示清除。
+
+    只收 data URL：客户端先把图压到 128px JPEG 再传。
+    校验失败一律 422，不做"尽力保存"——存进去一张裂开的图比报错更难查。
+    """
+    raw = payload.get("avatar")
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        ctx.db.update_avatar(user["user_id"], None)
+        return {"ok": True, "avatar": None}
+    if not isinstance(raw, str) or len(raw) > _AVATAR_MAX_CHARS or not _AVATAR_RE.match(raw):
+        raise HTTPException(status_code=422, detail="头像格式不正确，请重新选择图片")
+    ctx.db.update_avatar(user["user_id"], raw)
+    return {"ok": True, "avatar": raw}
+
+
 @router.post("/api/auth/password")
 async def change_password(
     payload: dict[str, Any],
     ctx: ApiContext = Depends(get_ctx),
     user: dict[str, Any] = Depends(require_user),
 ) -> dict[str, Any]:
+    _reject_shared_demo(ctx, user)
     current = str(payload.get("current_password", ""))
     new = str(payload.get("new_password", ""))
     if not verify_password(current, user["password_hash"]):
