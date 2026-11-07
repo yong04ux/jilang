@@ -90,8 +90,8 @@ AGENTS: list[dict[str, Any]] = [
         "name": "激浪主控 Agent",
         "summary": "解析目标、编排 Skills、交付结构化结果。",
         "description": (
-            "目标解析优先调用模型（失败或未配置时降级为规则解析，并在任务上标 degraded）。"
-            "执行节点由确定性规则决定，因此质检不会被跳过；报告与草稿会落库并可追溯。"
+            "目标解析优先交给模型；模型不可用时按规则推断，并在结果里如实标注。"
+            "执行工序固定，质检不会被跳过；报告与草稿都会保存，可随时回看。"
         ),
         "input": _schema(
             {"product_name": "string", "competitors": "array", "with_listing": "boolean", "goal": "string"},

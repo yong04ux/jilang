@@ -3,6 +3,8 @@
 公开可访问的**跨境电商 AI 运营演示站**：访客用自己的 LLM Key（BYOK）跑通真实的
 竞品分析、Listing 生成、数据导入与审批流水线。
 
+**当前版本 V1.0**（后端 `/api/health` 与顶栏同步显示）。
+
 一句话定位：**数据可以是模拟的，标记必须是真的。**
 
 - 平台数据（店铺、商品、订单、广告、指标）默认来自**模拟数据源**，全部带 `Mock` / `示例` 标记；
@@ -12,8 +14,19 @@
 - 全免费部署：Vercel（静态）+ Render（API/worker）+ Supabase（PG/Storage）。
 
 技术栈：**Python ≥ 3.10 + FastAPI + Pydantic v2 + PostgreSQL 16**。
-前端为 React + TypeScript 中文界面（Vite 构建，品牌蓝 `#1B6EF3`）。
-样式分两层：手写的语义层 `frontend/src/styles/*.css`（7 个，含 shadcn 语义变量，构建时落成 `/css/*.css`）+ Tailwind 工具类层（`css/tailwind.css`，由 `npm run build:css` 生成，作为第 8 个样式加载）。UI 基元在 `frontend/src/components/ui/`（shadcn/ui），约定见 `frontend/design.md`。
+前端为 **React 19 + TypeScript** 中文界面（Vite 构建，品牌蓝 `#1B6EF3`）。
+视觉体系为 **v3.0「反调印刷」**：墨色书脊导航、纸纹网点、硬框硬投影、三套字体对撞
+（黑体标题 / 宋体正文 / JetBrains Mono 标签），规范见 `frontend/design.md`。
+样式分两层：手写的语义层 `frontend/src/styles/*.css`（7 个，含 shadcn 语义变量，构建时落成 `/css/*.css`）+ Tailwind v4 工具类层（`css/tailwind.css`，由 `npm run build:css` 生成，作为第 8 个样式加载）。UI 基元在 `frontend/src/components/ui/`（shadcn/ui）。
+
+商品图与品牌资产放在 `frontend/src/assets/`，统一用 `/media/...` 引用：开发期由 Vite 别名映射，生产由 FastAPI 把 `/media` 挂到 `dist/assets`。构建产物固定为 `index.html + css/ + js/ + assets/`，`npm run build` 会跑产物契约校验。
+
+### V1.0 主要变化
+
+- 全站视觉改版：登录门 + 11 个页面统一到「反调印刷」，含竖排书脊导航、跑马灯状态条、空态与菜单配色；
+- 账号资料：头像上传（128px 裁切）、昵称可改（用户名只读）、手机号绑定（唯一校验）、修改密码；demo 共享账号禁止修改；
+- 商品图：竞品报告表 40px 缩略图、工作台「最近报告」封面、店铺商品「主图」列与单品分析页头；
+- 版本号统一为 V1.0；品牌名「激浪」与品牌蓝 `#1B6EF3` 未改，Logo 套件见 `docs/brand/logo-v3/`。
 
 ---
 
@@ -122,15 +135,22 @@ CrossPilot/
 │   │   └── demo/                    # 演示机制：seed demo_data demo_mode store_data store_seed
 │   ├── tests/                       # pytest 套件
 │   └── scripts/                     # 检查与验收脚本（编码/前端契约/冒烟/E2E/PG 专项）
-├── frontend/                        # 单一前端（React + TypeScript，Vite 构建）
+├── frontend/                        # 前端（React 19 + TypeScript，Vite 构建）
 │   ├── index.html
-│   ├── assets/                      # logo-mark.svg / favicon.svg
-│   ├── css/{tokens,base,components,layout,pages}.css
-│   ├── js/{api,auth,catalog,render,router,shell,ui,async-run,icons,app}.js + pages/
-│   ├── src/                         # React 源码（app / components / features / layout / lib / pages）
-│   └── scripts/                     # 前端侧脚本：verify-build / *-parity / ui_*.mjs 诊断
+│   ├── design.md                    # 视觉规范 v3.0「反调印刷」（唯一来源）
+│   ├── src/
+│   │   ├── assets/                  # logo / favicon / 本地字体 / 商品图（/media 映射到此）
+│   │   ├── app/                     # 启动、路由、bootstrap、404
+│   │   ├── components/              # 外壳（书脊/顶栏/账号菜单）+ shadcn 基元 + 图表
+│   │   ├── features/                # 逐页模块：dashboard / workbench / tasks / agents / skills / data / stores / settings
+│   │   ├── lib/                     # api / avatar / charts / render / labels / health
+│   │   ├── stores/                  # auth / ui 状态（zustand）
+│   │   └── styles/                  # tokens base components layout pages skills store tailwind
+│   ├── css/tailwind.css             # 由 npm run build:css 生成的工具类层
+│   ├── dist/                        # 构建产物（index.html + css/ + js/ + assets/）
+│   └── scripts/                     # verify-build / *-parity / 截图与诊断脚本
 ├── examples/                        # CSV / JSON 示例文件
-└── docs/                            # 设计文档、改造计划、部署手册
+└── docs/                            # 设计文档、品牌资产、部署手册（本地，不入库）
 ```
 
 ---
@@ -358,6 +378,8 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots  # 逐�
 |---|---|---|
 | GET | `/` 及 SPA 路由 | 前端外壳（`/dashboard` 为默认页） |
 | POST | `/api/auth/register` / `login` / `logout` | 注册 / 登录 / 退出 |
+| POST | `/api/auth/password` | 修改密码（校验当前密码；成功后所有会话失效） |
+| PUT | `/api/auth/display-name` / `avatar` / `phone` | 昵称 / 头像（data URL，客户端 128px 裁切）/ 手机号（可空，唯一；`+86` 与 `0086` 归一）；**用户名为登录名，不可修改**；demo 共享账号禁止 |
 | POST | `/api/auth/demo` | 一键体验：创建 24h 临时账号并直接登录（**按 IP 限流**；不受关闭注册影响；可保存自己的 Key） |
 | GET | `/api/auth/status` / `me` | 登录状态与账号（含 `is_guest`） |
 | GET | `/api/health`、`/api/platforms`、`/api/platform-rules/{p}/{m}`、`/api/ban-lists` | 元信息与规则；health 含 `worker` / `requires_api_key`；`/api/platforms` 另含 `catalog`（9 个平台的接入能力/站点/`live_status`/OAuth）、`capabilities`、`default_platform` |
@@ -520,7 +542,7 @@ JSON 支持顶层数组，或 `{"competitors": [...], "keywords": [...]}`。
 | 文档 | 内容 |
 |---|---|
 | `PRD.md` | **产品需求文档 v3**：对标 LinkFox、Skill 协议层、意图路由、专家模板、功能清单与验收脚本 |
-| `frontend/design.md` | **视觉规范唯一来源**（v2.0，shadcn/ui Nova）：Token、组件、动效、页面级细则（§13 店铺助手、§14 技能广场、§15 AI 助手首页） |
+| `frontend/design.md` | **视觉规范唯一来源**（v3.0「反调印刷」）：Token、断点规则、三套字体、逐页细则、验收清单 |
 | `docs/14-supabase-vercel-from-scratch.md` | 零账号起步的云端部署手册：重建 Supabase 库/迁移/存储桶 + 应用平台部署 |
 
 > `docs/` 在 `.gitignore` 中，不随仓库分发。阅读时以本机文件为准。

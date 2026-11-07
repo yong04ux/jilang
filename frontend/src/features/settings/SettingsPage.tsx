@@ -13,12 +13,13 @@
  * 分区按需加载：进场只取模型配置与租户；团队、数据源滚进视野才请求，
  * 审计在打开弹窗时才请求。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { saveAvatar } from '@/lib/avatar'
 import { api } from '@/lib/api'
 import { copy, fmtTime, toast } from '@/lib/ui'
 import { getHealth, invalidateHealth, useHealthStore } from '@/lib/health/health'
-import { logout, useAuthStore } from '@/stores/authStore'
+import { logout, loadMe, useAuthStore } from '@/stores/authStore'
 import { Icon } from '@/components/shared/Icon'
 import { PageFrame, PageShell } from '@/components/shared/PageShell'
 
@@ -93,6 +94,17 @@ function engineLabel(name?: string): string {
   return name === 'rule' ? '规则生成' : 'AI 模型'
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  owner: '所有者',
+  admin: '管理员',
+  editor: '成员',
+  viewer: '只读成员',
+}
+
+function roleLabel(role: unknown): string {
+  return ROLE_LABEL[String(role || '')] || '成员'
+}
+
 function canManage(tenant: Dict | null): boolean {
   return Boolean(tenant && (tenant.role === 'admin' || tenant.role === 'owner'))
 }
@@ -109,11 +121,11 @@ interface EditingState {
 
 
 /* ------------------------------------------------------------------ 分区导航
-   设置页是 5 张卡的纵向长页，没有分区导航就得靠滚。这里加一条吸顶的
-   分区条：点一下滚到对应卡片，滚到哪张就高亮哪个，同时把 ?section= 同步回
-   地址（沿用页面已有的深链语义）。
+   工单纸的左侧书脊：墨底竖列，当前项填酸柠，编号 01–05 由 CSS 计数器生成
+   （不进 textContent，脚本按文字匹配分区名时拿到的仍然是「账号」「数据源」）。
 
-   刻意**不改**卡片的 id 与内部结构：?section= 与 #section-* 是验收脚本契约。 */
+   刻意**不改**卡片的 id 与内部结构：?section= 与 #section-* 是验收脚本契约，
+   `#settings-nav` 与 `data-section-nav` 同样原样保留。 */
 const SECTION_ITEMS = [
   { key: 'account', label: '账号' },
   { key: 'model', label: '模型与密钥' },
@@ -164,11 +176,7 @@ function SectionNav({
   onJump: (key: string) => void
 }) {
   return (
-    <nav
-      className="sticky top-14 z-10 -mx-1 mb-4 flex gap-4 overflow-x-auto border-b border-border bg-background px-1"
-      aria-label="设置分区"
-      id="settings-nav"
-    >
+    <nav className="set-nav" aria-label="设置分区" id="settings-nav">
       {items.map((item) => {
         const on = item.key === active
         return (
@@ -178,14 +186,7 @@ function SectionNav({
             data-section-nav={item.key}
             aria-current={on ? 'true' : undefined}
             onClick={() => onJump(item.key)}
-            className={
-              // 下划线式，与 components/ui/tabs 的语言一致：
-              // 当前项用品牌蓝描边 + 前景色文字，其余静默
-              'relative -mb-px shrink-0 whitespace-nowrap border-b-2 px-0.5 pb-2 pt-2 text-[13px] transition-colors ' +
-              (on
-                ? 'border-primary font-medium text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground')
-            }
+            className={'set-nav-item' + (on ? ' is-active' : '')}
           >
             {item.label}
           </button>
@@ -230,9 +231,104 @@ export function SettingsPage({ section }: { section?: string }) {
 
   const health = useHealthStore((s) => s.data)
   const user = useAuthStore((s) => s.user) ?? useAuthStore((s) => s.me)
+  const me = useAuthStore((s) => s.me)
   const username = (user as Dict | null)?.username || ''
+  const displayName = (user as Dict | null)?.display_name || (user as Dict | null)?.username || '—'
+  const avatar = me?.avatar || null
+  const avatarInitial = String(displayName).slice(0, 1).toUpperCase()
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const [profileModal, setProfileModal] = useState<'nickname' | 'password' | 'phone' | null>(null)
+  const [profileBusy, setProfileBusy] = useState(false)
+  const [profileError, setProfileError] = useState('')
+  const [newNickname, setNewNickname] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [currentPwd, setCurrentPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
   const isDemo = username.toLowerCase() === 'demo'
   const manage = canManage(tenant)
+
+  const openProfileModal = (kind: 'nickname' | 'password' | 'phone') => {
+    setProfileModal(kind)
+    setProfileError('')
+    setNewNickname(displayName)
+    setNewPhone(String((me as Dict | null)?.phone || ''))
+    setCurrentPwd('')
+    setNewPwd('')
+    setConfirmPwd('')
+  }
+
+  const chooseAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setAvatarBusy(true)
+    try {
+      await saveAvatar(file)
+    } catch {
+      toast('头像没有保存成功，换一张图再试一次')
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  const submitNickname = async () => {
+    setProfileBusy(true)
+    setProfileError('')
+    try {
+      const res = await api.put<Dict>('/api/auth/display-name', { display_name: newNickname.trim() })
+      const next = res.user as Dict | undefined
+      if (next) useAuthStore.setState({ user: { ...(user as Dict), ...next } as never, me: next as never })
+      await loadMe()
+      toast('昵称已更新')
+      setProfileModal(null)
+    } catch (err) {
+      setProfileError((err as Dict)?.message || '昵称没有更新成功')
+    } finally {
+      setProfileBusy(false)
+    }
+  }
+
+  const submitPhone = async () => {
+    setProfileBusy(true)
+    setProfileError('')
+    try {
+      const res = await api.put<Dict>('/api/auth/phone', { phone: newPhone.trim() || null })
+      const next = res.user as Dict | undefined
+      if (next) useAuthStore.setState({ user: { ...(user as Dict), ...next } as never, me: next as never })
+      await loadMe()
+      toast(newPhone.trim() ? '手机号已保存' : '手机号已解绑')
+      setProfileModal(null)
+    } catch (err) {
+      setProfileError((err as Dict)?.message || '手机号没有保存成功')
+    } finally {
+      setProfileBusy(false)
+    }
+  }
+
+  const submitPassword = async () => {
+    if (newPwd.length < 8) {
+      setProfileError('新密码至少 8 位')
+      return
+    }
+    if (newPwd !== confirmPwd) {
+      setProfileError('两次输入的新密码不一致')
+      return
+    }
+    setProfileBusy(true)
+    setProfileError('')
+    try {
+      await api.post('/api/auth/password', { current_password: currentPwd, new_password: newPwd })
+      toast('密码已更新，请用新密码重新登录')
+      setProfileModal(null)
+      await logout()
+    } catch (err) {
+      setProfileError((err as Dict)?.message || '密码没有更新成功')
+    } finally {
+      setProfileBusy(false)
+    }
+  }
 
   /* ------------------------------------------------------------ 载入 */
 
@@ -529,7 +625,7 @@ export function SettingsPage({ section }: { section?: string }) {
   if (!ready) {
     return (
       <PageFrame>
-        <PageShell title="设置" desc="账号、模型密钥、团队成员与数据来源。">
+        <PageShell title="设置">
           <div className="skeleton skeleton-line" style={{ height: 180 }} />
         </PageShell>
       </PageFrame>
@@ -538,10 +634,11 @@ export function SettingsPage({ section }: { section?: string }) {
 
   return (
     <PageFrame>
-      <PageShell title="设置" desc="账号、模型密钥、团队成员与数据来源。">
-        <SectionNav items={sectionItems} active={activeSection} onJump={jumpToSection} />
-
+      <PageShell title="设置">
         <div className="settings-grid">
+          {/* 工单纸的左栏：导航与工单联同处一个网格，才能吸顶跟随滚动 */}
+          <SectionNav items={sectionItems} active={activeSection} onJump={jumpToSection} />
+
           {/* ---------------- 账号 ---------------- */}
           <div className="card scroll-mt-28" id="section-account">
             <div className="card-head">
@@ -551,13 +648,68 @@ export function SettingsPage({ section }: { section?: string }) {
               </div>
             </div>
             <div className="card-body">
+              <div className="acct-avatar">
+                <span className="acct-avatar-img" aria-hidden="true">
+                  {avatar ? <img src={avatar} alt="" width={72} height={72} /> : avatarInitial}
+                </span>
+                <div className="acct-avatar-main">
+                  <span className="acct-avatar-name">{displayName}</span>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    id="btn-avatar"
+                    disabled={avatarBusy}
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    <Icon name="image" />
+                    {avatarBusy ? '正在保存…' : '更换头像'}
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={chooseAvatar}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                  />
+                </div>
+              </div>
               <div className="kv">
                 <span className="kv-k">用户名</span>
                 <span className="kv-v">{(user as Dict)?.username || '—'}</span>
               </div>
               <div className="kv">
-                <span className="kv-k">显示名</span>
-                <span className="kv-v">{(user as Dict)?.display_name || '—'}</span>
+                <span className="kv-k">昵称</span>
+                <span className="kv-v kv-v-row">
+                  <span>{displayName}</span>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    id="btn-nickname"
+                    disabled={isDemo}
+                    title={isDemo ? '共享体验账号不支持修改' : undefined}
+                    onClick={() => openProfileModal('nickname')}
+                  >
+                    修改
+                  </button>
+                </span>
+              </div>
+              <div className="kv">
+                <span className="kv-k">手机号</span>
+                <span className="kv-v kv-v-row">
+                  <span>{String((me as Dict | null)?.phone || '未绑定')}</span>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    id="btn-phone"
+                    disabled={isDemo}
+                    title={isDemo ? '共享体验账号不支持修改' : undefined}
+                    onClick={() => openProfileModal('phone')}
+                  >
+                    {(me as Dict | null)?.phone ? '修改' : '绑定'}
+                  </button>
+                </span>
               </div>
               <div className="kv">
                 <span className="kv-k">管理员</span>
@@ -578,6 +730,16 @@ export function SettingsPage({ section }: { section?: string }) {
                 </span>
               </div>
               <div className="row gap-2 mt-4">
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  id="btn-password"
+                  disabled={isDemo}
+                  title={isDemo ? '共享体验账号不支持修改' : undefined}
+                  onClick={() => openProfileModal('password')}
+                >
+                  修改密码
+                </button>
                 <button type="button" className="btn btn-sm" id="btn-logout" onClick={() => void logout()}>
                   退出登录
                 </button>
@@ -605,7 +767,7 @@ export function SettingsPage({ section }: { section?: string }) {
             </div>
             <div className="card-body">
               {isDemo ? (
-                <div className="callout callout-warn">
+                <div className="callout callout-warn mb-3">
                   <Icon name="alert" />
                   <div>
                     <strong>共享体验账号不能保存 API Key</strong>：它由所有人共用。
@@ -620,12 +782,12 @@ export function SettingsPage({ section }: { section?: string }) {
               </div>
 
               {items.length === 0 ? (
-                <div className="empty" style={{ padding: 'var(--sp-5)' }}>
-                  <span className="empty-icon">
-                    <Icon name="settings" />
-                  </span>
-                  <p className="empty-title">还没有配置</p>
-                  <p className="empty-desc">
+                <div className="wo-empty">
+                  <p className="wo-empty-huge">
+                    还没有配置
+                    <em>模型密钥</em>
+                  </p>
+                  <p className="wo-empty-desc">
                     激浪不提供模型额度。添加一个你自己的模型配置并设为当前使用后，才能运行生成类任务。
                   </p>
                   <div className="empty-actions">
@@ -908,7 +1070,7 @@ export function SettingsPage({ section }: { section?: string }) {
               <div>
                 <div className="card-title">团队与角色</div>
                 <div className="card-sub">
-                  {tenant ? `${tenant.name} · 我的角色 ${tenant.role}` : '租户信息不可用'}
+                  {tenant ? `${tenant.name} · 我的角色 ${roleLabel(tenant.role)}` : '租户信息不可用'}
                 </div>
               </div>
             </div>
@@ -933,7 +1095,7 @@ export function SettingsPage({ section }: { section?: string }) {
                       members.map((m, i) => (
                         <tr key={i}>
                           <td>{m.display_name || m.username}</td>
-                          <td>{m.role}</td>
+                          <td>{roleLabel(m.role)}</td>
                           <td className="t-muted">{fmtTime(m.joined_at)}</td>
                         </tr>
                       ))
@@ -957,9 +1119,9 @@ export function SettingsPage({ section }: { section?: string }) {
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value)}
                     >
-                      <option value="editor">editor（可执行任务）</option>
-                      <option value="viewer">viewer（只读）</option>
-                      <option value="admin">admin（可管理成员）</option>
+                      <option value="editor">成员（可执行任务）</option>
+                      <option value="viewer">只读成员</option>
+                      <option value="admin">管理员（可管理成员）</option>
                     </select>
                     <button type="button" className="btn btn-sm" id="btn-invite" onClick={createInvite}>
                       生成邀请令牌
@@ -979,7 +1141,7 @@ export function SettingsPage({ section }: { section?: string }) {
                             {invite.token}
                           </div>
                           <div className="t-xs t-muted mt-2">
-                            角色：{invite.invite?.role} · 过期：{fmtTime(invite.invite?.expires_at)}
+                            角色：{roleLabel(invite.invite?.role)} · 过期：{fmtTime(invite.invite?.expires_at)}
                           </div>
                           <button
                             type="button"
@@ -997,7 +1159,7 @@ export function SettingsPage({ section }: { section?: string }) {
               ) : (
                 <div className="callout callout-info mt-3">
                   <Icon name="info" />
-                  <span>只有 admin / owner 可以邀请成员与查看审计日志。</span>
+                  <span>只有管理员或所有者可以邀请成员与查看审计日志。</span>
                 </div>
               )}
             </div>
@@ -1028,6 +1190,35 @@ export function SettingsPage({ section }: { section?: string }) {
           ) : null}
         </div>
       </PageShell>
+
+      {profileModal
+        ? createPortal(
+            <ProfileModal
+              kind={profileModal}
+              busy={profileBusy}
+              error={profileError}
+              nickname={newNickname}
+              phone={newPhone}
+              currentPwd={currentPwd}
+              newPwd={newPwd}
+              confirmPwd={confirmPwd}
+              onNickname={setNewNickname}
+              onPhone={setNewPhone}
+              onCurrent={setCurrentPwd}
+              onNew={setNewPwd}
+              onConfirm={setConfirmPwd}
+              onClose={() => setProfileModal(null)}
+              onSubmit={() =>
+                void (profileModal === 'nickname'
+                  ? submitNickname()
+                  : profileModal === 'phone'
+                    ? submitPhone()
+                    : submitPassword())
+              }
+            />,
+            document.body,
+          )
+        : null}
 
       {auditOpen
         ? createPortal(
@@ -1122,6 +1313,176 @@ function AuditModal({
         <div className="modal-foot">
           <button type="button" className="btn btn-quiet" data-audit-close="" onClick={onClose}>
             关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** 修改用户名 / 密码：两个字段形状不同，但弹窗壳与提交路径一致，合成一个组件。 */
+function ProfileModal({
+  kind,
+  busy,
+  error,
+  nickname,
+  phone,
+  currentPwd,
+  newPwd,
+  confirmPwd,
+  onNickname,
+  onPhone,
+  onCurrent,
+  onNew,
+  onConfirm,
+  onClose,
+  onSubmit,
+}: {
+  kind: 'nickname' | 'password' | 'phone'
+  busy: boolean
+  error: string
+  nickname: string
+  phone: string
+  currentPwd: string
+  newPwd: string
+  confirmPwd: string
+  onNickname: (v: string) => void
+  onPhone: (v: string) => void
+  onCurrent: (v: string) => void
+  onNew: (v: string) => void
+  onConfirm: (v: string) => void
+  onClose: () => void
+  onSubmit: () => void
+}) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div
+      className="modal"
+      id="account-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="account-modal-title"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <div className="modal-card">
+        <div className="modal-head">
+          <div>
+            <div className="card-title" id="account-modal-title">
+              {kind === 'nickname' ? '修改昵称' : kind === 'phone' ? '绑定手机号' : '修改密码'}
+            </div>
+            <div className="card-sub">
+              {kind === 'nickname'
+                ? '昵称显示在账号菜单与书脊账号章，用户名不可改'
+                : kind === 'phone'
+                  ? '只用于账号标识，解绑请留空保存'
+                  : '改完会退出所有会话，需要用新密码重新登录'}
+            </div>
+          </div>
+          <button type="button" className="btn-icon" aria-label="关闭" onClick={onClose}>
+            <Icon name="close" />
+          </button>
+        </div>
+        <form
+          className="modal-body"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onSubmit()
+          }}
+        >
+          {kind === 'nickname' ? (
+            <label className="field">
+              <span className="field-label">
+                新昵称<span className="field-req">*</span>
+              </span>
+              <input
+                id="account-nickname"
+                autoFocus
+                maxLength={32}
+                value={nickname}
+                onChange={(event) => onNickname(event.target.value)}
+                placeholder="1-32 个字符"
+              />
+              <span className="field-help">昵称只改显示，登录仍用用户名。</span>
+            </label>
+          ) : kind === 'phone' ? (
+            <label className="field">
+              <span className="field-label">手机号</span>
+              <input
+                id="account-phone"
+                autoFocus
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(event) => onPhone(event.target.value)}
+                placeholder="例如 13800138000，可带 +86"
+              />
+              <span className="field-help">留空保存即解绑；一个手机号只能绑定一个账号。</span>
+            </label>
+          ) : (
+            <>
+              <label className="field">
+                <span className="field-label">
+                  当前密码<span className="field-req">*</span>
+                </span>
+                <input
+                  id="account-pwd-current"
+                  type="password"
+                  autoFocus
+                  autoComplete="current-password"
+                  value={currentPwd}
+                  onChange={(event) => onCurrent(event.target.value)}
+                />
+              </label>
+              <label className="field mt-3">
+                <span className="field-label">
+                  新密码<span className="field-req">*</span>
+                </span>
+                <input
+                  id="account-pwd-new"
+                  type="password"
+                  autoComplete="new-password"
+                  value={newPwd}
+                  onChange={(event) => onNew(event.target.value)}
+                  placeholder="至少 8 位"
+                />
+              </label>
+              <label className="field mt-3">
+                <span className="field-label">
+                  确认新密码<span className="field-req">*</span>
+                </span>
+                <input
+                  id="account-pwd-confirm"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPwd}
+                  onChange={(event) => onConfirm(event.target.value)}
+                />
+              </label>
+            </>
+          )}
+          {error ? (
+            <div className="callout callout-danger mt-3">
+              <Icon name="alert" />
+              <div>{error}</div>
+            </div>
+          ) : null}
+        </form>
+        <div className="modal-foot">
+          <button type="button" className="btn btn-quiet" onClick={onClose}>
+            取消
+          </button>
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={onSubmit}>
+            {busy ? '正在保存…' : '保存'}
           </button>
         </div>
       </div>

@@ -1,12 +1,14 @@
 /**
- * Agent 市场：按卡片列出可用 Agent，点「使用此 Agent」带到工作台。
+ * Agent 市场：按海报卡列出可用 Agent，点「使用此 Agent」带到工作台。
  *
- * 卡片用 components/ui 的 Card/Badge，页头走 PageShell（.page/.page-head/.page-title
- * 是布局契约）。标题行与能力标签各自成层，长描述不会把按钮挤走；
- * 加载态用 Skeleton，空态与错误态给可操作入口。
+ * 视觉走「反调印刷」海报墙（骨架与技能广场共用，样式在 styles/skills.css）：
+ * 跨列不等宽 + ±1deg 倾斜 + 3px 墨框 + 硬投影，卡角压一个名称首字的巨型描边水印；
+ * 标题黑体 900、说明宋体、编号与标签等宽。水印只在装饰层，主操作按钮不受影响。
  *
- * 断言钩子：`[data-agent-card]`、`[data-agent-run]` —— 按语义断言，
- * 不依赖会被样式改版影响的类名。
+ * 内容全部来自 `GET /api/agents`：后端没给就是空态，不补假 Agent。
+ *
+ * 断言钩子：`[data-agent-card]`、`[data-agent-run]`、`[data-agent-name]` ——
+ * 按语义断言，不依赖会被样式改版影响的类名。
  */
 import { useEffect, useState } from 'react'
 import { Bot, Play, TriangleAlert } from 'lucide-react'
@@ -14,7 +16,6 @@ import { api } from '@/lib/api'
 import { go } from '@/app/router'
 import { PageFrame, PageShell } from '@/components/shared/PageShell'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertTitle } from '@/components/ui/alert'
@@ -37,7 +38,13 @@ interface AgentItem {
 }
 
 const TITLE = 'Agent 市场'
-const DESC = '选一个 Agent 来执行你的目标。它会调用合适的能力，过程会写进任务记录。'
+
+/** 水印字：优先取名称里第一个汉字（「Listing 专家」→ 专），没有汉字才退回首字符 */
+function glyphOf(name?: string): string {
+  const s = String(name || '')
+  const cjk = s.match(/[一-鿿]/)
+  return cjk ? cjk[0] : s.slice(0, 1) || '·'
+}
 
 function AgentCard({
   agent,
@@ -49,72 +56,61 @@ function AgentCard({
   onDetail: (agent: AgentItem) => void
 }) {
   const tags = (agent.skill_keys || []).map((key) => skillName[key]).filter(Boolean)
-  const initial = String(agent.name || '?').slice(0, 1)
+  const glyph = glyphOf(agent.name)
 
   return (
-    <Card data-agent-card={agent.agent_key} className="gap-0">
-      <CardHeader className="flex-row items-center justify-between gap-2 pb-0">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary-soft text-xs font-semibold text-primary"
-            aria-hidden="true"
-          >
-            {initial}
-          </span>
-          <span data-agent-name className="truncate text-sm font-semibold">
+    <article className="ag-card" data-agent-card={agent.agent_key}>
+      {/* 巨型描边汉字：名称首字，纯装饰层，永远不压在主操作上 */}
+      <span className="ag-glyph" aria-hidden="true">
+        {glyph}
+      </span>
+
+      <header className="ag-card-head">
+        <span className="ag-card-headline">
+          <span data-agent-name className="ag-name">
             {agent.name}
           </span>
+        </span>
+      </header>
+
+      {agent.summary ? <p className="ag-card-sum">{agent.summary}</p> : null}
+      {agent.description ? <p className="ag-card-desc">{agent.description}</p> : null}
+      {tags.length ? (
+        <div className="ag-card-tags">
+          {tags.map((name) => (
+            <Badge key={name} variant="outline">
+              {name}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="ag-card-foot">
+        <div className="ag-foot-left">
+          <button
+            type="button"
+            className="ag-detail"
+            data-agent-detail={agent.agent_key}
+            onClick={() => onDetail(agent)}
+          >
+            详情
+          </button>
+          {tags.length ? (
+            <span className="ag-foot-label">可调用能力 {tags.length} 项</span>
+          ) : null}
         </div>
         <Button
           size="sm"
           variant="outline"
+          className="ag-run"
           data-agent-run={agent.agent_key}
           onClick={() => go(`/workbench?agent=${encodeURIComponent(agent.agent_key)}`)}
         >
           <Play />
           使用此 Agent
         </Button>
-      </CardHeader>
-
-      <CardContent className="flex flex-col gap-2 pt-3">
-        {agent.summary ? (
-          <p className="text-sm leading-relaxed text-foreground">{agent.summary}</p>
-        ) : null}
-        {agent.description ? (
-          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-            {agent.description}
-          </p>
-        ) : null}
-        {tags.length ? (
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            {tags.map((name) => (
-              <Badge key={name} variant="outline">
-                {name}
-              </Badge>
-            ))}
-            <button
-              type="button"
-              className="ml-auto text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              data-agent-detail={agent.agent_key}
-              onClick={() => onDetail(agent)}
-            >
-              详情
-            </button>
-          </div>
-        ) : (
-          <div className="flex justify-end pt-1">
-            <button
-              type="button"
-              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-              data-agent-detail={agent.agent_key}
-              onClick={() => onDetail(agent)}
-            >
-              详情
-            </button>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </article>
   )
 }
 
@@ -156,20 +152,16 @@ export function AgentsPage() {
   if (loading) {
     return (
       <PageFrame>
-        <PageShell title={TITLE} desc={DESC}>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <PageShell title={TITLE}>
+          <div className="ag-wall">
             {[0, 1, 2].map((i) => (
-              <Card key={i} className="gap-0">
-                <CardHeader className="flex-row items-center gap-2.5 pb-0">
-                  <Skeleton className="size-8 rounded-md" />
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent className="flex flex-col gap-2 pt-3">
-                  <Skeleton className="h-3.5 w-full" />
-                  <Skeleton className="h-3 w-4/5" />
-                  <Skeleton className="h-5 w-20" />
-                </CardContent>
-              </Card>
+              <div className="ag-skeleton" key={i} aria-hidden="true">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-7 w-3/5" />
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+                <Skeleton className="mt-auto h-8 w-40" />
+              </div>
             ))}
           </div>
         </PageShell>
@@ -180,7 +172,7 @@ export function AgentsPage() {
   if (error) {
     return (
       <PageFrame>
-        <PageShell title={TITLE} desc="">
+        <PageShell title={TITLE}>
           <Alert variant="destructive">
             <TriangleAlert />
             <AlertTitle>加载失败：{error.message}</AlertTitle>
@@ -195,17 +187,18 @@ export function AgentsPage() {
 
   return (
     <PageFrame>
-      <PageShell title={TITLE} desc={DESC} actions={actions}>
+      <PageShell title={TITLE} actions={actions}>
         {items.length === 0 ? (
-          <Card className="items-center gap-2 py-12 text-center">
-            <Bot className="size-6 text-muted-foreground" aria-hidden="true" />
-            <p className="text-sm font-medium">暂没有可用的 Agent</p>
-            <p className="text-xs text-muted-foreground">
+          <div className="ag-empty">
+            <span className="ag-empty-tape">空</span>
+            <Bot className="ag-empty-icon" aria-hidden="true" />
+            <p className="ag-empty-title">暂没有可用的 Agent</p>
+            <p className="ag-empty-desc">
               管理员在服务端配置后，这里会出现可执行的 Agent。
             </p>
-          </Card>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="ag-wall">
             {items.map((agent) => (
               <AgentCard
                 key={agent.agent_key}

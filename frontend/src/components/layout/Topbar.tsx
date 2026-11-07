@@ -1,22 +1,22 @@
 /**
- * 顶栏：抽屉开关 + 面包屑 + 生成方式标识 + AI 助手入口。
+ * 顶栏 = 跑马灯状态条 + 编号条。
+ *
+ * 条上只放服务端真实回传的信号：分组、生成方式、任务执行服务、版本号。
+ * 跑马灯不做装饰性滚动——它滚的是「你现在用的是什么」。
  *
  * 保留的 id 是对外契约，别改：
- *   #nav-open        —— 移动端抽屉入口
+ *   #nav-open        —— 窄屏抽屉入口
  *   #provider-flag   —— 生成方式标识
  *   #crumb           —— 面包屑容器
- *
- * 断点用 tailwind.css 里的 shell / wide / narrow 三档。
  */
-import { Info, Menu, TriangleAlert } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
 import { useHealthStore, providerFlagText } from '@/lib/health/health'
-import { cn } from '@/lib/utils'
 
-/** 生成方式标识的三种语气 → 语义色描边（与 Alert 的语气一致） */
-const FLAG_TONE: Record<string, string> = {
-  warn: 'border-warning-line bg-warning-soft text-warning',
-  ok: 'border-success-line bg-success-soft text-success',
-  neutral: 'border-border bg-card text-muted-foreground',
+/** 生成方式标识的语气 → 跑马灯条上的撞色 */
+const FLAG_TONE: Record<string, 'alert' | 'live' | 'muted'> = {
+  warn: 'alert',
+  ok: 'live',
+  plain: 'muted',
 }
 
 export function Topbar({
@@ -30,67 +30,78 @@ export function Topbar({
 }) {
   const health = useHealthStore((s) => s.data)
   const failed = useHealthStore((s) => s.failed)
+  const me = useAuthStore((s) => s.me)
+  const user = useAuthStore((s) => s.user)
 
   const nav = window.CPCatalog?.NAV ?? []
-  const labels: Record<string, string> = {}
-  nav.forEach((g) => g.items.forEach((i) => (labels[i.key] = i.label)))
-  const current = labels[activeKey] || activeKey
+  let current = ''
+  let group = ''
+  for (const g of nav) {
+    for (const item of g.items) {
+      if (item.key === activeKey) {
+        current = item.label
+        group = g.group
+      }
+    }
+  }
 
   const flag = providerFlagText(health, failed)
-  const FlagIcon = flag.tone === 'warn' ? TriangleAlert : Info
+  const worker = health?.worker ?? {}
+  const tickerFacts = [
+    group || '工作空间',
+    `生成方式 ${flag.text}`,
+    `任务执行 ${worker.alive === false ? '暂不可用' : '正常'}`,
+    health?.version ? `版本 ${health.version}` : '',
+  ].filter(Boolean).join('　·　')
+
+  const account = me?.display_name || me?.username || user?.username || ''
 
   return (
     <>
-      <div className="flex min-w-0 items-center gap-1.5">
-        {/* 桌面端图标栏常驻，这个入口是冗余的 —— 与原 CSS 的 @media (min-width:981px) 等价 */}
+      <div className="ticker">
         <button
           type="button"
           id="nav-open"
+          className="nav-open-btn"
           aria-label="打开全部导航"
           aria-expanded={drawerOpen ? 'true' : 'false'}
+          aria-haspopup="dialog"
           onClick={onOpenDrawer}
-          className="shell:hidden -ml-1 inline-flex size-7 items-center justify-center rounded-sm text-foreground transition-colors hover:bg-accent"
         >
-          <Menu className="size-4" />
+          ☰
         </button>
 
-        <nav
-          id="crumb"
-          aria-label="面包屑"
-          className="max-narrow:hidden flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground"
-        >
-          <a href="/dashboard" data-link="" className="transition-colors hover:text-foreground">
-            工作空间
-          </a>
-          <span aria-hidden="true" className="text-border-strong">
-            /
-          </span>
-          <span className="truncate font-medium text-foreground">{current}</span>
-        </nav>
-      </div>
-
-      <div className="flex shrink-0 items-center gap-1.5">
         <span
           id="provider-flag"
+          className="ticker-seg"
+          data-tone={FLAG_TONE[flag.tone] ?? 'muted'}
           title={flag.title}
-          className={cn(
-            'inline-flex h-6 max-w-64 items-center gap-1.5 truncate rounded-sm border px-2 text-[11px] font-medium whitespace-nowrap',
-            'max-narrow:max-w-[132px]',
-            FLAG_TONE[flag.tone] ?? FLAG_TONE.neutral,
-          )}
         >
-          <FlagIcon className="size-3 shrink-0" aria-hidden="true" />
-          <span className="truncate">{flag.text}</span>
+          {flag.text}
         </span>
 
-        <a
-          href="/workbench"
-          data-link=""
-          className="inline-flex h-7 items-center gap-1.5 rounded-sm bg-foreground px-2.5 text-xs font-medium text-background transition-colors hover:bg-[#262626]"
-        >
-          <span className="max-shell:hidden">AI 助手</span>
-          <span className="hidden max-shell:inline">AI</span>
-        </a>
+        <div className="ticker-marq" aria-hidden="true">
+          <span>{`${tickerFacts}　·　`.repeat(4)}</span>
+        </div>
+
+        <div className="ticker-right">
+          {account ? (
+            <span className="ticker-seg" data-tone="muted">{account}</span>
+          ) : null}
+          <a className="ticker-cta" href="/workbench" data-link="">
+            AI 助手
+          </a>
+        </div>
+      </div>
+
+      <div className="crumb-bar">
+        <nav id="crumb" aria-label="面包屑">
+          <a className="crumb-root" href="/dashboard" data-link="">
+            {group || '工作空间'}
+          </a>
+          <span className="crumb-sep" aria-hidden="true">/</span>
+          <span className="crumb-current">{current}</span>
+        </nav>
       </div>
     </>
   )

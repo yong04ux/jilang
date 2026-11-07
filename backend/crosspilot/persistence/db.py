@@ -113,6 +113,21 @@ def _pool_kwargs(dsn: str) -> dict[str, Any]:
     return kwargs
 
 
+def _cover_image(payload: Any) -> str | None:
+    """报告封面：取第一张带地址的竞品图；没有就返回 None（列表不补占位）。"""
+    if not payload:
+        return None
+    try:
+        report = payload if isinstance(payload, dict) else json.loads(payload)
+    except (TypeError, ValueError):
+        return None
+    for snapshot in report.get("competitor_snapshots") or []:
+        image = snapshot.get("image")
+        if image:
+            return str(image)
+    return None
+
+
 def _get_pool(dsn: str, size: int):
     with _POOLS_LOCK:
         pool = _POOLS.get(dsn)
@@ -695,7 +710,7 @@ class Database:
         *,
         connection: Any = None,
     ) -> list[dict[str, Any]]:
-        query = """SELECT report_id, product_name, platform, marketplace, data_source, is_demo, created_at
+        query = """SELECT report_id, product_name, platform, marketplace, data_source, is_demo, created_at, payload
                    FROM competitor_reports"""
         params: list[Any] = []
         if tenant_id is not None:
@@ -712,6 +727,8 @@ class Database:
         task_ids = self._task_refs([item["report_id"] for item in items])
         for item in items:
             item["task_id"] = task_ids.get(item["report_id"])
+            # 列表只带首张商品图当封面；payload 本身不返回，避免把整份报告塞进首屏
+            item["image"] = _cover_image(item.pop("payload", None))
         return items
 
     def report_summary(self, report_id: str, tenant_id: str) -> dict[str, Any] | None:
@@ -1180,6 +1197,32 @@ class Database:
             connection.execute(
                 "UPDATE users SET password_hash = ? WHERE user_id = ?", (password_hash, user_id)
             )
+
+    def update_avatar(self, user_id: str, avatar: str | None) -> None:
+        with self._lock, self.connect() as connection:
+            connection.execute(
+                "UPDATE users SET avatar = ? WHERE user_id = ?", (avatar, user_id)
+            )
+
+    def update_display_name(self, user_id: str, display_name: str) -> None:
+        with self._lock, self.connect() as connection:
+            connection.execute(
+                "UPDATE users SET display_name = ? WHERE user_id = ?",
+                (display_name.strip(), user_id),
+            )
+
+    def update_phone(self, user_id: str, phone: str | None) -> None:
+        with self._lock, self.connect() as connection:
+            connection.execute(
+                "UPDATE users SET phone = ? WHERE user_id = ?", (phone, user_id)
+            )
+
+    def get_user_by_phone(self, phone: str) -> dict[str, Any] | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE phone = ?", (phone,)
+            ).fetchone()
+        return dict(row) if row else None
 
     # -- 临时账号（一键体验） ----------------------------------------------
     def mark_guest(self, user_id: str, expires_at: str) -> None:

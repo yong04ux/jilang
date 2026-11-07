@@ -55,10 +55,23 @@ function Avatar({ skill, size }: { skill: Skill; size?: 'lg' }) {
   )
 }
 
+/** 水印字：能力名首字。展示配置里的 icon 就是首字，缺配置时取名称里第一个汉字 */
+function glyphOf(skill: Skill): string {
+  const icon = String(skill.icon || '')
+  if (/[一-鿿]/.test(icon)) return icon
+  const name = String(skill.name || '')
+  const cjk = name.match(/[一-鿿]/)
+  return cjk ? cjk[0] : name.slice(0, 1) || '·'
+}
+
 function SkillCard({ skill }: { skill: Skill }) {
   const needsKey = skill.requires.indexOf('llm') !== -1
   return (
     <article className="sk-card" data-open={skill.key} onClick={() => go(`/skills?skill=${encodeURIComponent(skill.key)}`)}>
+      {/* 巨型描边汉字：纯装饰，z-index 0，正文与「运行」按钮都在它上面 */}
+      <span className="sk-glyph" aria-hidden="true">
+        {glyphOf(skill)}
+      </span>
       <div className="sk-card-head">
         <Avatar skill={skill} />
         <div className="sk-card-title-wrap">
@@ -193,7 +206,6 @@ function SkillsGrid({ skills }: { skills: Skill[] }) {
   return (
     <PageShell
       title="技能广场"
-      desc="每个能力都能单独跑一遍：填好参数，直接看结果。同样的能力也会在 AI 助手里按目标自动串起来。"
       actions={
         <a className="btn btn-sm" href="/workbench" data-link="">
           去 AI 助手
@@ -209,7 +221,7 @@ function SkillsGrid({ skills }: { skills: Skill[] }) {
               <Icon name="arrowRight" />
             </a>
           </div>
-          <div className="sk-grid">
+          <div className="sk-grid sk-grid--pick">
             {featured.map((s) => (
               <SkillCard skill={s} key={s.key} />
             ))}
@@ -622,7 +634,7 @@ export function SkillsPage({ query }: { query: Record<string, string> }) {
     const err = skillLoadError()
     return (
       <PageFrame>
-        <PageShell title="技能广场" desc="">
+        <PageShell title="技能广场">
           <div className="callout callout-warn">
             <Icon name="alert" />
             <div>

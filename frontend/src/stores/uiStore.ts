@@ -1,12 +1,12 @@
 /**
- * 外壳 UI 状态：侧栏折叠 + 数据来源提示条关闭。
+ * 外壳 UI 状态：数据来源提示条关闭 + 全量导航抽屉。
  *
- * 只承接旧 `CPStore` 的那一个实例（shell.js:17）。两个 localStorage 键与值格式
- * 必须保持 `"1"` / `"0"` —— 换格式会让老用户的折叠状态失效。
+ * 只承接旧 `CPStore` 的那一个实例（shell.js:17）。localStorage 键与值格式
+ * 必须保持 `"1"` / `"0"` —— 换格式会让老用户的偏好失效。
+ * 侧栏折叠位已随竖排书脊一起退场：书脊只有一种宽度，没有可折叠的展开态。
  */
 import { create } from 'zustand'
 
-const EXPAND_KEY = 'cp.sidebar.expanded'
 const BANNER_KEY = 'cp.banner.dismissed'
 
 function readFlag(key: string): boolean {
@@ -26,25 +26,16 @@ function writeFlag(key: string, on: boolean): void {
 }
 
 interface UiState {
-  expanded: boolean
   bannerDismissed: boolean
   /** 窄屏全量导航抽屉是否展开（旧 shell.js 用局部变量 scrim 管理） */
   drawerOpen: boolean
-  setExpanded(value: boolean): void
   dismissBanner(): void
   setDrawerOpen(open: boolean): void
 }
 
-export const useUiStore = create<UiState>((set, get) => ({
-  expanded: readFlag(EXPAND_KEY),
+export const useUiStore = create<UiState>((set) => ({
   bannerDismissed: readFlag(BANNER_KEY),
   drawerOpen: false,
-  setExpanded(value) {
-    const next = Boolean(value)
-    if (get().expanded === next) return
-    writeFlag(EXPAND_KEY, next)
-    set({ expanded: next })
-  },
   dismissBanner() {
     writeFlag(BANNER_KEY, true)
     set({ bannerDismissed: true })

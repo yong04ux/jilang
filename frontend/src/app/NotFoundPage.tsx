@@ -7,7 +7,6 @@ export function NotFoundPage() {
     <PageFrame>
       <PageShell
         title="页面不存在"
-        desc="这个地址没有对应的页面，可能是链接过期，或者地址输错了。"
         actions={
           <a className="btn btn-secondary btn-sm" href="/dashboard" data-link="">
             回到工作台

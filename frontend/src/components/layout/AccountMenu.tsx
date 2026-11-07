@@ -1,20 +1,18 @@
 /** 账号菜单：悬停展开、点击切换、Esc 收起并回焦、点击外部收起（含 160ms 悬停延迟关闭）。
  *
- * 展开态由 `expanded` prop 决定：
- *   - 图标栏：按钮只留头像，菜单弹在侧栏右侧，底边与按钮底对齐；
- *   - 文字栏：按钮显示姓名+角色，菜单弹在按钮上方。
+ * 书脊里只放一个方头字母块（设过头像就是方图），菜单弹在它右侧。
+ * 换头像在「设置 → 账号」里，菜单只负责展示。
  *
  * 保留的 id 是 App.tsx 的 document 点击委托依赖的锚点，别改：
- *   #account-wrap #user-chip #account-avatar #account-name #account-role
- *   #account-menu #menu-avatar #menu-name #menu-sub #menu-model #menu-worker #user-logout
+ *   #account-wrap #user-chip #account-avatar #account-menu
+ *   #menu-name #menu-model #menu-worker #user-logout
  */
 import { useEffect, useRef, useState } from 'react'
 import { Database, LogOut, Settings2, Store } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useHealthStore, providerFlagText } from '@/lib/health/health'
-import { cn } from '@/lib/utils'
 
-export function AccountMenu({ expanded }: { expanded: boolean }) {
+export function AccountMenu() {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -27,6 +25,7 @@ export function AccountMenu({ expanded }: { expanded: boolean }) {
   const failed = useHealthStore((s) => s.failed)
 
   const signedIn = Boolean(user)
+  const avatar = signedIn ? me?.avatar || null : null
   const display = signedIn
     ? me?.display_name || me?.username || user?.username || '—'
     : '未登录'
@@ -124,12 +123,9 @@ export function AccountMenu({ expanded }: { expanded: boolean }) {
     >
       <button
         type="button"
-        className={cn(
-          'flex h-9 w-full items-center rounded-md transition-colors hover:bg-accent',
-          expanded ? 'justify-start gap-2 px-2' : 'justify-center px-1.5',
-        )}
+        className="account-chip"
         id="user-chip"
-        title="当前账号"
+        title={signedIn ? `${display} · ${role}` : '当前账号'}
         aria-haspopup="menu"
         aria-expanded={open ? 'true' : 'false'}
         aria-controls="account-menu"
@@ -141,33 +137,13 @@ export function AccountMenu({ expanded }: { expanded: boolean }) {
           else openMenu()
         }}
       >
-        <span
-          className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground"
-          id="account-avatar"
-        >
-          {initial}
+        <span id="account-avatar">
+          {avatar ? <img src={avatar} alt="" width={40} height={40} /> : initial}
         </span>
-        {expanded ? (
-          <span className="flex min-w-0 flex-col text-left">
-            <span
-              className="truncate text-xs font-medium leading-tight text-foreground"
-              id="account-name"
-            >
-              {display}
-            </span>
-            <span className="truncate text-[10px] leading-tight text-muted-foreground" id="account-role">
-              {role}
-            </span>
-          </span>
-        ) : null}
       </button>
 
       <div
-        className={cn(
-          'absolute z-200 w-[292px] rounded-xl border border-border bg-card p-1.5 shadow-lg',
-          // 图标栏：弹在侧栏右侧；文字栏：弹在按钮上方（避免超出视口右缘）
-          expanded ? 'bottom-[calc(100%+8px)] left-0' : 'bottom-[-4px] left-[calc(100%+10px)]',
-        )}
+        className="account-menu absolute z-200 w-[292px] border border-border bg-card p-1.5 shadow-lg"
         id="account-menu"
         role="menu"
         aria-label="账号"
@@ -179,7 +155,7 @@ export function AccountMenu({ expanded }: { expanded: boolean }) {
             className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-[15px] font-semibold text-primary-foreground"
             id="menu-avatar"
           >
-            {initial}
+            {avatar ? <img src={avatar} alt="" width={40} height={40} /> : initial}
           </span>
           <span className="flex min-w-0 flex-col gap-0.5">
             <span className="truncate text-sm font-semibold text-foreground" id="menu-name">

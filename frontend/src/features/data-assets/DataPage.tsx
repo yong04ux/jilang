@@ -221,15 +221,15 @@ export function DataPage() {
   const statusBadgeText = useMemo(() => {
     if (!result) return null
     return result.status === 'validated' ? (
-      <span className="badge badge-ok">校验通过</span>
+      <span className="badge badge-ok badge-stamp">校验通过</span>
     ) : result.status === 'imported' ? (
-      <span className="badge badge-ok">已提交</span>
+      <span className="badge badge-ok badge-stamp">已提交</span>
     ) : result.status === 'needs_mapping' ? (
-      <span className="badge badge-warn">需要字段映射</span>
+      <span className="badge badge-warn badge-stamp">需要字段映射</span>
     ) : result.status === 'rejected' ? (
-      <span className="badge badge-danger">有错误</span>
+      <span className="badge badge-danger badge-stamp">有错误</span>
     ) : (
-      <span className="badge">{result.status || ''}</span>
+      <span className="badge badge-stamp">{result.status || ''}</span>
     )
   }, [result])
 
@@ -242,6 +242,68 @@ export function DataPage() {
         : '待映射'
 
   const latest = sources[0]
+
+  /* ------------------------------------------------------------ 工序条（纯展示）
+     五步状态全部由本页已有状态量推导：不新增请求、不编造进度，
+     每一步都带文字状态，颜色只是加强。 */
+
+  const mappedCount = useMemo(() => Object.keys(collectMapping()).length, [columns, overrides])
+
+  const steps = useMemo(() => {
+    const status = String(result?.status || '')
+    const imported = status === 'imported'
+    const hasResult = Boolean(result)
+    const errCount = errors.length
+    const pending = Math.max(columns.length - mappedCount, 0)
+    return [
+      {
+        name: '选文件',
+        desc: fileName ? fileName : 'CSV / JSON / Excel，单个不超过 5 MB',
+        state: fileName ? '已选择' : '待选择',
+        tone: fileName ? 'done' : 'wait',
+      },
+      {
+        name: '上传校验',
+        desc: hasResult ? `共 ${result?.total_rows || 0} 行 · ${columns.length} 列` : '上传后自动识别行列',
+        state: uploading ? '校验中' : hasResult ? '已完成' : '待执行',
+        tone: uploading ? 'run' : hasResult ? 'done' : '',
+      },
+      {
+        name: '字段映射',
+        desc: columns.length ? `${mappedCount} 列已对上 · ${pending} 列待确认` : '等待识别列',
+        state: imported ? '已完成' : columns.length ? '进行中' : '待执行',
+        tone: imported ? 'done' : columns.length ? 'run' : '',
+      },
+      {
+        name: '逐行校验',
+        desc: hasResult ? `${errCount} 行需要修正` : '映射确认后开始',
+        state: errCount ? `需修正 ${errCount} 行` : hasResult ? '无行级错误' : '待执行',
+        tone: errCount ? 'hit' : hasResult ? 'done' : '',
+      },
+      {
+        name: '入库确认',
+        desc: imported ? `已写入 ${result?.valid_rows || 0} 条` : '映射与校验通过后提交',
+        state: imported ? '已提交' : '待提交',
+        tone: imported ? 'done' : '',
+      },
+    ]
+  }, [fileName, uploading, result, columns, errors.length, mappedCount])
+
+  const renderSteps = () => (
+    <div className="data-wo-steps">
+      <div className="data-wo-title">导入走五步</div>
+      {steps.map((s, i) => (
+        <div className={`data-step${s.tone ? ' is-' + s.tone : ''}`} key={s.name}>
+          <span className="data-step-no">{i + 1}</span>
+          <div className="data-step-body">
+            <span className="data-step-name">{s.name}</span>
+            <span className="data-step-desc">{s.desc}</span>
+            <span className="data-step-state">{s.state}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
   /* ------------------------------------------------------------ 结果卡 */
 
@@ -287,11 +349,11 @@ export function DataPage() {
         </div>
         <div className="card-body">
           <div className="metric-grid">
-            <div className="metric-cell">
+            <div className={`metric-cell${(result.valid_rows || 0) > 0 ? ' is-ok' : ''}`}>
               <div className="metric-label">有效竞品</div>
               <div className="metric-value">{result.valid_rows || 0}</div>
             </div>
-            <div className="metric-cell">
+            <div className={`metric-cell${errors.length ? ' is-hit' : ''}`}>
               <div className="metric-label">错误行</div>
               <div className="metric-value">{errors.length}</div>
             </div>
@@ -409,87 +471,70 @@ export function DataPage() {
 
   const renderMappingCard = () => {
     if (!columns.length) return null
+    const pendingCount = Math.max(columns.length - mappedCount, 0)
     return (
-      <div className="card mt-4">
-        <div className="card-head">
-          <div>
-            <div className="card-title">字段映射</div>
-            <div className="card-sub">识别错的列可以手动改；选「忽略」的列不会进入数据</div>
-          </div>
+      <div className="data-map">
+        <div className="data-map-head">
+          <b>字段映射</b>
+          <span>左＝文件里的列 · 右＝激浪的字段</span>
+          <span className="data-map-tally">
+            {mappedCount} 已对 · {pendingCount} 待确认
+          </span>
         </div>
-        <div className="card-body">
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>文件列</th>
-                  <th>识别结果</th>
-                  <th>映射到</th>
-                </tr>
-              </thead>
-              <tbody>
-                {columns.map((col, i) => {
-                  const name = columnName(col)
-                  const detected = col.field || ''
-                  const current = overrides[name] !== undefined ? overrides[name] : detected
-                  return (
-                    <tr key={`${name}-${i}`}>
-                      <td>
-                        <span className="source-column-name">{name}</span>
-                      </td>
-                      <td>
-                        {detected ? (
-                          <span className="badge badge-ok">已识别</span>
-                        ) : (
-                          <span className="badge badge-warn">需映射</span>
-                        )}
-                      </td>
-                      <td>
-                        <select
-                          data-map-col={name}
-                          style={{ maxWidth: 260 }}
-                          value={current}
-                          onChange={(e) =>
-                            setOverrides((prev) => ({ ...prev, [name]: e.target.value }))
-                          }
-                        >
-                          {TARGET_FIELDS.map((f) => (
-                            <option value={f.key} key={f.key}>
-                              {f.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="row gap-2 mt-4">
-            <button
-              type="button"
-              className="btn btn-primary"
-              id="data-commit"
-              disabled={!result?.can_commit || busy !== null}
-              onClick={commit}
-            >
-              {busy === 'commit' ? '提交中…' : '提交导入'}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              id="data-repreview"
-              disabled={busy !== null}
-              onClick={repreview}
-            >
-              {busy === 'remap' ? '校验中…' : '用新映射重新校验'}
-            </button>
-          </div>
-          {!result?.can_commit ? (
-            <p className="t-xs t-warn mt-2">当前有行级错误或未识别列，修正后才能提交。</p>
-          ) : null}
+        {columns.map((col, i) => {
+          const name = columnName(col)
+          const detected = col.field || ''
+          const current = overrides[name] !== undefined ? overrides[name] : detected
+          return (
+            <div className={`data-mrow${detected ? '' : ' is-miss'}`} key={`${name}-${i}`}>
+              <div className="data-mrow-src source-column-name" title={name}>
+                {name}
+              </div>
+              <div className="data-mrow-ar">
+                <span aria-hidden="true">{detected ? '→' : '?'}</span>
+                <em>{detected ? '已识别' : '需映射'}</em>
+              </div>
+              <div className="data-mrow-cell">
+                <select
+                  data-map-col={name}
+                  value={current}
+                  onChange={(e) =>
+                    setOverrides((prev) => ({ ...prev, [name]: e.target.value }))
+                  }
+                >
+                  {TARGET_FIELDS.map((f) => (
+                    <option value={f.key} key={f.key}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )
+        })}
+        <div className="row gap-2 mt-4">
+          <button
+            type="button"
+            className="btn btn-primary"
+            id="data-commit"
+            disabled={!result?.can_commit || busy !== null}
+            onClick={commit}
+          >
+            {busy === 'commit' ? '提交中…' : '提交导入'}
+          </button>
+          <button
+            type="button"
+            className="btn"
+            id="data-repreview"
+            disabled={busy !== null}
+            onClick={repreview}
+          >
+            {busy === 'remap' ? '校验中…' : '用新映射重新校验'}
+          </button>
         </div>
+        {!result?.can_commit ? (
+          <p className="t-xs t-warn mt-2">当前有行级错误或未识别列，修正后才能提交。</p>
+        ) : null}
       </div>
     )
   }
@@ -590,8 +635,11 @@ export function DataPage() {
       <div className="page data-page">
         <div className="page-inner">
           <section className="data-hero">
+            {/* 巨型描边汉字：装饰层，z-index 0，正文与按钮都在它上面 */}
+            <span className="data-hero-glyph" aria-hidden="true">
+              数
+            </span>
             <div className="data-hero-copy">
-              <div className="data-eyebrow">CROSS-BORDER COMMERCE · DATA HUB</div>
               <div className="data-title-row">
                 <h1 className="page-title">数据资产</h1>
                 <span className="badge badge-brand">
@@ -599,7 +647,6 @@ export function DataPage() {
                   示例数据
                 </span>
               </div>
-              <p className="page-desc">管理商品数据、校验导入文件，并维护统一的数据字段。</p>
             </div>
             <div className="data-hero-note">
               <span className="data-hero-mark">
@@ -670,6 +717,9 @@ export function DataPage() {
                   <span className="t-xs t-muted">≤ 5 MB</span>
                 </div>
                 <label className="file-drop mt-4" id="data-drop">
+                  <span className="data-drop-glyph" aria-hidden="true">
+                    投
+                  </span>
                   <input
                     type="file"
                     id="data-file"
@@ -718,9 +768,12 @@ export function DataPage() {
               </div>
             </div>
 
-            <div className="card data-result-panel" id="data-result">
-              {renderResultCard()}
-              {renderMappingCard()}
+            <div>
+              {renderSteps()}
+              <div className="card data-result-panel" id="data-result">
+                {renderResultCard()}
+                {renderMappingCard()}
+              </div>
             </div>
           </section>
 

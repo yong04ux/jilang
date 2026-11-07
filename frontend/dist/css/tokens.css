@@ -1,185 +1,238 @@
 /* ============================================================================
-   激浪 · Design Tokens
-   shadcn/ui 语义层，附旧变量名兼容别名。
-   间距 / 圆角 / 字号 / 控件高度的唯一来源，页面不得自造数值。
+   激浪 · Design Tokens —— 反调印刷 / DISSONANCE PRESS
+   新粗野骨架：暖纸底 · 墨线框 · 硬投影 · 零圆角 · 撞色语义 · 三语体对撞。
+   这里是唯一真源；tailwind.css 只做映射，页面不得自造数值。
+   旧变量名全部保留为别名，既有页面代码不用改名。
    ========================================================================== */
 
 :root {
   color-scheme: light;
 
-  /* ---- shadcn 语义层：底层面 ---- */
-  --background:          #FAFAFA;   /* 页面底 */
-  --foreground:          #111114;   /* 主文字 */
-  --card:                #FFFFFF;
-  --card-foreground:     #111114;
-  --popover:             #FFFFFF;
-  --popover-foreground:  #111114;
+  /* ---- 纸与墨（取代冷灰白） ---- */
+  --paper:       #EFE9DC;   /* 页面底：暖新闻纸 */
+  --paper-2:     #F7F3EA;   /* 卡片面 */
+  --paper-3:     #E3DAC7;   /* 表头、禁用、骨架 */
+  --ink:         #111014;
+  --ink-2:       #3A3630;
+  --ink-3:       #5E574C;   /* 辅助字：对纸底 5.9:1 */
 
-  /* ---- 主色：激浪品牌蓝（不变），只用于 CTA / 链接 / 焦点环 / 选中 ---- */
+  /* ---- shadcn 语义层 ---- */
+  --background:          var(--paper);
+  --foreground:          var(--ink);
+  --card:                var(--paper-2);
+  --card-foreground:     var(--ink);
+  --popover:             var(--paper-2);
+  --popover-foreground:  var(--ink);
+
+  /* ---- 主色：品牌蓝 #1B6EF3 不动，但只给主操作/链接/选中图标 ---- */
   --primary:             #1B6EF3;
   --primary-foreground:  #FFFFFF;
-  --primary-hover:       #1560DC;
-  --primary-soft:        #EFF6FF;   /* 选中底 / 图标容器底 */
-  --primary-line:        #BFDBFE;   /* 浅色标记描边 */
+  --primary-hover:       #0B3FA8;
+  --primary-soft:        #D8FF3D;   /* 选中底：改成与蓝硬碰的酸柠 */
+  --primary-line:        #111014;   /* 描边一律走墨线 */
 
-  /* ---- 次级 / 静默 / 强调 ---- */
-  --secondary:           #F5F5F5;
-  --secondary-foreground:#171717;
-  --muted-surface:       #F8F8F8;   /* 面：禁用、表头、骨架 */
-  --muted-foreground:    #73737B;   /* 字：辅助说明 */
-  --accent:              #F4F4F5;   /* hover 底 */
-  --accent-foreground:   #111114;
+  /* ---- 次级 / 静默 ---- */
+  --secondary:           var(--paper-3);
+  --secondary-foreground: var(--ink);
+  --muted-surface:       var(--paper-3);
+  --muted-foreground:    var(--ink-3);
+  --accent:              #E9E1CF;   /* hover 底 */
+  --accent-foreground:   var(--ink);
 
-  /* ---- 线与焦点 ---- */
-  --border:              #E5E7EB;
-  --border-strong:       #D4D4D8;
-  --input:               #E5E7EB;
-  --ring:                #1B6EF3;
+  /* ---- 线与焦点：边框即主角 ---- */
+  --border:              var(--ink);
+  --border-strong:       var(--ink);
+  --input:               var(--ink);
+  --ring:                #FF2E7E;   /* 焦点环换成洋红，与蓝彻底不同源 */
 
-  /* ---- 语义色（成功 / 警告 / 危险 / 信息）：不与主色混用 ---- */
-  --success:             #15803D;
-  --success-soft:        #F0FDF4;
-  --success-line:        #BBF7D0;
-  --warning:             #B45309;
-  --warning-soft:        #FFFBEB;
-  --warning-line:        #FDE68A;
-  --destructive:         #DC2626;
-  --destructive-soft:    #FEF2F2;
-  --destructive-line:    #FECACA;
-  --info:                #165DFF;
-  --info-soft:           #EFF4FF;
-  --info-line:           #BFD3FE;
+  /* ---- 撞色板（酸柠 / 洋红 / 朱橙 / 电青 / 印章红） ---- */
+  --acid-lime:     #D8FF3D;
+  --acid-lime-deep:#A8CC00;
+  --acid-magenta:  #FF2E7E;
+  --acid-orange:   #FF6A00;
+  --acid-cyan:     #00D1FF;
+  --acid-violet:   #6B2CF5;
+  --stamp:         #E5004F;
 
-  /* ---- 图表色阶 ----
-     取值与 `lib/charts.ts` 手写 SVG 完全同源（折线 = 品牌蓝，柱 = 浅蓝），
-     新增 Recharts 组件时只管引用，不要另起一套配色。
-     其余三档是小面积的次要序列色，仅在多序列图表里出现。 */
-  --chart-1:             #1B6EF3;   /* 品牌蓝：主序列 / 折线 */
-  --chart-2:             #93BBFB;   /* 浅蓝：柱状 / 次序列 */
-  --chart-3:             #15803D;   /* 成功绿 */
-  --chart-4:             #B45309;   /* 警示琥珀 */
-  --chart-5:             #6D5BD0;   /* 紫：第三序列 */
+  /* ---- 语义色：soft 是撞色底，主色是压在底上的深字 ---- */
+  --success:          #14532D;  --success-soft:  var(--acid-lime);  --success-line:  var(--ink);
+  --warning:          #7C2D12;  --warning-soft:  var(--acid-orange); --warning-line:  var(--ink);
+  --destructive:      #8A0026;  --destructive-soft: var(--acid-magenta); --destructive-line: var(--ink);
+  --info:             #0B3FA8;  --info-soft:     var(--acid-cyan);   --info-line:     var(--ink);
 
-  /* ---- 对话区专用（对标 LinkFox 的 chat 令牌） ---- */
-  --chat-user-bg:        #E4E4E4;
-  --chat-tool-bg:        #F0F0F0;
-  --chat-text-tertiary:  #B0B0B7;
+  /* ---- 图表：主序列仍是品牌蓝，次序列换成撞色 ---- */
+  --chart-1:  var(--primary);
+  --chart-2:  var(--acid-lime-deep);
+  --chart-3:  var(--acid-magenta);
+  --chart-4:  var(--acid-orange);
+  --chart-5:  var(--acid-violet);
+
+  /* ---- 对话区 ---- */
+  --chat-user-bg:       var(--acid-lime);
+  --chat-tool-bg:       var(--paper-2);
+  --chat-text-tertiary: var(--ink-3);
 
   /* ==========================================================================
-     兼容别名 —— v1 变量名映射到上面的语义层
+     兼容别名 —— v1/v2 变量名映射到上面的语义层
      ======================================================================== */
   --bg:             var(--background);
   --surface:        var(--card);
   --surface-sunken: var(--muted-surface);
-  --surface-hover:  #F7F7F7;
+  --surface-hover:  var(--accent);
 
-  --ink:        var(--foreground);
-  --ink-soft:   #3F3F46;
-  --muted:      var(--muted-foreground);
-  --faint:      #A1A1AA;
+  --ink-soft: var(--ink-2);
+  --muted:    var(--muted-foreground);
+  --faint:    #8B8272;
 
   --brand:      var(--primary);
   --brand-dark: var(--primary-hover);
-  --brand-soft: var(--primary-soft);
-  --brand-line: var(--primary-line);
+  --brand-soft: #E8EFFD;   /* 只给「弱蓝底」保留，不再当选中底 */
+  --brand-line: #BFDBFE;
 
-  --ok:     var(--success);      --ok-soft:     var(--success-soft);      --ok-line:     var(--success-line);
-  --warn:   var(--warning);      --warn-soft:   var(--warning-soft);      --warn-line:   var(--warning-line);
-  --danger: var(--destructive);  --danger-soft: var(--destructive-soft);  --danger-line: var(--destructive-line);
-  --info:   var(--info);         --info-soft:   var(--info-soft);         --info-line:   var(--info-line);
+  --ok:     var(--success);     --ok-soft:     var(--success-soft);     --ok-line:     var(--success-line);
+  --warn:   var(--warning);     --warn-soft:   var(--warning-soft);     --warn-line:   var(--warning-line);
+  --danger: var(--destructive); --danger-soft: var(--destructive-soft); --danger-line: var(--destructive-line);
+  --info:   var(--info);        --info-soft:   var(--info-soft);        --info-line:   var(--info-line);
 
   --line:        var(--border);
   --line-strong: var(--border-strong);
 
-  /* ---- 圆角：v3 放大一档，卡片 12 / 面板 16 ---- */
-  --radius-xs:   4px;
-  --radius-sm:   6px;
-  --radius:      8px;
-  --radius-lg:   12px;
-  --radius-xl:   16px;
+  /* ---- 圆角：全部归零。唯一例外是不对称切角与胶囊筛选 ---- */
+  --radius-xs:   0;
+  --radius-sm:   0;
+  --radius:      0;
+  --radius-lg:   0;
+  --radius-xl:   0;
   --radius-pill: 999px;
+  --radius-cut:  0 0 18px 0;
 
-  /* ---- 阴影：卡片不用，只留浮层与微抬升 ---- */
-  --shadow-xs: 0 1px 2px rgba(17, 17, 20, .05);
-  --shadow-sm: 0 1px 2px rgba(17, 17, 20, .06);
-  --shadow-md: 0 2px 8px rgba(17, 17, 20, .07), 0 1px 2px rgba(17, 17, 20, .04);
-  --shadow-lg: 0 12px 32px rgba(17, 17, 20, .10), 0 2px 8px rgba(17, 17, 20, .06);
+  /* ---- 描边宽度：墨线两档 ---- */
+  --bd:    2px solid var(--ink);
+  --bd-lg: 3px solid var(--ink);
 
-  /* ---- 间距：四档主用 + 两档结构用 ---- */
+  /* ---- 阴影：只有硬投影，模糊恒为 0 ---- */
+  --shadow-xs: 2px 2px 0 var(--ink);
+  --shadow-sm: 3px 3px 0 var(--ink);
+  --shadow-md: 5px 5px 0 var(--ink);
+  --shadow-lg: 8px 8px 0 var(--ink);
+  --hard-ink:   6px 6px 0 var(--ink);
+  --hard-lime:  6px 6px 0 var(--acid-lime-deep);
+  --hard-mag:   6px 6px 0 var(--acid-magenta);
+  --hard-none:  none;
+
+  /* ---- 间距 ---- */
   --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
   --sp-4: 16px; --sp-5: 20px; --sp-6: 28px;
 
-  /* ---- 字号：14px 基准，比 v1 收一档 ---- */
+  /* ---- 字号：正文收在 14，标题跳到 44/64 ---- */
   --fs-xs: 12px;  --fs-sm: 13px; --fs-base: 14px;
-  --fs-md: 14px;  --fs-lg: 16px; --fs-xl: 20px;
-  --fs-2xl: 24px; --fs-hero: 34px;
+  --fs-md: 15px;  --fs-lg: 17px; --fs-xl: 22px;
+  --fs-2xl: 30px; --fs-hero: 44px;
+  --fs-display: 44px;
+  --fs-num: 66px;
+  --fs-num-lg: 104px;
 
   /* ---- 行高 ---- */
-  --lh-tight: 1.25;
-  --lh-normal: 1.5;
-  --lh-relaxed: 1.65;
+  --lh-tight: 1.06;
+  --lh-normal: 1.55;
+  --lh-relaxed: 1.7;
 
-  /* ---- 布局：68px 图标栏，展开成 224px 文字侧栏 ---- */
-  --sidebar-w: 68px;
-  --sidebar-w-expanded: 224px;
-  --topbar-h: 56px;
-  --content-max: 1440px;        /* 表格类页面的内容宽度 */
-  --content-max-narrow: 760px;  /* 对话/技能类页面的居中单列宽度 */
+  /* ---- 布局：竖排书脊 + 跑马灯条 + 编号面包屑 ---- */
+  --spine-w: 84px;
+  --sidebar-w: var(--spine-w);
+  --sidebar-w-expanded: var(--spine-w);
+  --ticker-h: 38px;
+  --crumb-h: 44px;
+  --topbar-h: calc(var(--ticker-h) + var(--crumb-h));
+  --content-max: 1440px;
+  --content-max-narrow: 820px;
 
-  /* ---- 控件高度 ---- */
-  --h-xs: 24px;
-  --h-sm: 28px;
-  --h-md: 36px;
-  --h-lg: 40px;
-  --h-xl: 44px;
-  --h-2xl: 48px;
+  /* ---- 控件高度：比 Nova 大一档，撑住粗框 ---- */
+  --h-xs: 26px;
+  --h-sm: 32px;
+  --h-md: 40px;
+  --h-lg: 46px;
+  --h-xl: 52px;
+  --h-2xl: 56px;
 
-  /* ---- 字体：Noto Sans SC 优先（对标 LinkFox），缺失回落系统栈，不加载外部字体 ---- */
-  --font-sans: "Noto Sans SC", "Noto Sans SC Variable", "Inter var", "Inter",
-               -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI",
-               "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
-  --font-mono: "Geist Mono", "JetBrains Mono", "SFMono-Regular", Consolas,
-               "Liberation Mono", monospace;
+  /* ---- 字体：三语体对撞 ----
+     display = Anton（拉丁，本地 woff2）+ 黑体 900（中文）
+     sans    = 系统黑体栈（控件、表格、标签）
+     serif   = 系统宋体栈（说明文、正文、对话）
+     mono    = JetBrains Mono（本地 woff2）+ Consolas */
+  --font-display: "Anton", "Noto Sans SC", "Microsoft YaHei", "PingFang SC",
+                  "Hiragino Sans GB", sans-serif;
+  --font-sans:    "Microsoft YaHei", "PingFang SC", "Noto Sans SC",
+                  "Hiragino Sans GB", "Source Han Sans SC", sans-serif;
+  --font-serif:   "Songti SC", "SimSun", "Noto Serif SC", "Source Han Serif SC",
+                  "STSong", serif;
+  --font-mono:    "JetBrains Mono", "Geist Mono", "SFMono-Regular", Consolas,
+                  "Liberation Mono", monospace;
 
-  /* ---- 动效：对齐 Motion 的默认曲线与时长 ---- */
+  /* ---- 字距：等宽标签一律拉开 ---- */
+  --tr-label: .18em;
+  --tr-tight: -.035em;
+
+  /* ---- 倾斜：只给装饰层 ---- */
+  --tilt-card: -1.1deg;
+  --tilt-card-alt: .9deg;
+  --tilt-stamp: -5deg;
+  --tilt-ticket: -.7deg;
+
+  /* ---- 动效 ---- */
   --ease-out:    cubic-bezier(.16, 1, .3, 1);
   --ease-in-out: cubic-bezier(.4, 0, .2, 1);
   --ease-spring: cubic-bezier(.34, 1.36, .64, 1);
-  --ease:        var(--ease-out);   /* 兼容别名 */
-  --dur-1: 120ms;   /* 颜色 / 边框 */
-  --dur-2: 180ms;   /* 位移 / 出现 */
-  --dur-3: 280ms;   /* 面板 / 抽屉 */
-  --dur:   var(--dur-1);            /* 兼容别名 */
+  --ease:        var(--ease-out);
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 280ms;
+  --dur-4: 22s;            /* 跑马灯 */
+  --dur:   var(--dur-1);
 }
 
-/* 动效降级：关掉所有时长，布局与层级不受影响 */
+/* 动效降级：时长归零，跑马灯静止，版面与层级不受影响 */
 @media (prefers-reduced-motion: reduce) {
-  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur: 0ms; }
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur-4: 0ms; --dur: 0ms; }
 }
 
-/* 主题扩展位：后续加暗色只需覆写语义层，页面代码不动 */
+/* 暗色：墨底 + 同一套撞色（撞色不做正文字色，两版都成立） */
 .dark {
   color-scheme: dark;
-  --background: #09090B;
-  --foreground: #FAFAFA;
-  --card: #18181B;
-  --card-foreground: #FAFAFA;
-  --popover: #18181B;
-  --popover-foreground: #FAFAFA;
-  --secondary: #27272A;
-  --secondary-foreground: #FAFAFA;
-  --muted-surface: #27272A;
-  --muted-foreground: #A1A1AA;
-  --accent: #27272A;
-  --accent-foreground: #FAFAFA;
-  --border: #27272A;
-  --border-strong: #404040;
-  --input: #404040;
-  --primary-soft: #E8F1FE;
-  --primary-line: #C7DBFD;
-  --chat-user-bg: #3F3F46;
-  --chat-tool-bg: #27272A;
-  --chat-text-tertiary: #71717A;
-  --ink-soft: #D4D4D8;
-  --faint: #71717A;
+  --paper:    #121114;
+  --paper-2:  #1B1A1F;
+  --paper-3:  #26242B;
+  --background: var(--paper);
+  --foreground: #F4EFE3;
+  --card: var(--paper-2);
+  --card-foreground: #F4EFE3;
+  --popover: var(--paper-2);
+  --popover-foreground: #F4EFE3;
+  --secondary: var(--paper-3);
+  --secondary-foreground: #F4EFE3;
+  --muted-surface: var(--paper-3);
+  --muted-foreground: #A8A093;
+  --accent: #2C2A32;
+  --accent-foreground: #F4EFE3;
+  --border: #F4EFE3;
+  --border-strong: #F4EFE3;
+  --input: #F4EFE3;
+  --ink: #F4EFE3;
+  --ink-2: #D8D2C4;
+  --ink-3: #A8A093;
+  --shadow-xs: 2px 2px 0 #F4EFE3;
+  --shadow-sm: 3px 3px 0 #F4EFE3;
+  --shadow-md: 5px 5px 0 #F4EFE3;
+  --shadow-lg: 8px 8px 0 #F4EFE3;
+  --hard-ink: 6px 6px 0 #F4EFE3;
+  --bd: 2px solid #F4EFE3;
+  --bd-lg: 3px solid #F4EFE3;
+  --success: #D8FF3D;
+  --warning: #FFD8B8;
+  --destructive: #FF8FB4;
+  --info: #9AE8FF;
+  --chat-user-bg: #3A3630;
+  --chat-tool-bg: #1B1A1F;
+  --brand-soft: #142B4E;
+  --primary-soft: #2A2410;
 }

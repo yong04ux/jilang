@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crosspilot"
-version = "0.3.0"
+version = "1.0.0"
 description = "CrossPilot 跨境电商 AI 内容工作台：竞品分析与 Listing 生成"
 readme = "README.md"
 requires-python = ">=3.10"

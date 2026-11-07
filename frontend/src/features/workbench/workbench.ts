@@ -193,8 +193,6 @@ function ensureDeps() {
     }).join("");
     return (
       `<div class="wb-start">` +
-      `<p class="wb-start-lead">说清业务目标，Agent 会依次完成竞品分析与数据完整性检查、归纳市场机会；` +
-      `需要文案时再生成 Listing 并做事实核对。每一步都记录在任务里，结果可复核。</p>` +
       `<div class="wb-start-label">试试这样说</div>` +
       `<div class="wb-prompts">${goals}</div>` +
       `</div>`

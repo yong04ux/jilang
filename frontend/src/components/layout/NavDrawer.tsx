@@ -40,7 +40,7 @@ export function NavDrawer({
       >
         <div className="drawer-head" style={{ alignItems: 'center' }}>
           <a className="sidebar-brand" href="/dashboard" data-link="">
-            <img src="/media/logo-mark.svg?v=2" alt="" width={26} height={26} />
+            <img src="/media/logo-mark.svg?v=3" alt="" width={30} height={30} />
             <span className="sidebar-brand-text">激浪</span>
           </a>
           <button type="button" className="btn-icon" id="nav-close" aria-label="关闭导航" onClick={onClose}>

@@ -562,6 +562,28 @@ def _llm_calls(connection) -> None:
     )
 
 
+def _users_avatar(connection) -> None:
+    """0017：账号头像。
+
+    存 data URL（客户端已压到 128px JPEG），不落文件：头像很小，
+    省掉一套静态目录与清理逻辑；``NULL`` 表示没设过头像，界面回退到首字母章。
+    """
+    _add_column(connection, "users", "avatar", "TEXT")
+
+
+def _users_phone(connection) -> None:
+    """0018：手机号（可空，唯一）。
+
+    只存用户填的号码，不存验证状态：没有短信通道之前，任何「已验证」标记
+    都是假的。唯一索引让两个人不能绑同一个号；NULL 不参与唯一约束。
+    """
+    _add_column(connection, "users", "phone", "TEXT")
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone "
+        "ON users (phone) WHERE phone IS NOT NULL"
+    )
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001", "baseline", _baseline),
     Migration("0002", "conversations_and_messages", _conversations),
@@ -580,6 +602,8 @@ MIGRATIONS: tuple[Migration, ...] = (
 
     Migration("0015", "tasks_reuse_guards", _task_reuse_guards),
     Migration("0016", "llm_calls", _llm_calls),
+    Migration("0017", "users_avatar", _users_avatar),
+    Migration("0018", "users_phone", _users_phone),
 )
 
 

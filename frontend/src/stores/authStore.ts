@@ -15,6 +15,8 @@ export interface AuthUser {
   display_name?: string
   is_admin?: boolean
   is_guest?: boolean
+  avatar?: string | null
+  phone?: string | null
 }
 
 interface AuthStatus {

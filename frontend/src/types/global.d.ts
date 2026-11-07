@@ -116,7 +116,6 @@ declare global {
       loadProvider(): void
       loadUser(): void
       setNavKey(key: string): void
-      setExpanded(value: boolean): void
       openDrawer(): void
       closeDrawer(): void
       mountBanner(): void

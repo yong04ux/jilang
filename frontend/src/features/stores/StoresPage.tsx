@@ -77,6 +77,27 @@ function errorCallout(message: string): string {
   return '<div class="callout callout-danger">' + icon('alert') + '<div>' + esc(message) + '</div></div>'
 }
 
+/**
+ * 收据页脚：巨型等宽合计 + 圆形骑缝章。
+ * 数字就是接口真实返回的行数；来源标记沿用渲染层同一判定（is_demo / mode==='mock'），
+ * 不新造任何「已同步」的说法。
+ */
+function receiptFoot(ctx: StoreCtx, rowCount: number): string {
+  const current = ctx.stores.filter((item) => item.connection_id === ctx.storeId)[0] || null
+  const sample = Boolean(current && (current.is_demo || current.mode === 'mock'))
+  return (
+    '<div class="st-receipt-foot">' +
+    '<span class="st-receipt-foot-label">明细行数</span>' +
+    '<span class="st-receipt-foot-num">' + rowCount + '</span>' +
+    '<span class="st-receipt-foot-unit">行</span>' +
+    '<span class="st-receipt-seal' + (sample ? '' : ' st-receipt-seal--live') + '">' +
+    (sample ? '示例数据' : '同步数据') +
+    '<small>数据来源</small>' +
+    '</span>' +
+    '</div>'
+  )
+}
+
 export function StoresPage({ view, query }: { view: string; query: Record<string, string> }) {
   const [stores, setStores] = useState<Dict[] | null>(null)
   const [storesError, setStoresError] = useState<string | null>(null)
@@ -299,7 +320,8 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
       else {
         const currency = (ledgerItems[0] && ledgerItems[0].currency) || 'USD'
         const built = buildLedger(ledger, ledgerItems, currency)
-        body = card(built.title, built.html, ledgerItems.length + ' 行', { flush: true })
+        body =
+          card(built.title, built.html, null, { flush: true }) + receiptFoot(ctx, ledgerItems.length)
       }
     }
 
@@ -507,7 +529,6 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
           <div className="page-head">
             <div>
               <h1 className="page-title">{head.title}</h1>
-              <p className="page-desc">{head.desc}</p>
             </div>
             <div className="page-actions">
               {view === 'authorize' ? (

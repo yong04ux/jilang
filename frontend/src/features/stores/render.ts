@@ -52,23 +52,11 @@ export const LEDGERS = [
   { key: 'fba', label: '库存明细' },
 ] as const
 
-export const HEAD: Record<string, { title: string; desc: string }> = {
-  authorize: {
-    title: '店铺授权',
-    desc: '绑定店铺后，商品、订单与广告数据会同步过来。也可以先用示例店铺把整个流程走通。',
-  },
-  dashboard: {
-    title: '经营看板',
-    desc: '这家店最近一段时间的经营情况。每个数字都由订单与广告数据聚合得出。',
-  },
-  product: {
-    title: '单品分析',
-    desc: '挑一个商品，看它的销售走势、广告表现和库存风险。',
-  },
-  ledger: {
-    title: '经营明细',
-    desc: '按类型查看明细表，行可以展开看完整字段。',
-  },
+export const HEAD: Record<string, { title: string }> = {
+  authorize: { title: '店铺授权' },
+  dashboard: { title: '经营看板' },
+  product: { title: '单品分析' },
+  ledger: { title: '经营明细' },
 }
 
 /* ------------------------------------------------------------ 小工具 */
@@ -182,27 +170,6 @@ export function storeOptions(stores: Dict[], currentId: string): string {
     .join('')
 }
 
-/* ------------------------------------------------------------ 页面骨架 */
-
-export function shellHtml(view: string, actions: string, body: string): string {
-  const head = HEAD[view] || HEAD.dashboard
-  const tabs = TABS.map(
-    (tab) =>
-      '<a class="st-tab' + (tab.key === view ? ' is-active' : '') + '" href="' +
-      tab.path + '" data-link' + (tab.key === view ? ' aria-current="page"' : '') + '>' +
-      esc(tab.label) + '</a>',
-  ).join('')
-  return (
-    '<div class="view"><div class="page page--store"><div class="page-inner">' +
-    '<div class="page-head"><div><h1 class="page-title">' + esc(head.title) + '</h1>' +
-    '<p class="page-desc">' + esc(head.desc) + '</p></div>' +
-    '<div class="page-actions">' + (actions || '') + '</div></div>' +
-    '<nav class="st-tabs" aria-label="店铺经营助手">' + tabs + '</nav>' +
-    '<div id="st-stage">' + body + '</div>' +
-    '</div></div></div>'
-  )
-}
-
 /* ------------------------------------------------------ 未绑定店铺引导 */
 
 export function step(index: number, title: string, desc: string): string {
@@ -278,7 +245,7 @@ export function authorizeHtml(stores: Dict[], sources: Dict[]): string {
       '<strong style="color:var(--foreground)">' + esc(item.shop_name) + '</strong>' +
       '<small>' + esc(labelPlatform(item.platform)) + ' · ' + esc(labelSite(item.marketplace)) + '</small>' +
       '</div></div></td>' +
-      '<td>' + (sample ? pill('示例店铺', 'brand') : pill('已连接', 'ok')) + '</td>' +
+      '<td>' + (sample ? pill('示例店铺', 'sample') : pill('已连接', 'ok')) + '</td>' +
       '<td class="t-muted">' + (item.last_sync_at ? esc(fmtTime(item.last_sync_at)) : '还没同步过') + '</td>' +
       '<td class="t-muted">' + esc(counts.join(' · ') || '—') + '</td>' +
       '<td class="num">' +
@@ -297,7 +264,7 @@ export function authorizeHtml(stores: Dict[], sources: Dict[]): string {
       tone = 'ok'
       label = '已连接'
     } else if (item.configured) {
-      tone = 'brand'
+      tone = 'sample'
       label = '示例数据'
     }
     return (
@@ -401,7 +368,7 @@ export function dashboardTodosHtml(data: Dict): string {
     card('待处理事项', '<div class="st-todos">' + todoHtml + '</div>', '') +
     '<div class="st-toolbar" style="margin:14px 0 12px">' +
     '<div class="st-seg" role="group" aria-label="看板分区">' + segHtml + '</div>' +
-    '<div class="st-toolbar-right">' + (data.store?.is_demo ? pill('示例店铺', 'brand') : '') + '</div></div>' +
+    '<div class="st-toolbar-right">' + (data.store?.is_demo ? pill('示例店铺', 'sample') : '') + '</div></div>' +
     '<div id="st-seg-body"></div>'
   )
 }
@@ -469,7 +436,8 @@ function overviewSegment(m: Dict, ads: Dict, currency: string, health: Dict): st
     .join('')
 
   return (
-    card('核心指标', '<div class="st-metrics">' + core + '</div>', '对比上一个等长周期 · ' + esc(m.range)) +
+    card('核心指标', '<div class="st-metrics">' + core + '</div>',
+      '对比上一个等长周期 · ' + esc(RANGES.find((r) => r.key === m.range)?.label || '近 30 天')) +
     card('业绩走势', '<div id="st-trend"></div>',
       '<div class="st-seg" role="group" aria-label="走势指标">' + trendSwitch + '</div>') +
     card('按日明细',
@@ -665,9 +633,19 @@ function aftersalesSegment(returns: Dict[], currency: string): string {
 /* --------------------------------------------------- 子页：单品分析 */
 
 export function productListHtml(products: Dict[], currencyFallback?: string): string {
+  // 有图才出「主图」列：整批都没图时不留一排空框
+  const withImage = products.some((item) => Boolean(item.image))
   const rows = products.map(
     (item) =>
-      '<tr><td><div class="st-cell-product"><div>' +
+      '<tr>' +
+      (withImage
+        ? '<td class="st-col-thumb">' +
+          (item.image
+            ? '<img class="st-thumb" src="' + esc(item.image) + '" alt="" loading="lazy" width="40" height="40" />'
+            : '<span class="st-thumb st-thumb-empty" aria-hidden="true"></span>') +
+          '</td>'
+        : '') +
+      '<td><div class="st-cell-product"><div>' +
       '<a href="#" data-pick="' + esc(item.asin) + '">' + esc(item.name) + '</a>' +
       '<small>' + esc(item.asin) + ' · ' + esc(item.sku) + '</small>' +
       '</div></div></td>' +
@@ -677,11 +655,18 @@ export function productListHtml(products: Dict[], currencyFallback?: string): st
       '<td class="num">' + num(item.stock) + '</td>' +
       '<td>' + (item.stock > 0 ? pill('在售', 'ok') : pill('无库存', 'danger')) + '</td></tr>',
   )
+  const headers = [
+    ...(withImage ? [{ label: '主图' }] : []),
+    { label: '商品' },
+    { label: '价格', align: 'right' as const },
+    { label: '评分', align: 'right' as const },
+    { label: '评论', align: 'right' as const },
+    { label: '库存', align: 'right' as const },
+    { label: '状态' },
+  ]
   return card(
     '选择一个商品',
-    table([{ label: '商品' }, { label: '价格', align: 'right' }, { label: '评分', align: 'right' },
-      { label: '评论', align: 'right' }, { label: '库存', align: 'right' }, { label: '状态' }], rows,
-      { empty: '这个店铺还没有商品' }),
+    table(headers, rows, { empty: '这个店铺还没有商品' }),
     products.length + ' 个商品', { flush: true })
 }
 
@@ -694,9 +679,13 @@ export function productDetailHtml(detail: Dict): string {
 
   const summary =
     '<div class="st-product">' +
-    '<span class="st-product-thumb">' + esc(String(p.asin || '?').slice(0, 2)) + '</span>' +
+    '<span class="st-product-thumb">' +
+    (p.image
+      ? '<img src="' + esc(p.image) + '" alt="" loading="lazy" width="58" height="58" />'
+      : esc(String(p.asin || '?').slice(0, 2))) +
+    '</span>' +
     '<div class="st-product-main">' +
-    '<div class="st-product-meta">' + pill(p.asin || '—', 'brand') +
+    '<div class="st-product-meta">' + pill(p.asin || '—', 'muted') +
     '<span>' + esc(p.sku || '') + '</span></div>' +
     '<h2 class="st-product-title">' + esc(p.name || '') + '</h2>' +
     '<p class="st-product-sub">' + esc(labelPlatform((detail.store || {}).platform)) +

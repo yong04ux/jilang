@@ -1,8 +1,26 @@
 /* ============================================================================
-   激浪 · Base
-   体系：shadcn/ui · Nova
-   reset · 排版 · 表单 · 表格 · 通用工具类
+   激浪 · Base —— 反调印刷
+   reset · 字体装载 · 纸底 · 排版 · 表单 · 表格 · 印刷工具类
    ========================================================================== */
+
+/* ---- 拉丁 webfont：走 /media/fonts/（dev 由 vite mediaAlias 映射，
+       prod 由 FastAPI 的 /media 挂载）。不要改成相对路径或 CSS import：
+       构建产物会落到后端没挂载的 /assets 前缀。 ---- */
+@font-face {
+  font-family: "Anton";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/media/fonts/anton-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/media/fonts/jetbrains-mono-latin.woff2") format("woff2");
+}
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -18,17 +36,20 @@ body {
   font-size: var(--fs-base);
   line-height: var(--lh-normal);
   color: var(--foreground);
-  background: var(--background);
-  font-feature-settings: "cv11", "ss01";
+  /* 暖纸底 + 印刷网点：细到不抢内容，但整站不再是「冷灰白」 */
+  background-color: var(--background);
+  background-image: radial-gradient(rgba(17, 16, 20, .13) 1px, transparent 1.2px);
+  background-size: 9px 9px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5 {
   margin: 0;
+  font-family: var(--font-sans);
   line-height: var(--lh-tight);
-  font-weight: 600;
-  letter-spacing: -.01em;
+  font-weight: 900;
+  letter-spacing: var(--tr-tight);
   color: var(--foreground);
 }
 
@@ -48,9 +69,9 @@ code, kbd, samp, pre {
 
 code {
   padding: 1px 5px;
-  border-radius: var(--radius-xs);
-  background: var(--muted-surface);
-  color: var(--ink-soft);
+  border: 1px solid var(--ink);
+  background: var(--paper-2);
+  color: var(--ink);
 }
 
 /* ----------------------------------------------------------------------------
@@ -88,35 +109,115 @@ img, svg { display: block; max-width: 100%; }
 
 [hidden] { display: none !important; }
 
-/* ---- 焦点可见：shadcn 的 ring 语义，用 outline 实现 ---- */
+/* ---- 焦点可见：墨线 + 洋红外环的双层环，比单色 ring 更难错过 ---- */
 :focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-xs);
+  outline: 3px solid var(--ink);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 5px var(--acid-magenta);
+  border-radius: 0;
 }
 
-/* ---- 滚动条：细、低调 ---- */
+/* ---- 滚动条：方头，不圆角 ---- */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-color: var(--ink) transparent;
 }
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: var(--radius-pill);
+  background: var(--ink);
+  border-radius: 0;
   border: 3px solid transparent;
   background-clip: content-box;
 }
-*::-webkit-scrollbar-thumb:hover { background: var(--faint); background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--acid-lime-deep); background-clip: content-box; }
+
+::selection { background: var(--acid-lime); color: var(--ink); }
 
 /* ============================================================================
-   排版工具
+   排版工具 —— 三语体对撞的唯一入口
    ========================================================================== */
 
-.t-hero    { font-size: var(--fs-hero); font-weight: 600; letter-spacing: -.02em; line-height: 1.2; }
-.t-title   { font-size: var(--fs-xl);  font-weight: 600; letter-spacing: -.01em; }
-.t-section { font-size: var(--fs-md);  font-weight: 600; }
+/* 印刷层：标题 / 说明 / 标签 / 数字 */
+.p-display {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: var(--fs-display);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-tight);
+}
+.p-title {
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: var(--fs-hero);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tr-tight);
+}
+.p-serif { font-family: var(--font-serif); font-size: var(--fs-md); line-height: var(--lh-relaxed); }
+.p-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.p-num {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: var(--fs-num);
+  line-height: .85;
+  letter-spacing: -.05em;
+  font-variant-numeric: tabular-nums;
+}
+.p-num-lg { font-size: var(--fs-num-lg); }
+
+/* 错版：标题后面压一层洋红偏移，模拟丝网印套准偏差 */
+.p-mis { position: relative; }
+.p-mis::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 3px;
+  top: 2px;
+  color: var(--acid-magenta);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* 描边大字：只用于装饰与空态，正文禁用（对比度不达标） */
+.p-outline {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+}
+.p-outline-mag { -webkit-text-stroke-color: var(--acid-magenta); }
+
+/* 印章：状态用双层框 + 倾斜，文字始终在场 */
+.p-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-weight: 900;
+  font-size: var(--fs-sm);
+  letter-spacing: .12em;
+  padding: 5px 10px;
+  border: 3px double currentColor;
+  transform: rotate(var(--tilt-stamp));
+  white-space: nowrap;
+}
+
+/* 硬框面：卡片、面板、工单共用的骨架 */
+.p-frame {
+  border: var(--bd-lg);
+  background: var(--card);
+  box-shadow: var(--hard-ink);
+}
+.p-cut { border-radius: var(--radius-cut); }
+
+.t-hero    { font-size: var(--fs-hero); font-weight: 900; letter-spacing: var(--tr-tight); line-height: var(--lh-tight); }
+.t-title   { font-size: var(--fs-xl);  font-weight: 900; letter-spacing: var(--tr-tight); }
+.t-section { font-size: var(--fs-lg);  font-weight: 900; letter-spacing: -.02em; }
 .t-body    { font-size: var(--fs-base); }
 .t-sm      { font-size: var(--fs-sm); }
 .t-xs      { font-size: var(--fs-xs); }
@@ -197,36 +298,39 @@ textarea,
 select {
   width: 100%;
   height: var(--h-md);
-  padding: 0 10px;
-  border: 1px solid var(--input);
-  border-radius: var(--radius);
-  background: var(--card);
+  padding: 0 12px;
+  border: var(--bd);
+  border-radius: 0;
+  background: var(--paper-2);
   color: var(--foreground);
+  font-family: var(--font-mono);
   font-size: var(--fs-sm);
-  transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out);
+  transition: box-shadow var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
 }
 
 textarea {
   height: auto;
-  min-height: 80px;
-  padding: 8px 10px;
+  min-height: 88px;
+  padding: 10px 12px;
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
   line-height: var(--lh-normal);
   resize: vertical;
 }
 
 input::placeholder,
-textarea::placeholder { color: var(--faint); }
+textarea::placeholder { color: #9A9182; letter-spacing: .04em; }
 
 input:hover,
 textarea:hover,
-select:hover { border-color: var(--border-strong); }
+select:hover { border-color: var(--ink); box-shadow: var(--shadow-xs); }
 
 /* 下拉：去掉原生箭头，换成统一的 chevron（与 Lucide chevron-down 同形） */
 select {
   appearance: none;
   -webkit-appearance: none;
-  padding-right: 30px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23111014' stroke-width='3' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 9px center;
   background-size: 14px 14px;
@@ -241,8 +345,8 @@ input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: var(--ring);
-  box-shadow: 0 0 0 3px rgba(27, 110, 243, .16);
+  border-color: var(--ink);
+  box-shadow: 3px 3px 0 var(--acid-magenta);
 }
 
 input:disabled,
@@ -250,6 +354,7 @@ textarea:disabled,
 select:disabled {
   background: var(--muted-surface);
   color: var(--muted-foreground);
+  border-style: dashed;
   cursor: not-allowed;
 }
 
@@ -257,11 +362,12 @@ select:disabled {
 .field.is-invalid input,
 .field.is-invalid textarea,
 .field.is-invalid select {
-  border-color: var(--destructive);
+  border-color: var(--stamp);
+  box-shadow: 3px 3px 0 var(--stamp);
 }
 .field.is-invalid input:focus,
 .field.is-invalid textarea:focus {
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, .16);
+  box-shadow: 3px 3px 0 var(--stamp);
 }
 
 /* ============================================================================
@@ -290,9 +396,13 @@ table { border-collapse: collapse; width: 100%; }
   left: var(--sp-4);
   z-index: 999;
   padding: var(--sp-2) var(--sp-4);
-  background: var(--surface);
-  border: 1px solid var(--brand);
-  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: var(--tr-label);
+  background: var(--acid-lime);
+  color: var(--ink);
+  border: var(--bd-lg);
+  border-radius: 0;
   box-shadow: var(--shadow-md);
 }
 .skip-link:focus { top: var(--sp-4); }

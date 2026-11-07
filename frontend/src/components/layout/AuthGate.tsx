@@ -132,14 +132,16 @@ export function AuthGate() {
         <div className="auth-shell">
           <aside className="auth-pitch">
             <div className="auth-lockup">
-              <img className="auth-lockup-mark" src="/media/logo-mark.svg?v=2" alt="" />
+              <img className="auth-lockup-mark" src="/media/logo-mark.svg?v=3" alt="" />
               <span className="auth-lockup-name">激浪</span>
               <span className="auth-lockup-tag">跨境电商 AI 运营助手</span>
             </div>
             <h2 className="auth-headline">
               把业务目标
               <br />
-              变成可复核的执行结果
+              <span className="auth-mis" data-text="变成可复核的">变成可复核的</span>
+              <br />
+              <span className="auth-outline">执行结果</span>
             </h2>
             <p className="auth-lede">
               竞品分析、Listing 撰写、数据导入与人工审批在同一个流程里完成。每一步都能看到当前状态和判断依据，结果不会替你编造销量或排名。
@@ -155,11 +157,16 @@ export function AuthGate() {
             <p className="auth-note">
               页面里的示例数据都带「示例」标记，导入你自己的文件后就会换成你的数据。
             </p>
+            <div className="auth-blocks" aria-hidden="true">
+              <span className="auth-block auth-block-a">事实</span>
+              <span className="auth-block auth-block-b">核对</span>
+              <span className="auth-block auth-block-c">可追溯</span>
+            </div>
           </aside>
 
           <div className="auth-card">
             <div className="auth-card-head">
-              <img className="auth-card-mark" src="/media/logo-mark.svg?v=2" alt="" />
+              <img className="auth-card-mark" src="/media/logo-mark.svg?v=3" alt="" />
               <div>
                 <h1 className="auth-title">{title}</h1>
                 {hint && (

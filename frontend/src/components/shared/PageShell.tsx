@@ -18,12 +18,10 @@ export function PageFrame({ children }: { children: ReactNode }) {
 /** 对应旧 `CPPages.pageShell(title, desc, actions, body)`（misc.js:13-21） */
 export function PageShell({
   title,
-  desc,
   actions,
   children,
 }: {
   title: string
-  desc?: string
   actions?: ReactNode
   children?: ReactNode
 }) {
@@ -33,7 +31,6 @@ export function PageShell({
         <div className="page-head">
           <div>
             <h1 className="page-title">{title}</h1>
-            <p className="page-desc">{desc}</p>
           </div>
           <div className="page-actions">{actions || null}</div>
         </div>

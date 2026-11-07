@@ -90,7 +90,6 @@ export function installLegacyGlobals(): void {
     },
     // 面包屑与选中态改由路由表的 navKey 推导，这里保留空实现以免旧调用点报错
     setNavKey: () => undefined,
-    setExpanded: (value: boolean) => useUiStore.getState().setExpanded(value),
     openDrawer: () => useUiStore.getState().setDrawerOpen(true),
     closeDrawer: () => useUiStore.getState().setDrawerOpen(false),
     mountBanner: () => undefined,

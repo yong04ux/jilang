@@ -95,3 +95,6 @@ Thumbs.db
 
 # 数据库备份转储（含数据，不入库）
 **/data/backups/
+
+# 图片生成工具的临时输出（不作为项目资产）
+vibe_images/

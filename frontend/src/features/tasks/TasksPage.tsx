@@ -465,13 +465,13 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
     <PageFrame>
       <PageShell
         title="任务中心"
-        desc="所有任务都在这里统一追踪状态、步骤与错误；点击任意一行在右侧抽屉里查看详情。"
         actions={
           <a className="btn btn-primary btn-sm" href="/workbench" data-link="">
             发起任务
           </a>
         }
       >
+        <div className="tasks-root">
         <div className="card">
           <div className="card-head" style={{ flexWrap: 'wrap', gap: 12 }}>
             <div className="chips" id="task-filters">
@@ -497,7 +497,7 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
                 <option value="desc">最新优先</option>
                 <option value="asc">最早优先</option>
               </select>
-              <span className="t-xs t-muted" id="task-count" style={{ whiteSpace: 'nowrap' }}>
+              <span className="tasks-count" id="task-count">
                 {loading ? '' : `共 ${items.length} 条`}
               </span>
             </div>
@@ -520,28 +520,22 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
             ) : (
               <>
                 {approvals.length ? (
-                  <div className="card card-pad mb-3" style={{ marginBottom: 'var(--sp-4)' }}>
-                    <div className="row between wrap gap-2">
-                      <div>
-                        <div className="card-title">待审批（{approvals.length}）</div>
-                        <div className="card-sub">
-                          发布 Listing 前需要管理员确认。通过后把内容复制到店铺后台，在那里完成发布。
-                        </div>
-                      </div>
+                  <div className="tasks-approval">
+                    <div className="ta-head">
+                      <span className="ta-title">待审批（{approvals.length}）</span>
+                      <span className="ta-sub">
+                        发布 Listing 前需要管理员确认。通过后把内容复制到店铺后台，在那里完成发布。
+                      </span>
                     </div>
-                    <div className="mt-3">
+                    <div>
                       {approvals.map((a) => {
                         const payload = a.payload || {}
                         const title = payload.product_name || payload.listing_id || 'Listing 发布请求'
                         return (
-                          <div
-                            className="row between wrap gap-2"
-                            style={{ padding: '10px 0', borderTop: '1px solid var(--line)' }}
-                            key={a.approval_id}
-                          >
-                            <div>
-                              <div className="t-sm">{title}</div>
-                              <div className="t-xs t-muted">
+                          <div className="ta-row" key={a.approval_id}>
+                            <div className="grow">
+                              <div className="ta-name">{title}</div>
+                              <div className="ta-meta">
                                 {KIND_LABEL[a.kind] || '审批请求'} · {fmtTime(a.created_at)}
                               </div>
                             </div>
@@ -565,7 +559,7 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
                                 </button>
                               </div>
                             ) : (
-                              <span className="t-xs t-muted">等待管理员处理</span>
+                              <span className="ta-meta">等待管理员处理</span>
                             )}
                           </div>
                         )
@@ -600,7 +594,7 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
                     </div>
                   </div>
                 ) : (
-                  <div className="table-wrap">
+                  <div className="table-wrap tasks-table">
                     <table className="table">
                       <thead>
                         <tr>
@@ -617,6 +611,7 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
                         {rows.map((t) => (
                           <tr
                             data-task-row={t.task_id}
+                            data-status={t.status}
                             tabIndex={0}
                             style={{ cursor: 'pointer' }}
                             key={t.task_id}
@@ -652,6 +647,17 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
               </>
             )}
           </div>
+        </div>
+
+        {items.length ? (
+          <div className="bigfill">
+            <span className="bf-n">{String(items.length).padStart(2, '0')}</span>
+            <span className="bf-t">
+              条任务记录
+              <em>状态 · 步骤 · 耗时均来自服务端</em>
+            </span>
+          </div>
+        ) : null}
         </div>
       </PageShell>
 
