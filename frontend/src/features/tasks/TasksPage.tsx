@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '@/lib/api'
-import { fmtTime, toast } from '@/lib/ui'
+import { copy, fmtTime, toast } from '@/lib/ui'
 import { taskType } from '@/lib/labels'
 import { Icon } from '@/components/shared/Icon'
 import { PageFrame, PageShell } from '@/components/shared/PageShell'
@@ -52,6 +52,74 @@ function originLabel(origin?: string): string {
 }
 
 /* ------------------------------------------------------------ 详情抽屉 */
+
+/** 任务产出的 Listing 草稿：与工作台结果区同一套块结构，可直接复制 */
+function ListingResult({ listing }: { listing: Dict }) {
+  const bullets: Dict[] = Array.isArray(listing.bullets) ? listing.bullets : []
+  const blocks: Array<{ title: string; body: React.ReactNode; text: string }> = [
+    {
+      title: '标题（Title）',
+      body: <p className="wb-ls-text">{listing.title || '—'}</p>,
+      text: listing.title || '',
+    },
+    {
+      title: '五点描述（Bullet Points）',
+      body: bullets.length ? (
+        <ol className="wb-ls-bullets">
+          {bullets.map((b, i) => (
+            <li key={i}>
+              <strong>{b.headline || ''}</strong>
+              {b.body ? ` — ${b.body}` : ''}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="t-sm t-muted">还没有五点描述。</p>
+      ),
+      text: bullets.map((b) => `${b.headline || ''} — ${b.body || ''}`).join('\n'),
+    },
+    {
+      title: '产品描述（Product Description）',
+      body: <p className="wb-ls-text">{listing.description || '—'}</p>,
+      text: listing.description || '',
+    },
+    {
+      title: 'Search Terms',
+      body: <p className="wb-ls-text">{listing.search_terms || '—'}</p>,
+      text: listing.search_terms || '',
+    },
+  ]
+
+  return (
+    <div className="wb-ls-card">
+      <div className="wb-ls-card-head">
+        <div className="row gap-2 wrap">
+          <span className="t-section">Listing 草稿</span>
+          <span className="badge">第 {Number(listing.version) || 1} 版</span>
+          {listing.is_demo ? <span className="badge badge-warn">示例</span> : null}
+        </div>
+      </div>
+      {blocks.map((block) => (
+        <div className="wb-ls-block" key={block.title}>
+          <div className="wb-ls-block-head">
+            <span className="wb-ls-block-title">{block.title}</span>
+            {block.text ? (
+              <button
+                type="button"
+                className="btn-icon"
+                aria-label={'复制' + block.title}
+                onClick={() => void copy(block.text, block.title)}
+              >
+                <Icon name="copy" />
+              </button>
+            ) : null}
+          </div>
+          <div className="wb-ls-block-body">{block.body}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function TaskDrawer({
   open,
@@ -332,6 +400,13 @@ function TaskDrawer({
                     ) ?? '',
                 }}
               />
+
+              {result.listing ? (
+                <>
+                  <hr className="divider mt-4 mb-4" />
+                  <ListingResult listing={result.listing} />
+                </>
+              ) : null}
             </>
           )}
         </div>

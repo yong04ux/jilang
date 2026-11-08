@@ -782,9 +782,6 @@ export function SettingsPage({ section }: { section?: string }) {
                     还没有配置
                     <em>模型密钥</em>
                   </p>
-                  <p className="wo-empty-desc">
-                    激浪不提供模型额度。添加一个你自己的模型配置并设为当前使用后，才能运行生成类任务。
-                  </p>
                   <div className="empty-actions">
                     <button
                       type="button"

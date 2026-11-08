@@ -254,35 +254,29 @@ export function DataPage() {
     const imported = status === 'imported'
     const hasResult = Boolean(result)
     const errCount = errors.length
-    const pending = Math.max(columns.length - mappedCount, 0)
     return [
       {
         name: '选文件',
-        desc: fileName ? fileName : 'CSV / JSON / Excel，单个不超过 5 MB',
         state: fileName ? '已选择' : '待选择',
         tone: fileName ? 'done' : 'wait',
       },
       {
         name: '上传校验',
-        desc: hasResult ? `共 ${result?.total_rows || 0} 行 · ${columns.length} 列` : '上传后自动识别行列',
         state: uploading ? '校验中' : hasResult ? '已完成' : '待执行',
         tone: uploading ? 'run' : hasResult ? 'done' : '',
       },
       {
         name: '字段映射',
-        desc: columns.length ? `${mappedCount} 列已对上 · ${pending} 列待确认` : '等待识别列',
         state: imported ? '已完成' : columns.length ? '进行中' : '待执行',
         tone: imported ? 'done' : columns.length ? 'run' : '',
       },
       {
         name: '逐行校验',
-        desc: hasResult ? `${errCount} 行需要修正` : '映射确认后开始',
         state: errCount ? `需修正 ${errCount} 行` : hasResult ? '无行级错误' : '待执行',
         tone: errCount ? 'hit' : hasResult ? 'done' : '',
       },
       {
         name: '入库确认',
-        desc: imported ? `已写入 ${result?.valid_rows || 0} 条` : '映射与校验通过后提交',
         state: imported ? '已提交' : '待提交',
         tone: imported ? 'done' : '',
       },
@@ -301,7 +295,6 @@ export function DataPage() {
           <span className="data-step-no">{i + 1}</span>
           <div className="data-step-body">
             <span className="data-step-name">{s.name}</span>
-            <span className="data-step-desc">{s.desc}</span>
             <span className="data-step-state">{s.state}</span>
           </div>
         </div>
@@ -654,7 +647,6 @@ export function DataPage() {
                   <Icon name="sparkles" />
                   示例数据
                 </span>
-                <p className="data-hero-lead">让数据成为运营决策的起点</p>
               </div>
             </div>
           </section>

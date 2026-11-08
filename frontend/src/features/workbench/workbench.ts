@@ -627,7 +627,6 @@ function bindOnce(el, fn) {
     return (
       `<div class="wb-aside-card">` +
       `<div class="wb-aside-title">本次任务将会执行</div>` +
-      `<p class="wb-aside-note">AI 将按以下步骤完成任务，时长是预计值，实际以执行记录为准。</p>` +
       `<ol class="wb-plan-list">` +
       stages.map(function (name, index) {
         return `<li class="wb-plan-item">` +
@@ -669,8 +668,7 @@ function bindOnce(el, fn) {
       `<div class="wb-task" id="wb-params">` +
       `<div class="wb-task-head">` +
       `<button type="button" class="btn-icon" data-act="back" aria-label="返回">${U.icon("arrowLeft")}</button>` +
-      `<div><h1 class="wb-task-title">新建任务</h1>` +
-      `<p class="wb-task-desc">请描述你的目标，补充商品资料和参数，AI 将为你完成专业的跨境电商运营任务。</p></div>` +
+      `<div><h1 class="wb-task-title">新建任务</h1></div>` +
       `</div>` +
       `<div class="wb-task-grid">` +
       `<div class="wb-task-main">` + (listing ? listingConfigCard() : taskForm()) + `</div>` +
@@ -825,8 +823,7 @@ function bindOnce(el, fn) {
       ? `<label class="field field-span-2"><span class="field-label">商品</span>` +
         `<select id="wb-ls-product">` +
         `<option value="">选择要生成 Listing 的商品</option>` + productOptions +
-        `</select>` +
-        `<span class="field-help">商品名称与价格从商品库带入，不用手写。</span></label>`
+        `</select></label>`
       : `<label class="field field-span-2"><span class="field-label">商品名称 <span class="t-danger">*</span></span>` +
         `<input id="wb-ls-name" value="${U.esc(state.listingName || "")}" placeholder="还没有店铺商品，先写商品名称" />` +
         `<span class="field-help">${U.esc(state.productsError || "接到店铺后这里会变成商品选择器。")}</span></label>`;
@@ -834,8 +831,7 @@ function bindOnce(el, fn) {
     return (
       `<div class="wb-inline">` +
       `<div class="card card-pad">` +
-      `<div class="row between"><div><div class="card-title">生成 Listing</div>` +
-      `<div class="card-sub">选好商品就能生成；竞品数据不是必需的</div></div>` +
+      `<div class="row between"><div><div class="card-title">生成 Listing</div></div>` +
       `<button type="button" class="btn-icon" data-act="back" aria-label="取消">${U.icon("close")}</button></div>` +
 
       `<div class="grid-2 mt-4">` + productField +
@@ -866,8 +862,7 @@ function bindOnce(el, fn) {
       `<label class="field mt-3"><span class="field-label">规格（每行「键: 值」）</span>` +
       `<textarea id="wb-ls-specs" rows="3" spellcheck="false" placeholder="容量: 750ml&#10;材质: 304 不锈钢">${U.esc(state.listingSpecsText || "")}</textarea></label>` +
       `<label class="field mt-3"><span class="field-label">卖点（每行一条）</span>` +
-      `<textarea id="wb-ls-features" rows="3" placeholder="双层真空保温 24 小时">${U.esc(state.listingFeaturesText || "")}</textarea>` +
-      `<span class="field-help">不填也能生成，但质检会因为缺少可核对的规格而给出更多待确认项。</span></label>` +
+      `<textarea id="wb-ls-features" rows="3" placeholder="双层真空保温 24 小时">${U.esc(state.listingFeaturesText || "")}</textarea></label>` +
       `</details>` +
 
       (state.error ? `<p class="callout callout-danger mt-3">${U.esc(state.error)}</p>` : "") +
@@ -908,7 +903,7 @@ function bindOnce(el, fn) {
       state.products = [];
       // 409 = 还没添加店铺；这不是故障，是还没接入商品来源
       state.productsError = err.status === 409
-        ? "还没有添加店铺：商品选择器要接一个店铺才有货，现在可以先写商品名称直接生成。"
+        ? "还没有添加店铺：接一个店铺后这里才会出现商品选择器，现在也可以直接写商品名称生成。"
         : "读不到店铺商品，先写商品名称也能生成。";
     }
     if (state.mode === "params") render(root);
