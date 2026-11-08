@@ -48,13 +48,6 @@
   color: var(--ink);
   margin-top: 8px;
 }
-.dtile .dtile-sub {
-  font-family: var(--font-serif);
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--ink-3);
-  margin-top: 8px;
-}
 /* 巨型格：墨底 + 酸柠大字 + 酸柠硬投影（撞色只做底，字仍是高对比） */
 .dtile--giant {
   grid-column: span 4;
@@ -65,7 +58,6 @@
 }
 .dtile--giant .dtile-num { font-size: var(--fs-num-lg); color: var(--acid-lime); }
 .dtile--giant .dtile-lab { color: var(--acid-magenta); }
-.dtile--giant .dtile-sub { color: #A8A093; }
 /* 跨列不等宽 */
 .dtile--w2 { grid-column: span 2; }
 .dtile--w3 { grid-column: span 3; }
@@ -121,14 +113,6 @@
   letter-spacing: var(--tr-tight);
   color: var(--ink);
 }
-.press-panel .ph-meta {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: var(--tr-label);
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
 .press-panel .ph-act { margin-left: auto; }
 .press-panel .ph-all {
   font-family: var(--font-mono);
@@ -158,6 +142,11 @@
 .dash-grid > .c5 { grid-column: span 5; }
 .dash-grid > .c4 { grid-column: span 4; }
 .dash-grid > .stagger { margin-top: 16px; }
+
+/* 趋势面板跟同排的报告面板等高，图表撑满剩余高度，不留框内死白 */
+.dash-grid > .dash-trend { align-self: stretch; }
+.dash-trend .pb { display: flex; flex-direction: column; }
+.cp-chart-fill { flex: 1 1 auto; min-height: 240px; }
 
 /* 面板内表格去重边框（面板已给框） */
 .press-panel .table-wrap { border: 0; box-shadow: none; background: transparent; }
@@ -259,22 +248,15 @@ a.proof:hover .proof-nm {
 .dash-ov .ov-delta.up { color: var(--success); }
 .dash-ov .ov-delta.down { color: var(--stamp); }
 .dash-ov .ov-delta.flat { color: var(--ink-3); font-weight: 500; }
-.dash-ov .ov-foot {
-  padding: 11px 16px 13px;
-  border-top: 2px dotted var(--ink-3);
-  font-family: var(--font-serif);
-  font-size: var(--fs-xs);
-  line-height: 1.6;
-  color: var(--ink-3);
-}
 
-/* 卡片内紧凑空态 */
+/* 卡片内紧凑空态：只有图标 + 一句结论 + 入口，所以给个下限高度，别缩成一条 */
 .dash-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 10px;
+  min-height: 176px;
   padding: 26px 16px;
   text-align: center;
 }
@@ -286,9 +268,8 @@ a.proof:hover .proof-nm {
   color: var(--acid-lime);
   box-shadow: var(--shadow-sm);
 }
-.dash-empty .de-title { font-family: var(--font-sans); font-weight: 900; font-size: var(--fs-base); color: var(--ink); }
-.dash-empty .de-desc { max-width: 320px; font-family: var(--font-serif); font-size: var(--fs-xs); line-height: 1.6; color: var(--ink-2); }
-.dash-empty .de-act { margin-top: 8px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.dash-empty .de-title { font-family: var(--font-sans); font-weight: 900; font-size: var(--fs-md); color: var(--ink); }
+.dash-empty .de-act { margin-top: 4px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 /* 「还差一步」提醒：压成印刷框 */
 .dash-alert {
@@ -318,8 +299,7 @@ a.proof:hover .proof-nm {
   display: block;
   letter-spacing: -.01em;
 }
-.dash-alert .al-p { font-family: var(--font-serif); font-size: var(--fs-sm); line-height: 1.6; color: var(--ink-2); margin-top: 3px; }
-.dash-alert .al-p a { color: var(--primary); font-weight: 700; }
+.dash-alert .al-go { margin-left: auto; flex: 0 0 auto; }
 
 /* ============================================================================
    AI 助手（Workbench）：左对话 + 右结果
@@ -424,15 +404,6 @@ a.proof:hover .proof-nm {
   align-items: center;
   gap: var(--sp-4);
   width: 100%;
-}
-
-.wb-start-lead {
-  max-width: 700px;
-  font-family: var(--font-serif);
-  font-size: var(--fs-md);
-  color: var(--ink-2);
-  line-height: var(--lh-relaxed);
-  text-align: center;
 }
 
 .wb-start-label {
@@ -1090,6 +1061,7 @@ a.proof:hover .proof-nm {
 
 /* 右侧结果面板 */
 .res-tabs {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0;
@@ -1110,14 +1082,7 @@ a.proof:hover .proof-nm {
 }
 .res-tab:hover { color: var(--ink); }
 .res-tab.is-active { color: var(--ink); font-weight: 800; background: var(--acid-lime); }
-.res-tab.is-active::after {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: -2px;
-  height: 4px;
-  background: var(--acid-magenta);
-  border-radius: 0;
-}
+/* 当前项的洋红下划线改由 .tab-ink 滑动承担，不再每项各画一条 */
 
 .res-body { flex: 1; overflow-y: auto; padding: var(--sp-4); }
 .res-inner { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -1270,7 +1235,6 @@ a.proof:hover .proof-nm {
 .file-drop .icon { width: 24px; height: 24px; color: var(--faint); }
 .file-drop-title { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
 .file-drop-hint { font-size: var(--fs-xs); color: var(--muted); }
-.form-note { line-height: 1.5; }
 
 /* 报告 / Listing 结果块 */
 .report-block { display: flex; flex-direction: column; }
@@ -1378,17 +1342,6 @@ a.proof:hover .proof-nm {
   line-height: 1.05;
   color: var(--ink);
   padding-bottom: 10px;
-}
-.bigfill .bf-t em {
-  font-style: normal;
-  display: block;
-  margin-top: 8px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: var(--tr-label);
-  text-transform: uppercase;
-  color: var(--ink-3);
 }
 
 /* ============================================================================
@@ -1592,7 +1545,6 @@ a.proof:hover .proof-nm {
 .set-nav-item:hover { color: var(--acid-lime); background: rgba(216, 255, 61, .08); }
 .set-nav-item.is-active {
   background: var(--acid-lime);
-  border-left-color: var(--acid-magenta);
   color: var(--ink);
   font-weight: 900;
 }
@@ -2198,6 +2150,7 @@ a.proof:hover .proof-nm {
   .dash-grid > .c7, .dash-grid > .c8, .dash-grid > .c5,
   .dash-grid > .c4, .dash-grid > .c12 { grid-column: auto; }
   .dash-alert { flex-direction: column; align-items: flex-start; transform: none; }
+  .dash-alert .al-go { margin-left: 0; align-self: flex-end; }
   .bigfill { flex-wrap: wrap; }
   .bigfill .bf-n { font-size: var(--fs-num); }
 }
@@ -2208,14 +2161,14 @@ a.proof:hover .proof-nm {
    投递口 → 编号工序条 1–5 → 字段映射连线（左＝文件里的列 / 右＝激浪的字段）
    → 校验印章。撞色只做底与描边，状态一律带文字。
    ========================================================================== */
-.data-page { max-width: 1600px; }
+.data-page { max-width: 1600px; margin-inline: auto; }
 .data-page .page-inner { display: flex; flex-direction: column; gap: 24px; }
 
 /* ---- 1 · 工单抬头 ---- */
 .data-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 330px);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 20px;
   padding: 22px 24px 20px;
@@ -2252,34 +2205,14 @@ a.proof:hover .proof-nm {
 }
 .data-title-row .badge { gap: 5px; }
 .data-title-row .badge .icon { width: 12px; height: 12px; }
-.data-hero-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  flex: 0 0 auto;
-  padding: 14px 16px;
-  border: 2px dashed var(--ink);
-  border-radius: 0;
-  background: var(--paper);
-}
-.data-hero-note strong {
-  display: block;
-  font-family: var(--font-sans);
-  font-size: var(--fs-base);
-  font-weight: 900;
-  letter-spacing: var(--tr-tight);
-  color: var(--foreground);
-}
-.data-hero-note p {
-  margin-top: 5px;
+.data-hero-lead {
   font-family: var(--font-serif);
-  font-size: var(--fs-sm);
-  color: var(--ink-3);
+  font-size: var(--fs-md);
   line-height: var(--lh-normal);
+  color: var(--ink-2);
+  margin-left: 6px;
 }
 
-.data-hero-mark,
 .data-stat-icon,
 .data-mini-icon,
 .data-file-icon {
@@ -2292,9 +2225,6 @@ a.proof:hover .proof-nm {
   border: 2px solid var(--ink);
   border-radius: 0;
 }
-.data-hero-mark { width: 42px; height: 42px; box-shadow: 3px 3px 0 var(--acid-magenta); }
-.data-hero-mark .icon { width: 20px; height: 20px; }
-
 /* ---- 2 · 概览：跨列不等宽的编号块 ---- */
 .data-overview { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 18px; }
 .data-stat-card {
@@ -2342,13 +2272,6 @@ a.proof:hover .proof-nm {
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
-.data-stat-card small {
-  color: var(--ink-3);
-  font-family: var(--font-serif);
-  font-size: var(--fs-xs);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
 
 /* ---- 3 · 投递口 ---- */
 .data-main-grid {
@@ -2371,7 +2294,6 @@ a.proof:hover .proof-nm {
 }
 .data-upload-panel > * { position: relative; z-index: 1; }
 .data-upload-panel .card-title { font-size: var(--fs-lg); }
-.data-upload-panel .card-sub { font-size: var(--fs-xs); }
 .data-upload-panel .file-drop {
   position: relative;
   overflow: hidden;
@@ -2420,8 +2342,6 @@ a.proof:hover .proof-nm {
   letter-spacing: .1em;
   word-break: break-all;
 }
-.data-upload-panel .form-note { margin-top: 12px !important; font-family: var(--font-serif); color: var(--ink-3); }
-
 /* ---- 4 · 编号工序条 1–5 ---- */
 .data-wo-steps { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .data-wo-title {
@@ -2513,8 +2433,9 @@ a.proof:hover .proof-nm {
 .data-result-panel > .card > .card-body { padding: 16px; }
 .data-result-panel .empty {
   min-height: 260px;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
+  text-align: center;
   padding: 24px;
   border: 3px dashed var(--ink);
   background: var(--paper);
@@ -2759,6 +2680,7 @@ a.proof:hover .proof-nm {
 
 @media (max-width: 760px) {
   .wb-mobile-tabs {
+    position: relative;
     display: flex;
     gap: 0;
     padding: 8px 12px;

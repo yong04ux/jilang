@@ -11,6 +11,7 @@
  * 用同一套 `read()` 读回；结果由 `lib/render` 与 `features/skills/blocks` 生成。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useFlipList } from '@/hooks/useFlipList'
 import { api } from '@/lib/api'
 import { esc, icon, toast } from '@/lib/ui'
 import { go } from '@/app/router'
@@ -67,7 +68,12 @@ function glyphOf(skill: Skill): string {
 function SkillCard({ skill }: { skill: Skill }) {
   const needsKey = skill.requires.indexOf('llm') !== -1
   return (
-    <article className="sk-card" data-open={skill.key} onClick={() => go(`/skills?skill=${encodeURIComponent(skill.key)}`)}>
+    <article
+      className="sk-card"
+      data-open={skill.key}
+      data-flip-key={skill.key}
+      onClick={() => go(`/skills?skill=${encodeURIComponent(skill.key)}`)}
+    >
       {/* 巨型描边汉字：纯装饰，z-index 0，正文与「运行」按钮都在它上面 */}
       <span className="sk-glyph" aria-hidden="true">
         {glyphOf(skill)}
@@ -180,6 +186,10 @@ function SkillsGrid({ skills }: { skills: Skill[] }) {
 
   const list = skills.filter((s) => matches(s, filter))
 
+  /* facet / 搜索改变后卡片会换位置：按技能 key 做 FLIP 补间 */
+  const gridRef = useRef<HTMLDivElement>(null)
+  useFlipList(gridRef, [list.map((s) => s.key).join('|')])
+
   const facts = (() => {
     const byCat: Record<string, number> = {}
     let builtin = 0
@@ -266,7 +276,7 @@ function SkillsGrid({ skills }: { skills: Skill[] }) {
         </div>
         <div id="sk-grid-all">
           {list.length ? (
-            <div className="sk-grid">
+            <div className="sk-grid" ref={gridRef}>
               {list.map((s) => (
                 <SkillCard skill={s} key={s.key} />
               ))}
@@ -584,8 +594,10 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
         />
         <div className="sk-run-bar">
           <button type="button" className="btn btn-primary btn-sm" id="sk-run" disabled={running} onClick={submit}>
-            <Icon name={running ? 'clock' : 'play'} />
-            {running ? '运行中…' : '运行'}
+            {running ? <span className="cp-spin" aria-hidden="true" /> : <Icon name="play" />}
+            <span key={running ? '运行中…' : '运行'} className="btn-swap">
+              {running ? '运行中…' : '运行'}
+            </span>
           </button>
           <span className="t-xs t-muted" id="sk-hint">
             {needsKey ? '这一步会调用你自己的模型密钥' : '全部本地计算，不调用模型'}

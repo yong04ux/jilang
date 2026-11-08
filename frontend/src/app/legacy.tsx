@@ -67,9 +67,22 @@ export function LegacyPage({
     window.CPIcon?.hydrate(document)
 
     // 页面进场：主区块按序淡入（reduced-motion 下 CPMotion 自己会跳过）
+    // 走纸过渡期间整页由 router 统一播进场，这里改成同一条从右推入，
+    // 不再叠一层交错淡入（两层会互相打断）。
     const stage = (host.querySelector('.page-inner') ||
       host.querySelector('.view')) as HTMLElement | null
-    if (stage && window.CPMotion) {
+    const feed = document.documentElement.dataset.cpFeed === '1'
+    if (feed) {
+      const view = host.querySelector<HTMLElement>('.view')
+      view?.classList.add('view--fed')
+      if (view && window.CPMotion) {
+        void window.CPMotion.animate(
+          view,
+          [{ opacity: 0, transform: 'translate3d(30px,0,0)' }, { opacity: 1, transform: 'none' }],
+          { duration: 320 },
+        )
+      }
+    } else if (stage && window.CPMotion) {
       window.CPMotion.stagger(stage, { selector: ':scope > *', step: 22, y: 5 })
     }
 

@@ -10,16 +10,20 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-4",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium outline-none transition-[color,background-color,box-shadow,transform] duration-150 ease-out disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none disabled:transform-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary-hover',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-accent',
-        outline: 'border border-border bg-card text-foreground hover:bg-accent',
-        ghost: 'text-foreground hover:bg-accent',
+        default:
+          'bg-primary text-primary-foreground shadow-[3px_3px_0_var(--ink)] hover:bg-primary-hover hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none',
+        secondary:
+          'bg-secondary text-secondary-foreground shadow-[3px_3px_0_var(--ink)] hover:bg-accent hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none',
+        outline:
+          'border border-border bg-card text-foreground shadow-[3px_3px_0_var(--ink)] hover:bg-accent hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none',
+        ghost: 'text-foreground hover:bg-accent active:translate-y-px',
         link: 'text-primary underline-offset-4 hover:underline',
-        destructive: 'bg-destructive text-primary-foreground hover:opacity-90',
+        destructive:
+          'bg-destructive text-primary-foreground shadow-[3px_3px_0_var(--ink)] hover:opacity-90 hover:-translate-x-px hover:-translate-y-px hover:shadow-[4px_4px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none',
       },
       size: {
         default: 'h-8 px-3',
@@ -38,17 +42,35 @@ function Button({
   variant,
   size,
   asChild = false,
+  busy = false,
+  disabled,
+  children,
   ...props
 }: React.ComponentProps<'button'> &
-  VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
+  VariantProps<typeof buttonVariants> & { asChild?: boolean; busy?: boolean }) {
   const Comp = asChild ? Slot : 'button'
+  // asChild 时 Slot 只接受单个子元素：spinner 不能成为兄弟节点，否则整棵树抛错
+  const content =
+    busy && !asChild ? (
+      <>
+        <span className="cp-spin" aria-hidden="true" />
+        {children}
+      </>
+    ) : (
+      children
+    )
   return (
     <Comp
       data-slot="button"
       data-variant={variant ?? 'default'}
+      data-busy={busy ? 'true' : undefined}
+      aria-busy={busy || undefined}
+      disabled={disabled || busy}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
-    />
+    >
+      {content}
+    </Comp>
   )
 }
 

@@ -34,7 +34,7 @@ function toMs(value: unknown, fallback: number): number {
   return fallback
 }
 
-function tokenMs(name: string, fallback: number): number {
+export function tokenMs(name: string, fallback: number): number {
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name)
   return toMs(raw.trim(), fallback)
 }

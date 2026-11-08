@@ -40,11 +40,17 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          'fixed z-50 flex flex-col gap-3 border-border bg-card shadow-lg transition-transform',
-          side === 'right' && 'inset-y-0 right-0 h-full w-80 max-w-[85vw] border-l',
-          side === 'left' && 'inset-y-0 left-0 h-full w-80 max-w-[85vw] border-r',
-          side === 'top' && 'inset-x-0 top-0 h-auto max-h-[85vh] border-b',
-          side === 'bottom' && 'inset-x-0 bottom-0 h-auto max-h-[85vh] border-t',
+          'fixed z-50 flex flex-col gap-3 border-border bg-card shadow-lg',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+          'data-[state=open]:duration-300 data-[state=closed]:duration-200',
+          side === 'right' &&
+            'inset-y-0 right-0 h-full w-80 max-w-[85vw] border-l data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right',
+          side === 'left' &&
+            'inset-y-0 left-0 h-full w-80 max-w-[85vw] border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left',
+          side === 'top' &&
+            'inset-x-0 top-0 h-auto max-h-[85vh] border-b data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top',
+          side === 'bottom' &&
+            'inset-x-0 bottom-0 h-auto max-h-[85vh] border-t data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
           className,
         )}
         {...props}

@@ -17,6 +17,8 @@ import { PageFrame, PageShell } from '@/components/shared/PageShell'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useTaskPolling } from '@/lib/async-run/useTaskPolling'
 import { isRunning } from '@/lib/async-run/poller'
+import { usePresence } from '@/hooks/usePresence'
+import { useFlipList } from '@/hooks/useFlipList'
 
 type Dict = Record<string, any>
 
@@ -52,41 +54,51 @@ function originLabel(origin?: string): string {
 /* ------------------------------------------------------------ 详情抽屉 */
 
 function TaskDrawer({
+  open,
   taskId,
   onClose,
   onListRefresh,
 }: {
-  taskId: string
+  open: boolean
+  taskId: string | null
   onClose: () => void
   onListRefresh: () => void
 }) {
+  const { mounted, state } = usePresence(open)
   const [detail, setDetail] = useState<Dict | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const stepsRef = useRef<HTMLDivElement>(null)
+  // 退场期间 taskId 已置空，记住最后一个任务让内容不空白
+  const lastIdRef = useRef<string | null>(taskId)
+  if (taskId) lastIdRef.current = taskId
+  const currentId = taskId ?? lastIdRef.current
 
   const loadDetail = useCallback(async () => {
+    if (!currentId) return
     try {
-      const data = await api.get<Dict>(`/api/tasks/${encodeURIComponent(taskId)}`)
+      const data = await api.get<Dict>(`/api/tasks/${encodeURIComponent(currentId)}`)
       setDetail(data)
       setLoadError(null)
     } catch (err) {
       setLoadError((err as Error).message || String(err))
     }
-  }, [taskId])
+  }, [currentId])
 
   useEffect(() => {
+    if (!taskId) return
     setDetail(null)
     setLoadError(null)
+    setBusy(false)
     void loadDetail()
-  }, [loadDetail])
+  }, [taskId, loadDetail])
 
   const status = (detail?.task || {}).status || ''
   const running = Boolean(detail) && isRunning(status)
 
   useTaskPolling({
-    taskId,
-    enabled: running,
+    taskId: currentId,
+    enabled: open && running,
     onUpdate: (data) => setDetail(data as Dict),
     onDone: (data) => {
       setDetail(data as Dict)
@@ -99,12 +111,13 @@ function TaskDrawer({
 
   /* Esc 关闭（原实现是 document 级监听，关闭时移除） */
   useEffect(() => {
+    if (!open) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [open, onClose])
 
   /* 执行步骤由旧 CPAsyncRun.stepList 产出 HTML 字符串，补一次图标 hydrate */
   useEffect(() => {
@@ -164,14 +177,19 @@ function TaskDrawer({
     }
   }
 
+  if (!mounted) return null
+
   return createPortal(
     <>
-      <div className="drawer-scrim" id="task-drawer-scrim" onClick={onClose} />
+      <div className="drawer-scrim" id="task-drawer-scrim" data-state={state} onClick={onClose} />
       <aside
         className="drawer is-wide"
+        data-state={state}
         role="dialog"
         aria-modal="true"
         aria-label="任务详情"
+        aria-hidden={state === 'closed'}
+        inert={state === 'closed'}
       >
         <div className="drawer-head">
           <div className="task-detail-head">
@@ -216,7 +234,8 @@ function TaskDrawer({
                 <div className="row gap-2">
                   {canCancel ? (
                     <button type="button" className="btn btn-sm" id="task-cancel" disabled={busy} onClick={cancelTask}>
-                      取消任务
+                      {busy ? <span className="cp-spin" aria-hidden="true" /> : null}
+                      <span key="取消任务" className="btn-swap">取消任务</span>
                     </button>
                   ) : null}
                 </div>
@@ -242,10 +261,12 @@ function TaskDrawer({
                     通过后把内容复制到店铺后台，在那里完成发布。
                     <div className="row gap-2 mt-2">
                       <button type="button" className="btn btn-sm btn-primary" data-decide="approved" disabled={busy} onClick={() => decide('approved')}>
-                        通过
+                        {busy ? <span className="cp-spin" aria-hidden="true" /> : null}
+                        <span key="通过" className="btn-swap">通过</span>
                       </button>
                       <button type="button" className="btn btn-sm" data-decide="rejected" disabled={busy} onClick={() => decide('rejected')}>
-                        拒绝
+                        {busy ? <span className="cp-spin" aria-hidden="true" /> : null}
+                        <span key="拒绝" className="btn-swap">拒绝</span>
                       </button>
                     </div>
                   </div>
@@ -273,10 +294,12 @@ function TaskDrawer({
                     ) : null}
                     <div className="row gap-2 mt-2">
                       <button type="button" className="btn btn-sm btn-primary" data-confirm="continue" disabled={busy} onClick={() => confirmStep('continue')}>
-                        继续生成
+                        {busy ? <span className="cp-spin" aria-hidden="true" /> : null}
+                        <span key="继续生成" className="btn-swap">继续生成</span>
                       </button>
                       <button type="button" className="btn btn-sm" data-confirm="cancel" disabled={busy} onClick={() => confirmStep('cancel')}>
-                        取消
+                        {busy ? <span className="cp-spin" aria-hidden="true" /> : null}
+                        <span key="取消" className="btn-swap">取消</span>
                       </button>
                     </div>
                   </div>
@@ -461,6 +484,10 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
       : list
   }, [items, sortAsc])
 
+  /* 筛选/排序/搜索后行会换位置：按 task_id 做 FLIP 补间，而不是瞬移 */
+  const bodyRef = useRef<HTMLTableSectionElement>(null)
+  useFlipList(bodyRef, [rows.map((t) => t.task_id).join('|')])
+
   return (
     <PageFrame>
       <PageShell
@@ -607,7 +634,7 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
                           <th className="num">结果</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody ref={bodyRef}>
                         {rows.map((t) => (
                           <tr
                             data-task-row={t.task_id}
@@ -652,18 +679,18 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
         {items.length ? (
           <div className="bigfill">
             <span className="bf-n">{String(items.length).padStart(2, '0')}</span>
-            <span className="bf-t">
-              条任务记录
-              <em>状态 · 步骤 · 耗时均来自服务端</em>
-            </span>
+            <span className="bf-t">条任务记录</span>
           </div>
         ) : null}
         </div>
       </PageShell>
 
-      {activeTaskId ? (
-        <TaskDrawer taskId={activeTaskId} onClose={closeDrawer} onListRefresh={reloadList} />
-      ) : null}
+      <TaskDrawer
+        open={activeTaskId !== null}
+        taskId={activeTaskId}
+        onClose={closeDrawer}
+        onListRefresh={reloadList}
+      />
     </PageFrame>
   )
 }

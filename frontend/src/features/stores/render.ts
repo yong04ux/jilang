@@ -172,12 +172,11 @@ export function storeOptions(stores: Dict[], currentId: string): string {
 
 /* ------------------------------------------------------ 未绑定店铺引导 */
 
-export function step(index: number, title: string, desc: string): string {
+export function step(index: number, title: string): string {
   return (
     '<div class="st-step">' +
     '<span class="st-step-no">' + index + '</span>' +
     '<p class="st-step-title">' + esc(title) + '</p>' +
-    '<p class="st-step-desc">' + esc(desc) + '</p>' +
     '</div>'
   )
 }
@@ -186,16 +185,14 @@ export function unboundState(): string {
   return (
     card(
       '还没有绑定店铺',
-      '<p class="t-sm t-muted" style="margin:0 0 14px">绑定之后，这里会显示这家店真实的商品、订单、广告与库存。' +
-        '现在可以先加一个示例店铺，把整个流程走一遍。</p>' +
-        '<div class="row gap-2"><button type="button" class="btn btn-primary btn-sm" id="st-unbound-add">' +
+      '<div class="row gap-2"><button type="button" class="btn btn-primary btn-sm" id="st-unbound-add">' +
         icon('plus') + '添加示例店铺</button>' +
         '<a class="btn btn-sm btn-secondary" href="/data" data-link>去导入商品文件</a></div>',
     ) +
     '<div class="st-steps mt-3">' +
-    step(1, '选择店铺', '选平台与站点，填一个你自己认得出来的店铺名。') +
-    step(2, '确认站点', '一个店铺对应一个站点；多站点请分别绑定。') +
-    step(3, '开始同步', '同步完成后，商品、订单与广告数据会在这里按日汇总。') +
+    step(1, '选择店铺') +
+    step(2, '确认站点') +
+    step(3, '开始同步') +
     '</div>'
   )
 }
@@ -269,7 +266,6 @@ export function authorizeHtml(stores: Dict[], sources: Dict[]): string {
     }
     return (
       '<tr><td>' + esc(item.label) + '</td>' +
-      '<td class="t-muted">' + esc(item.detail || '') + '</td>' +
       '<td>' + pill(label, tone) + '</td>' +
       '<td class="t-muted">' + (item.last_sync_at ? esc(fmtTime(item.last_sync_at)) : '—') + '</td></tr>'
     )
@@ -290,7 +286,7 @@ export function authorizeHtml(stores: Dict[], sources: Dict[]): string {
     (sourceRows.length
       ? card(
           '各数据域的数据来源',
-          table([{ label: '数据域' }, { label: '说明' }, { label: '来源' }, { label: '最后同步' }], sourceRows),
+          table([{ label: '数据域' }, { label: '来源' }, { label: '最后同步' }], sourceRows),
           null,
           { flush: true },
         )
@@ -336,12 +332,12 @@ export function dashboardTodosHtml(data: Dict): string {
   const pendingReturns = returns.filter((item: Dict) => item.status !== 'refunded').length
 
   const todos = [
-    { label: '已断货 SKU', value: inventory.totals.outOfStock || 0, tone: 'danger', seg: 'inventory', note: '可售库存为 0' },
-    { label: '库存偏低', value: inventory.totals.lowStock || 0, tone: 'warning', seg: 'inventory', note: '可售不足 15 件' },
-    { label: '滞销 SKU', value: inventory.totals.slowMoving || 0, tone: 'warning', seg: 'inventory', note: '30 天无销量' },
-    { label: '待处理售后', value: pendingReturns, tone: pendingReturns ? 'warning' : 'ok', seg: 'aftersales', note: '等待审核或处理' },
-    { label: '违规警告', value: health.warnings || 0, tone: health.warnings ? 'warning' : 'ok', seg: '', note: '平台账户状态' },
-    { label: '政策违规', value: health.policyViolations || 0, tone: health.policyViolations ? 'danger' : 'ok', seg: '', note: '平台账户状态' },
+    { label: '已断货 SKU', value: inventory.totals.outOfStock || 0, tone: 'danger', seg: 'inventory' },
+    { label: '库存偏低', value: inventory.totals.lowStock || 0, tone: 'warning', seg: 'inventory' },
+    { label: '滞销 SKU', value: inventory.totals.slowMoving || 0, tone: 'warning', seg: 'inventory' },
+    { label: '待处理售后', value: pendingReturns, tone: pendingReturns ? 'warning' : 'ok', seg: 'aftersales' },
+    { label: '违规警告', value: health.warnings || 0, tone: health.warnings ? 'warning' : 'ok', seg: '' },
+    { label: '政策违规', value: health.policyViolations || 0, tone: health.policyViolations ? 'danger' : 'ok', seg: '' },
   ]
 
   const todoHtml = todos
@@ -352,7 +348,6 @@ export function dashboardTodosHtml(data: Dict): string {
         '<' + tag + ' class="st-todo st-todo--' + item.tone + '"' + attrs + '>' +
         '<span>' + esc(item.label) + '</span>' +
         '<strong>' + item.value + '</strong>' +
-        '<small>' + esc(item.note) + '</small>' +
         '</' + tag + '>'
       )
     })
@@ -436,8 +431,7 @@ function overviewSegment(m: Dict, ads: Dict, currency: string, health: Dict): st
     .join('')
 
   return (
-    card('核心指标', '<div class="st-metrics">' + core + '</div>',
-      '对比上一个等长周期 · ' + esc(RANGES.find((r) => r.key === m.range)?.label || '近 30 天')) +
+    card('核心指标', '<div class="st-metrics">' + core + '</div>') +
     card('业绩走势', '<div id="st-trend"></div>',
       '<div class="st-seg" role="group" aria-label="走势指标">' + trendSwitch + '</div>') +
     card('按日明细',
@@ -448,7 +442,7 @@ function overviewSegment(m: Dict, ads: Dict, currency: string, health: Dict): st
       ),
       m.days + ' 天', { flush: true }) +
     (healthCells
-      ? card('店铺绩效', '<div class="st-metrics st-metrics--five">' + healthCells + '</div>', esc(health.sourceLabel || ''))
+      ? card('店铺绩效', '<div class="st-metrics st-metrics--five">' + healthCells + '</div>')
       : '')
   )
 }
@@ -466,11 +460,9 @@ function ordersSegment(m: Dict, currency: string, orders: Dict[]): string {
       table([{ label: '地区' }, { label: '订单量', align: 'right' }, { label: '占比', align: 'right' }], regions,
         { empty: '窗口内没有地区订单' }),
       '窗口内 ' + num(m.orders) + ' 笔', { flush: true }) +
-    card('下单时段分布', '<div id="st-hours"></div>', '当地时间 0-23 点') +
+    card('下单时段分布', '<div id="st-hours"></div>') +
     '</div>' +
-    card('订单列表', ordersTable(orders, currency),
-      num(m.orders) + ' 笔订单' + (orders.length < m.orders ? '（展示最近 ' + orders.length + ' 笔）' : ''),
-      { flush: true })
+    card('订单列表', ordersTable(orders, currency), num(m.orders) + ' 笔订单', { flush: true })
   )
 }
 
@@ -531,7 +523,7 @@ function adsSegment(ads: Dict, currency: string): string {
 
   // 广告活动有 7 列，半宽放不下（销售列会被裁掉），所以两张表都走整宽。
   return (
-    card('广告指标', '<div class="st-metrics st-metrics--ads">' + metrics + '</div>', '近 30 天') +
+    card('广告指标', '<div class="st-metrics st-metrics--ads">' + metrics + '</div>') +
     '<div class="mt-3">' +
     card('广告表现最好的商品',
       table([{ label: '商品' }, { label: '花费', align: 'right' }, { label: '广告销售额', align: 'right' },
@@ -589,7 +581,7 @@ function inventorySegment(inventory: Dict): string {
       metric('断货 SKU', num(totals.outOfStock || 0), '') +
       metric('低库存 SKU', num(totals.lowStock || 0), '') +
       '</div>', '') +
-    card('库龄分布', '<div class="st-breakdown">' + agingRows + '</div>', '按可售件数') +
+    card('库龄分布', '<div class="st-breakdown">' + agingRows + '</div>') +
     card('库存明细',
       table([{ label: '商品' }, { label: '可售', align: 'right' }, { label: '预留', align: 'right' },
         { label: '在途', align: 'right' }, { label: '30 天销量', align: 'right' },
@@ -621,7 +613,7 @@ function aftersalesSegment(returns: Dict[], currency: string): string {
       metric('售后单量', num(list.length), '') +
       metric('已退款金额', money(refundAmount, currency), '') +
       metric('待处理', num(pending), '') +
-      '</div>', '近 30 天') +
+      '</div>') +
     card('售后订单',
       table([{ label: '售后单号' }, { label: '商品' }, { label: '退款金额', align: 'right' },
         { label: '原因' }, { label: '状态' }, { label: '申请时间' }], rows,
@@ -727,8 +719,8 @@ export function productDetailHtml(detail: Dict): string {
   return (
     summary +
     (warnings ? '<div class="mt-3">' + warnings + '</div>' : '') +
-    card('核心指标', '<div class="st-metrics">' + metrics + '</div>', '近 30 天 · 对比上一个周期') +
-    card('销售走势', '<div id="st-trend"></div>', '按日') +
+    card('核心指标', '<div class="st-metrics">' + metrics + '</div>') +
+    card('销售走势', '<div id="st-trend"></div>') +
     card('广告表现',
       adRows.length
         ? table([{ label: '活动' }, { label: '状态' }, { label: '点击', align: 'right' },
