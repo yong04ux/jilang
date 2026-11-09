@@ -515,6 +515,22 @@
   color: var(--ink-2);
 }
 
+/* 说明型技能（导入的 SKILL.md）正文：保留换行，长行可折 */
+.sk-doc {
+  max-width: 78ch;
+  margin: 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--ink);
+  background: var(--paper, #fff);
+  color: var(--ink);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 .sk-run-bar {
   display: flex;
   align-items: center;

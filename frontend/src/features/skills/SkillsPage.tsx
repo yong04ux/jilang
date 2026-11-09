@@ -21,7 +21,13 @@ import { describe, hydratePickers, read, render as renderForm } from '@/lib/sche
 import { outputHtml, paintChart } from '@/features/skills/blocks.ts'
 import { unmountCharts } from '@/components/shared/charts/mount-lazy'
 import { Badge } from '@/components/ui/badge'
-import { ensureSkills, skillByKey, skillLoadError, type Skill } from '@/features/skills/skillsCache'
+import {
+  ensureAllSkills,
+  invalidateSkills,
+  skillByKey,
+  skillLoadError,
+  type Skill,
+} from '@/features/skills/skillsCache'
 
 type Dict = Record<string, any>
 
@@ -50,7 +56,7 @@ function toneClass(tone: string): string {
 function Avatar({ skill, size }: { skill: Skill; size?: 'lg' }) {
   return (
     <span className={`sk-avatar ${toneClass(skill.tone)}${size === 'lg' ? ' sk-avatar--lg' : ''}`}>
-      {skill.icon}
+      {glyphOf(skill)}
     </span>
   )
 }
@@ -89,7 +95,10 @@ function SkillCard({ skill }: { skill: Skill }) {
         ))}
       </div>
       <div className="sk-card-foot">
-        <span className="sk-card-src">来源：{skill.builtin ? '激浪内置' : '你创建的'}</span>
+        <span className="sk-card-src">
+          来源：
+          {skill.source === 'imported' ? '导入的' : skill.builtin ? '激浪内置' : '你创建的'}
+        </span>
         <button
           type="button"
           className="btn btn-sm"
@@ -99,10 +108,130 @@ function SkillCard({ skill }: { skill: Skill }) {
             go(`/skills?skill=${encodeURIComponent(skill.key)}`)
           }}
         >
-          运行
+          {skill.runnable ? '运行' : '查看'}
         </button>
       </div>
     </article>
+  )
+}
+
+/** 导入一份 SKILL.md：只收说明型技能，执行器由平台内置。 */
+function ImportSkillButton({ onDone }: { onDone: () => void }) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+
+  const onChange = async () => {
+    const file = inputRef.current?.files?.[0]
+    if (!file) return
+    if (file.size > 64 * 1024) {
+      toast('技能文件超过 64 KB，请精简后再导入', 'danger')
+      inputRef.current!.value = ''
+      return
+    }
+    setBusy(true)
+    try {
+      const content = await file.text()
+      await api.post('/api/skills/import', { content })
+      toast('技能已导入', 'ok')
+      invalidateSkills()
+      onDone()
+    } catch (err) {
+      toast((err as Error).message || '导入失败', 'danger')
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".md,text/markdown,text/plain"
+        hidden
+        onChange={onChange}
+      />
+      <button
+        type="button"
+        className="btn btn-sm"
+        disabled={busy}
+        onClick={() => inputRef.current?.click()}
+      >
+        <Icon name="upload" />
+        {busy ? '导入中…' : '导入技能'}
+      </button>
+    </>
+  )
+}
+
+/** 说明型技能详情：展示 SKILL.md 正文，可删除；没有运行按钮。 */
+function SkillDoc({ skill }: { skill: Skill }) {
+  const [body, setBody] = useState(skill.instructions || '')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    void api
+      .get<Dict>(`/api/skills/${encodeURIComponent(skill.key)}`)
+      .then((detail) => {
+        if (alive) setBody(String(detail.instructions || ''))
+      })
+      .catch(() => {
+        /* 正文拉不到时保留列表里的说明，不阻塞页面 */
+      })
+    return () => {
+      alive = false
+    }
+  }, [skill.key])
+
+  const remove = async () => {
+    if (busy) return
+    if (!window.confirm(`删除技能「${skill.name}」？删除后不再出现在技能广场。`)) return
+    setBusy(true)
+    try {
+      await api.del(`/api/skills/${encodeURIComponent(skill.key)}`)
+      toast('技能已删除', 'ok')
+      invalidateSkills()
+      go('/skills')
+    } catch (err) {
+      toast((err as Error).message || '删除失败', 'danger')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <a className="sk-back" href="/skills" data-link="">
+        <Icon name="chevronLeft" />
+        技能广场
+      </a>
+      <section className="sk-detail" id="sk-detail">
+        <div className="sk-detail-head">
+          <Avatar skill={skill} size="lg" />
+          <div className="sk-detail-title">
+            <h2 className="sk-h2">{skill.name}</h2>
+            <span className="sk-card-cat">{skill.cat}</span>
+          </div>
+          <span className="badge badge-info">说明型技能</span>
+        </div>
+        <p className="sk-detail-desc">{skill.desc}</p>
+        <div className="callout callout-info mt-3">
+          <Icon name="info" />
+          <div>
+            这份技能只有说明、没有绑定执行器，不能直接运行；Agent 会在需要时按正文执行。
+          </div>
+        </div>
+        <pre className="sk-doc mt-4">{body || '这份技能没有正文。'}</pre>
+        <div className="sk-run-bar">
+          <button type="button" className="btn btn-sm" disabled={busy} onClick={remove}>
+            <Icon name="close" />
+            {busy ? '删除中…' : '删除技能'}
+          </button>
+          <span className="t-xs t-muted">删除后如需恢复，请重新导入 SKILL.md</span>
+        </div>
+      </section>
+    </>
   )
 }
 
@@ -155,7 +284,7 @@ function matches(skill: Skill, f: GridFilter): boolean {
   return hay.indexOf(q) !== -1
 }
 
-function SkillsGrid({ skills }: { skills: Skill[] }) {
+function SkillsGrid({ skills, onReload }: { skills: Skill[]; onReload: () => void }) {
   const [filter, setFilter] = useState<GridFilter>({ ...gridFilter })
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -207,9 +336,12 @@ function SkillsGrid({ skills }: { skills: Skill[] }) {
     <PageShell
       title="技能广场"
       actions={
-        <a className="btn btn-sm" href="/workbench" data-link="">
-          去 AI 助手
-        </a>
+        <div className="row gap-2">
+          <ImportSkillButton onDone={onReload} />
+          <a className="btn btn-sm" href="/workbench" data-link="">
+            去 AI 助手
+          </a>
+        </div>
       }
     >
       {featured.length ? (
@@ -601,10 +733,11 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
 export function SkillsPage({ query }: { query: Record<string, string> }) {
   const [skills, setSkills] = useState<Skill[]>([])
   const [state, setState] = useState<'loading' | 'ready' | 'empty'>('loading')
+  const [reloadToken, setReloadToken] = useState(0)
 
   useEffect(() => {
     let alive = true
-    void ensureSkills().then((list) => {
+    void ensureAllSkills().then((list) => {
       if (!alive) return
       setSkills(list)
       setState(list.length ? 'ready' : 'empty')
@@ -612,11 +745,16 @@ export function SkillsPage({ query }: { query: Record<string, string> }) {
     return () => {
       alive = false
     }
-  }, [])
+  }, [reloadToken])
 
   const wanted = String(query.skill || '')
   const batch = String(query.batch || '')
   const skill = useMemo(() => (wanted ? skillByKey(wanted) : null), [wanted, skills])
+
+  const reload = () => {
+    invalidateSkills()
+    setReloadToken((n) => n + 1)
+  }
 
   if (state === 'loading') {
     return (
@@ -651,9 +789,13 @@ export function SkillsPage({ query }: { query: Record<string, string> }) {
       {/* key 必须带 skill.key：否则换技能时组件被复用，上一个技能的
           结果与运行状态会残留（现有实现靠 render() 里的 reset() 清干净） */}
       {skill ? (
-        <SkillDetail key={skill.key} skill={skill} batch={batch} />
+        skill.runnable ? (
+          <SkillDetail key={skill.key} skill={skill} batch={batch} />
+        ) : (
+          <SkillDoc key={skill.key} skill={skill} />
+        )
       ) : (
-        <SkillsGrid skills={skills} />
+        <SkillsGrid skills={skills} onReload={reload} />
       )}
     </PageFrame>
   )

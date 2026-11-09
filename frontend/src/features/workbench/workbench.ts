@@ -18,6 +18,13 @@ let C
 let R
 let AR
 
+/** 工作台表单能完整表达的技能；其余技能需要专属参数，选中后去技能详情页。
+    已经用到的执行路径：competitor = 只做竞品分析，listing = 只生成文案。 */
+const WORKBENCH_SKILLS: Record<string, "competitor" | "listing"> = {
+  competitor_analysis: "competitor",
+  listing_generation: "listing",
+}
+
 function ensureDeps() {
   if (U) return
   U = window.CPUi
@@ -33,7 +40,6 @@ function ensureDeps() {
     category: "推荐",
     composerDraft: "",        // 分段切换会重绘首页，输入到一半的话要留住
     goal: "",
-    skill: null,
     productName: "",
     competitorsText: "",
     withListing: true,
@@ -54,6 +60,8 @@ function ensureDeps() {
     degradedReason: "",
     agentKey: "main",
     picked: null,             // 当前带进输入框的技能（点卡片选中，不跳页）
+    selectedSkills: [],       // 本次执行实际选中的技能（显式选择或 Agent 自动路由）
+    routing: null,            // 后端返回的路由说明（模式 / 降级原因 / 未执行说明）
     assistantOpen: false,     // 输入框右下角的助手选择器
     conversationId: null,
     conversations: [],
@@ -309,7 +317,6 @@ function ensureDeps() {
   /** 点技能卡 / 试一句：留在首页，只把目标放进输入框并把焦点交过去 */
   function pickSkill(root, skill) {
     state.picked = skill;
-    state.skill = skill;
 
     const input = root.querySelector("#composer-input");
     if (input) {
@@ -419,8 +426,12 @@ function ensureDeps() {
     if (isListingMode()) {
       return ["校验输入", "分派工作流", "装载站点规则", "生成 Listing 草稿", "质检草稿", "保存草稿"];
     }
+    if (!state.picked) {
+      // 没指定技能时由 Agent 按目标选能力，事先不编造具体步骤
+      return ["校验输入", "分派工作流", "Agent 按目标选择能力", "保存结果"];
+    }
     const stages = ["校验输入", "分派工作流", "竞品分析"];
-    if (state.withListing) {
+    if (state.withListing && !isCompetitorOnly()) {
       stages.push("检查 Listing 必需事实", "生成 Listing 草稿", "质检草稿");
     } else {
       stages.push("市场机会总结");
@@ -437,16 +448,16 @@ function ensureDeps() {
         tags: ["Listing 生成", "事实对齐"],
       };
     }
-    if (state.skill) {
+    if (state.picked) {
       return {
-        name: state.skill.name,
-        desc: state.skill.desc,
-        tags: (state.skill.tags || []).slice(0, 4),
+        name: state.picked.name,
+        desc: state.picked.desc,
+        tags: (state.picked.tags || []).slice(0, 4),
       };
     }
     return {
-      name: "竞品分析",
-      desc: "从竞品价格、评论与卖点里找出市场机会和差异化方向，产出可追溯的报告。",
+      name: "由 Agent 自动编排",
+      desc: "没有指定技能时，按任务目标选择要执行的能力与步骤。",
       tags: ["竞品分析", "市场机会"],
     };
   }
@@ -550,9 +561,13 @@ function ensureDeps() {
         `<input id="wb-spec-capacity" value="${U.esc(specs.capacity || "")}" placeholder="例如 2L" /></label>` +
         `</div>` +
         `<div class="wb-extra-row">` +
-        `<label class="row gap-2" style="cursor:pointer">` +
-        `<input type="checkbox" id="wb-with-listing" ${state.withListing ? "checked" : ""} />` +
-        `<span class="t-sm">同时生成 Listing 草稿</span></label>` +
+        (isCompetitorOnly()
+          ? `<span class="t-xs t-muted">已显式选择「竞品分析」：本次只做分析，不生成 Listing。</span>`
+          : !state.picked
+            ? `<span class="t-xs t-muted">未指定技能：由 Agent 根据目标决定是否生成 Listing。</span>`
+            : `<label class="row gap-2" style="cursor:pointer">` +
+              `<input type="checkbox" id="wb-with-listing" ${state.withListing ? "checked" : ""} />` +
+              `<span class="t-sm">同时生成 Listing 草稿</span></label>`) +
         `<label class="field wb-extra-lang"><span class="field-label">Listing 语言</span>` +
         `<select id="wb-language">` +
         ["en-US", "de-DE", "ja-JP"].map(function (code) {
@@ -730,7 +745,12 @@ function ensureDeps() {
   const LISTING_LANGUAGES = { US: "en-US", UK: "en-US", DE: "de-DE", JP: "ja-JP" };
 
   function isListingMode() {
-    return Boolean(state.skill && state.skill.key === "listing_generation");
+    return Boolean(state.picked && state.picked.key === "listing_generation");
+  }
+
+  /** 显式选了「竞品分析」就只做分析：不再顺手生成 Listing。 */
+  function isCompetitorOnly() {
+    return Boolean(state.picked && state.picked.key === "competitor_analysis");
   }
 
   function listingConfigCard() {
@@ -1233,6 +1253,14 @@ function ensureDeps() {
       `<div class="plan-head">` +
       `<span class="plan-title">${U.icon("tasks")}执行计划</span>` +
       `<span class="t-xs t-muted" data-plan-meta>${facts.meta}</span></div>` +
+      (state.selectedSkills.length
+        ? `<div class="t-xs t-muted" data-plan-route style="margin:0 0 var(--sp-2)">` +
+          `本次能力：${U.esc(state.selectedSkills.map(function (s) {
+            return s.name || s.skill_key;
+          }).join("、"))}` +
+          (state.routing && state.routing.note ? ` · ${U.esc(state.routing.note)}` : "") +
+          `</div>`
+        : "") +
       `<div class="plan-body">` +
       `<div class="plan-stage">` +
       `<span class="t-xs t-muted">当前阶段</span>` +
@@ -1535,6 +1563,17 @@ function ensureDeps() {
           U.toast("这个技能暂时用不了，换一个试试", "danger");
           return;
         }
+        /* 只有能由工作台表单完整表达的技能才留在本页；其余技能
+           需要报告/文件等专属参数，直接去技能详情，避免"选了却跑的
+           是另一条流程"。提示语 chip 不受影响（它们只是例句）。 */
+        if (
+          card.classList.contains("skill-card") &&
+          !WORKBENCH_SKILLS[skill.key]
+        ) {
+          U.toast(`「${skill.name}」需要专属参数，已打开技能详情`, "ok");
+          window.location.assign(`/skills?skill=${encodeURIComponent(skill.key)}`);
+          return;
+        }
         /* 不跳页：把技能的目标带进输入框，助手先说明这一步要补什么，
            用户按发送才开始。整页跳到参数表单在这个位置太突然。 */
         pickSkill(root, skill);
@@ -1700,6 +1739,8 @@ function ensureDeps() {
     state.goal = "";
     state.composerDraft = "";
     state.picked = null;
+    state.selectedSkills = [];
+    state.routing = null;
     state.resolveInfo = null;
     state.report = null;
     state.listing = null;
@@ -1725,7 +1766,7 @@ function ensureDeps() {
     state.goal = goal;
     state.error = "";
     state.composerDraft = "";
-    state.picked = null;
+    /* 显式选择的技能要带进参数页：它是本次执行的硬约束，不是一次性提示语。 */
     state.mode = "params";
     render(root);
     window.scrollTo({ top: 0 });
@@ -1826,6 +1867,7 @@ function ensureDeps() {
         own_specs: parseSpecs(state.listingSpecsText),
         own_key_features: parseLines(state.listingFeaturesText),
         own_price: typeof state.listingPrice === "number" ? state.listingPrice : null,
+        skill_key: "listing_generation",
         with_listing: true,
         listing_only: true,
         listing_language: state.listingLanguage || "en-US",
@@ -1836,6 +1878,8 @@ function ensureDeps() {
       if (run.conversation_id) state.conversationId = run.conversation_id;
       state.plan = run.plan || [];
       state.engine = run.engine || null;
+      state.selectedSkills = run.selected_skills || [];
+      state.routing = run.routing || null;
       state.taskId = run.task_id;
       state.needKey = false;
       state.taskStatus = run.status || "queued";
@@ -1888,6 +1932,15 @@ function ensureDeps() {
     };
     state.error = "";
 
+    /* 安全网：如果技能是通过提示语 chip 带进来的、又不受工作台支持，
+       不要在点「开始执行」时才假装能跑。 */
+    const pickedKey = state.picked && state.picked.key;
+    if (pickedKey && !WORKBENCH_SKILLS[pickedKey]) {
+      U.toast(`「${state.picked.name}」需要专属参数，已打开技能详情`, "ok");
+      window.location.assign(`/skills?skill=${encodeURIComponent(pickedKey)}`);
+      return;
+    }
+
     if (!state.productName) { state.error = "请填写商品名称"; render(root); return; }
     const competitors = parseCompetitors(state.competitorsText);
     if (!competitors.length) {
@@ -1928,7 +1981,10 @@ function ensureDeps() {
         }, {}),
         own_key_features: [],
         own_price: null,
-        with_listing: state.withListing,
+        /* 显式选择「竞品分析」时只跑分析；未选择时交给后端 Agent 按目标路由
+           （with_listing 用 undefined 让 JSON 省略，避免把表单默认值当成硬约束）。 */
+        skill_key: state.picked ? state.picked.key : null,
+        with_listing: isCompetitorOnly() ? false : undefined,
         listing_language: state.listingLanguage,
         data_source: "manual",
         conversation_id: state.conversationId,
@@ -1938,6 +1994,8 @@ function ensureDeps() {
       if (run.conversation_id) state.conversationId = run.conversation_id;
       state.plan = run.plan || [];
       state.engine = run.engine || null;
+      state.selectedSkills = run.selected_skills || [];
+      state.routing = run.routing || null;
       state.degraded = !!run.degraded;
       state.engine = run.engine || null;
       state.degradedReason = run.degraded_reason || "";

@@ -24,14 +24,21 @@ export interface Skill {
   outputSchema: Record<string, any>
   runnable: boolean
   builtin: boolean
+  source?: string
+  /** SKILL.md 正文；只有详情接口会返回 */
+  instructions?: string
   icon: string
   tone: string
   tags: string[]
   prompt: string
 }
 
+/** 工作台用的可运行技能 */
 let skills: Skill[] = []
 let pending: Promise<Skill[]> | null = null
+/** 技能广场用的全量技能（含导入的说明型技能） */
+let allSkills: Skill[] = []
+let allPending: Promise<Skill[]> | null = null
 let loadError: unknown = null
 
 /** 技能 key → 中文名 */
@@ -52,6 +59,8 @@ function mergeSkill(item: Record<string, any>): Skill {
     outputSchema: item.output_schema || {},
     runnable: item.runnable !== false,
     builtin: item.builtin !== false,
+    source: item.source || (item.builtin !== false ? 'builtin' : 'custom'),
+    instructions: item.instructions || '',
     icon: look.icon,
     tone: look.tone,
     tags: look.tags,
@@ -84,8 +93,45 @@ export function ensureSkills(): Promise<Skill[]> {
   return pending
 }
 
+/** 技能广场：全量（已删除的不显示），工作台仍然只拿可运行的。 */
+export function ensureAllSkills(): Promise<Skill[]> {
+  if (allSkills.length) return Promise.resolve(allSkills)
+  if (allPending) return allPending
+  allPending = api
+    .get<{ items?: Record<string, any>[] }>('/api/skills')
+    .then((res) => {
+      allSkills = (res.items || [])
+        .filter((s) => s.status !== 'disabled')
+        .map(mergeSkill)
+      allSkills.forEach((s) => {
+        skillName[s.key] = s.name
+      })
+      loadError = null
+      allPending = null
+      return allSkills
+    })
+    .catch((err: unknown) => {
+      loadError = err
+      allPending = null
+      return []
+    })
+  return allPending
+}
+
+/** 导入/删除后失效缓存：下一次进入页面重新拉接口。 */
+export function invalidateSkills(): void {
+  skills = []
+  allSkills = []
+  pending = null
+  allPending = null
+}
+
 export function skillByKey(key: string): Skill | null {
-  return skills.filter((s) => s.key === key)[0] || null
+  return (
+    skills.filter((s) => s.key === key)[0] ||
+    allSkills.filter((s) => s.key === key)[0] ||
+    null
+  )
 }
 
 export function skillLoadError(): unknown {
