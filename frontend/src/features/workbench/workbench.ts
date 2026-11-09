@@ -211,8 +211,7 @@ function bindOnce(el, fn) {
       `aria-pressed="${!!on}">` +
       `<span class="skill-card-head">` +
       `<span class="skill-icon ${tone}">${U.esc(skill.icon)}</span>` +
-      `<span class="skill-title-wrap"><span class="skill-name">${U.esc(skill.name)}</span>` +
-      `<span class="skill-cat">${U.esc(skill.cat)}</span></span>` +
+      `<span class="skill-title-wrap"><span class="skill-name">${U.esc(skill.name)}</span></span>` +
       `<span class="skill-go">${on ? "已带入" : "带入"}${on ? "" : U.icon("arrowRight")}</span>` +
       `</span>` +
       `<span class="skill-desc">${U.esc(skill.desc)}</span>` +

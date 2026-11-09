@@ -88,7 +88,6 @@ function SkillCard({ skill }: { skill: Skill }) {
         <Avatar skill={skill} />
         <div className="sk-card-title-wrap">
           <h3 className="sk-card-title">{skill.name}</h3>
-          <span className="sk-card-cat">{skill.cat}</span>
         </div>
         {needsKey ? <span className="badge badge-warn sk-card-badge">需要密钥</span> : null}
       </div>
