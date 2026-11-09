@@ -149,6 +149,10 @@
 .st-select--asin input::placeholder { color: var(--ink-3); letter-spacing: .04em; }
 .st-select--asin input:focus { outline: 3px solid var(--acid-magenta); outline-offset: 1px; }
 .st-select--asin .icon { left: 9px; right: auto; color: var(--ink-3); }
+/* 工具栏单元格左右各有 12px 内边距，绝对定位的图标要把这段算进去，
+   否则下拉箭头/搜索图标会压在输入框边框上。 */
+.st-toolbar > .st-select .icon { right: 21px; }
+.st-toolbar > .st-select--asin .icon { left: 21px; right: auto; }
 
 /* 分段筛选：墨框容器，选中格填酸柠 */
 .st-seg {
