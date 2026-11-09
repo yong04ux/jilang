@@ -112,6 +112,10 @@ def load_skill_dir(path: Path) -> SkillSpec:
     if not isinstance(keywords, list):
         raise CatalogError(f"{skill_md}: keywords 必须是列表")
 
+    uses_llm = meta.get("uses_llm", False)
+    if not isinstance(uses_llm, bool):
+        raise CatalogError(f"{skill_md}: uses_llm 必须是 true/false")
+
     try:
         credits = int(meta.get("credits") or 1)
     except (TypeError, ValueError) as exc:
@@ -127,6 +131,7 @@ def load_skill_dir(path: Path) -> SkillSpec:
         executor=executor,
         renderer=renderer,
         requires=tuple(str(item) for item in requires),
+        uses_llm=uses_llm,
         credits=credits,
         status=str(meta.get("status") or "available").strip(),
         source="builtin",

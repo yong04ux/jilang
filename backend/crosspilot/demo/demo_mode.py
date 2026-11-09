@@ -2,9 +2,8 @@
 
 三条铁律：
 
-1. **BYOK**：平台不提供 Key。没有配置可用 Key 时，需要调模型的接口返回
-   ``428 api_key_required``，前端据此跳转设置页。**不静默降级成规则引擎后
-   显示"成功"**——那会让访客误以为真实调用了模型。
+1. **BYOK**：平台不提供 Key。没有配置可用 Key 时退回规则引擎照常跑完，
+   但必须在结果里如实标注「规则引擎」，不能让访客误以为调用了模型。
 2. **固定 demo 账号**：共享、只读示例数据、**禁止保存任何 Key**。
 3. **一键体验**：创建 24h 临时账号，独立租户，可以存自己的 Key；
    过期由 ``cleanup-guests`` 命令清理。
@@ -23,16 +22,6 @@ from ..tenancy import create_personal_tenant
 
 GUEST_USERNAME_PREFIX = "guest_"
 GUEST_PASSWORD_BYTES = 18
-
-#: 需要真实模型调用的接口（缺 Key 时返回 428）
-KEY_REQUIRED_ACTIONS = {"agent.run", "listing.generate", "provider.test"}
-
-
-class ApiKeyRequired(RuntimeError):
-    """没有可用的 LLM Key；映射为 HTTP 428。"""
-
-    code = "api_key_required"
-
 
 class DemoAccountError(RuntimeError):
     """演示账号相关操作失败（消息可直接展示）。"""
@@ -211,7 +200,6 @@ def rate_limit_headers(used: int, remaining: int, limit: int) -> dict[str, str]:
 
 
 __all__ = [
-    "ApiKeyRequired",
     "DemoAccountError",
     "GUEST_USERNAME_PREFIX",
     "RateLimited",

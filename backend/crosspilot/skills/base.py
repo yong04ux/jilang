@@ -10,7 +10,8 @@
 
 - executor **只做参数拼装与调用**，算数一律在 ``engine`` / ``ingest`` 里，
   保证「技能页」「工作台」「旧 7 节点图」走同一条代码路径；
-- ``requires`` 不满足就报错，不降级（缺模型 Key → 428 ``api_key_required``）；
+- ``requires`` 是硬依赖，不满足就报错；会调模型但可降级的能力用 ``uses_llm`` 标注，
+  缺 Key 时走规则引擎并在产出里标明实际引擎；
 - 产出里的 ``is_demo`` 一路透传到接口与任务记录，绝不假装是真数据。
 
 本模块**不 import** 任何 ``engine`` / ``ingest`` / ``agent`` 模块：协议层不依赖业务，
@@ -47,7 +48,10 @@ class SkillSpec:
     output_schema: dict[str, Any]
     executor: Callable[["SkillContext", Any], Any]
     renderer: str = "report"
+    #: 硬依赖：不满足就报错（``llm`` 表示没有可用模型就不能跑）。
     requires: tuple[str, ...] = ()
+    #: 能力上会调用模型，但**不是硬依赖**：没有 Key 时退回规则引擎，界面标明引擎。
+    uses_llm: bool = False
     credits: int = 1
     status: str = "available"
     #: 能力来源：``builtin`` 随代码发布，``imported`` 由租户上传。

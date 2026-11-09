@@ -657,7 +657,7 @@ function bindOnce(el, fn) {
 
       `<div class="wb-aside-card wb-aside-tip">${U.icon("info")}` +
       `<div><strong>提示</strong><br>` +
-      `Listing 生成需要你自己的模型密钥。没有配置时仍能跑竞品分析，只是文案由规则引擎生成，界面上会如实标注。` +
+      `Listing 生成有可用模型时用模型，没有配置时用规则引擎生成；界面会如实标注这次用的引擎。` +
       `<div class="mt-2"><a class="btn btn-sm" href="/settings" data-link>去配置模型密钥</a></div>` +
       `</div></div>` +
 

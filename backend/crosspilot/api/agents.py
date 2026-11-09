@@ -414,8 +414,7 @@ async def resolve_goal_endpoint(
 ) -> GoalResolveResponse:
     """只解析目标，不执行。供工作台把自然语言预填到参数面板。
 
-    目标解析必须调模型：没有 Key 直接 428，前端据此跳设置页，
-    **不再静默降级成规则解析后假装成功**。
+    优先用模型解析；没有可用模型时退回规则解析，并在结果里标 ``degraded``。
     """
     require_role(tenant, ROLE_WRITE)
     _active, _config, provider = api.resolve_llm_provider(user)
@@ -450,11 +449,7 @@ async def run_agent_endpoint(
     if agent_registry.get_agent(api.db, payload.agent_key, tenant.tenant_id) is None:
         raise HTTPException(status_code=404, detail=f"Agent 不存在: {payload.agent_key}")
 
-    # BYOK：Agent 工作流必然要调模型（目标解析 / Listing 生成），
-    # 没有 Key 就明确 428，而不是降级成规则引擎后显示"成功"。
-    if api.settings.require_api_key:
-        api.resolve_llm_provider(user)
-
+    # 没有 Key 也能跑：Provider 会退回规则引擎，结果里由 engine 字段如实标注。
     api.rate_limit(user, "task.run", api.settings.rate_limit_tasks_per_hour)
 
     data = payload.model_dump(mode="json")

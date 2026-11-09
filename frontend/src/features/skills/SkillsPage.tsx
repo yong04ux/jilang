@@ -447,6 +447,7 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
   const [revealSignal, setRevealSignal] = useState(0)
 
   const needsKey = skill.requires.indexOf('llm') !== -1
+  const usesLlm = skill.usesLlm
   const needs = describe(skill.inputSchema, { max: 5 })
 
   /* 表单是 HTML 字符串，挂载后补两件事：文件选择读 base64、报告/Listing 选择器填数据 */
@@ -679,6 +680,8 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
           </div>
           {needsKey ? (
             <span className="badge badge-warn">需要密钥</span>
+          ) : usesLlm ? (
+            <span className="badge badge-info">模型可选</span>
           ) : (
             <span className="badge badge-ok">本地计算</span>
           )}
@@ -731,7 +734,11 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
             </span>
           </button>
           <span className="t-xs t-muted" id="sk-hint">
-            {needsKey ? '这一步会调用你自己的模型密钥' : '全部本地计算，不调用模型'}
+            {needsKey
+              ? '这一步会调用你自己的模型密钥'
+              : usesLlm
+                ? '有可用模型时用模型生成，没有则用规则引擎，结果会标明引擎'
+                : '全部本地计算，不调用模型'}
           </span>
         </div>
       </section>

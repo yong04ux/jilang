@@ -7,7 +7,7 @@ category: 竞品与Listing
 keywords: [listing, 文案, 标题, 五点, 描述, search terms]
 version: 1.0.0
 renderer: listing
-requires: [llm]
+uses_llm: true
 credits: 2
 status: available
 executor_type: function
@@ -31,6 +31,6 @@ Listing 草稿时使用。可选关联一份竞品报告，用来参考差异化
 
 ## 执行边界
 
-- 需要可用的模型密钥（`requires: llm`）；缺密钥时明确提示去配置，不降级编造；
+- 有可用模型时由模型生成；没有配置密钥时退回规则引擎，产出会标明实际引擎，不编造事实；
 - 缺少可引用的商品事实时停止并提示补资料，**不允许编造参数**；
 - 产出附带事实台账，后续质检按台账核对数字与卖点出处。

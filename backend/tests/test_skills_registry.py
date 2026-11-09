@@ -53,6 +53,13 @@ def test_every_spec_is_complete():
         assert spec.status == "available"
 
 
+def test_listing_generation_is_model_optional():
+    """Listing 不再把模型当硬依赖：没 Key 用规则引擎，界面标明引擎即可。"""
+    spec = SKILL_REGISTRY["listing_generation"]
+    assert spec.uses_llm is True
+    assert "llm" not in spec.requires
+
+
 def test_every_input_model_generates_a_form_schema():
     """前端表单由 ``model_json_schema()`` 生成，出不来就等于这一页没法填。"""
     for key, spec in SKILL_REGISTRY.items():
