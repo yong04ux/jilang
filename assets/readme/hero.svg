@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="heroTitle heroDesc">
+  <title id="heroTitle">激浪 Surge — 跨境电商 AI 运营工作台</title>
+  <desc id="heroDesc">左侧为项目名称与一句话定位：竞品分析、Listing 生成、数据导入、店铺看板，把跨境运营的每一步跑成可复核的工序。右侧是一张任务执行卡，列出目标解析、价格定位、评论痛点、事实审计四道工序及其耗时与状态，底部给出竞品中位价、自有价格与价格位置三个指标。</desc>
+
+  <defs>
+    <pattern id="dots" width="9" height="9" patternUnits="userSpaceOnUse">
+      <circle cx="1.2" cy="1.2" r="0.9" fill="#111014" opacity="0.22"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="420" fill="#EFE9DC"/>
+  <rect width="1200" height="420" fill="url(#dots)"/>
+
+  <!-- 书脊：与产品左侧导航同构 -->
+  <g id="spine">
+    <rect x="0" y="0" width="52" height="420" fill="#111014"/>
+    <text transform="rotate(-90 26 214)" x="26" y="214" text-anchor="middle"
+          font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="15" letter-spacing="4.2" fill="#EFE9DC" opacity="0.85">SURGE · V1.0</text>
+  </g>
+
+  <g id="title-block">
+
+    <!-- 错版：洋红偏移层压在黑版下面 -->
+    <text x="101" y="163" font-family="'Microsoft YaHei','PingFang SC',-apple-system,'Segoe UI',sans-serif"
+          font-size="118" font-weight="900" fill="#FF2E7E">激浪</text>
+    <text x="96" y="166" font-family="'Microsoft YaHei','PingFang SC',-apple-system,'Segoe UI',sans-serif"
+          font-size="118" font-weight="900" letter-spacing="-4" fill="#111014">激浪</text>
+    <text x="98" y="210" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="26" letter-spacing="14" fill="#1B6EF3">SURGE</text>
+
+    <text x="98" y="264" font-family="Georgia,'Songti SC','SimSun',serif" font-size="20" fill="#111014" opacity="0.85">竞品分析、Listing 生成、数据导入、店铺看板，</text>
+    <text x="98" y="296" font-family="Georgia,'Songti SC','SimSun',serif" font-size="20" fill="#111014" opacity="0.85">把跨境运营的每一步跑成可复核的工序。</text>
+
+    <g id="chips" font-family="'Microsoft YaHei','PingFang SC',-apple-system,sans-serif" font-size="16" font-weight="700">
+      <rect x="96" y="326" width="98" height="34" fill="#D8FF3D"/>
+      <text x="110" y="349" fill="#111014">竞品分析</text>
+      <rect x="204" y="326" width="126" height="34" fill="#F7F3EA" stroke="#111014" stroke-width="2"/>
+      <text x="218" y="349" fill="#111014">Listing 生成</text>
+      <rect x="340" y="326" width="98" height="34" fill="#FF2E7E"/>
+      <text x="354" y="349" fill="#111014">事实审计</text>
+      <rect x="448" y="326" width="98" height="34" fill="#00D1FF"/>
+      <text x="462" y="349" fill="#111014">店铺看板</text>
+    </g>
+  </g>
+
+  <!-- 任务执行卡：产品真实的工序与状态 -->
+  <g id="task-card">
+    <rect x="679" y="55" width="470" height="320" fill="#D8FF3D"/>
+    <rect x="672" y="48" width="470" height="320" fill="#F7F3EA" stroke="#111014" stroke-width="3"/>
+
+    <rect x="672" y="48" width="470" height="42" fill="#111014"/>
+    <text x="690" y="76" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="16" letter-spacing="1.6" fill="#D8FF3D">TASK · 竞品分析</text>
+    <text x="1120" y="76" text-anchor="end" font-family="'Microsoft YaHei','PingFang SC',sans-serif"
+          font-size="15" font-weight="700" fill="#00D1FF">进行中</text>
+
+    <g font-family="'Microsoft YaHei','PingFang SC',-apple-system,sans-serif" font-size="19" font-weight="700" fill="#111014">
+      <rect x="694" y="116" width="17" height="17" fill="#D8FF3D" stroke="#111014" stroke-width="2"/>
+      <path d="M698 124 l4 5 l8 -9" fill="none" stroke="#111014" stroke-width="2.4"/>
+      <text x="728" y="131">目标解析</text>
+
+      <rect x="694" y="158" width="17" height="17" fill="#D8FF3D" stroke="#111014" stroke-width="2"/>
+      <path d="M698 166 l4 5 l8 -9" fill="none" stroke="#111014" stroke-width="2.4"/>
+      <text x="728" y="173">价格定位</text>
+
+      <rect x="694" y="200" width="17" height="17" fill="#D8FF3D" stroke="#111014" stroke-width="2"/>
+      <path d="M698 208 l4 5 l8 -9" fill="none" stroke="#111014" stroke-width="2.4"/>
+      <text x="728" y="215">评论痛点</text>
+
+      <rect x="694" y="242" width="17" height="17" fill="#F7F3EA" stroke="#111014" stroke-width="2"/>
+      <text x="728" y="257">事实审计</text>
+      <rect x="1040" y="242" width="80" height="22" fill="#00D1FF" stroke="#111014" stroke-width="2"/>
+      <text x="1080" y="258" text-anchor="middle" font-size="14" font-weight="700">进行中</text>
+    </g>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#111014" opacity="0.55">
+      <text x="1120" y="131" text-anchor="end">已核验 · 8ms</text>
+      <text x="1120" y="173" text-anchor="end">已核验 · 12ms</text>
+      <text x="1120" y="215" text-anchor="end">已核验 · 9ms</text>
+    </g>
+
+    <line x1="694" y1="280" x2="1120" y2="280" stroke="#111014" stroke-width="2" stroke-dasharray="2 5" opacity="0.55"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+      <text x="694" y="306" font-size="16" letter-spacing="1.2" fill="#111014" opacity="0.55">竞品中位价</text>
+      <text x="694" y="338" font-size="26" font-weight="700" fill="#111014">$25.99</text>
+
+      <text x="856" y="306" font-size="16" letter-spacing="1.2" fill="#111014" opacity="0.55">自有价格</text>
+      <text x="856" y="338" font-size="26" font-weight="700" fill="#1B6EF3">$22.90</text>
+
+      <text x="1000" y="306" font-size="16" letter-spacing="1.2" fill="#111014" opacity="0.55">价格位置</text>
+      <text x="1000" y="338" font-size="26" font-weight="700" fill="#111014">区间内</text>
+    </g>
+  </g>
+</svg>

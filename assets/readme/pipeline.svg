@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="280" viewBox="0 0 1200 280" role="img" aria-labelledby="flowTitle flowDesc">
+  <title id="flowTitle">Surge 的工作流：一道工序，五个工位</title>
+  <desc id="flowDesc">五道工序依次为：目标解析、计划编排、工序执行、事实审计、落库留痕。</desc>
+
+  <rect width="1200" height="280" fill="#111014"/>
+
+  <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="16" letter-spacing="3.4" fill="#D8FF3D">WORKFLOW</text>
+  <text x="64" y="116" font-family="'Microsoft YaHei','PingFang SC',-apple-system,sans-serif"
+        font-size="40" font-weight="900" letter-spacing="-1" fill="#EFE9DC">一道工序，五个工位</text>
+
+  <!-- 01 -->
+  <text x="64" y="182" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" letter-spacing="2" fill="#D8FF3D">01</text>
+  <text x="64" y="222" font-family="'Microsoft YaHei','PingFang SC',-apple-system,sans-serif"
+        font-size="25" font-weight="700" fill="#EFE9DC">目标解析</text>
+  <path d="M252 206 h28" stroke="#D8FF3D" stroke-width="2"/>
+  <path d="M274 200 l8 6 l-8 6" fill="none" stroke="#D8FF3D" stroke-width="2"/>
+
+  <!-- 02 -->
+  <text x="292" y="182" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" letter-spacing="2" fill="#D8FF3D">02</text>
+  <text x="292" y="222" font-family="'Microsoft YaHei','PingFang SC',-apple-system,sans-serif"
+        font-size="25" font-weight="700" fill="#EFE9DC">计划编排</text>
+  <path d="M480 206 h28" stroke="#D8FF3D" stroke-width="2"/>
+  <path d="M502 200 l8 6 l-8 6" fill="none" stroke="#D8FF3D" stroke-width="2"/>
+
+  <!-- 03 -->
+  <text x="520" y="182" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" letter-spacing="2" fill="#D8FF3D">03</text>
+  <text x="520" y="222" font-family="'Microsoft YaHei','PingFang SC',-apple-system,sans-serif"
+        font-size="25" font-weight="700" fill="#EFE9DC">工序执行</text>
+  <path d="M708 206 h28" stroke="#FF2E7E" stroke-width="2"/>
+  <path d="M730 200 l8 6 l-8 6" fill="none" stroke="#FF2E7E" stroke-width="2"/>
+
+  <!-- 04 质检门 -->
+  <text x="748" y="182" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" letter-spacing="2" fill="#FF2E7E">04</text>
+  <text x="748" y="222" font-family="'Microsoft YaHei','PingFang SC',-apple-system,sans-serif"
+        font-size="25" font-weight="700" fill="#EFE9DC">事实审计</text>
+  <path d="M936 206 h28" stroke="#D8FF3D" stroke-width="2"/>
+  <path d="M958 200 l8 6 l-8 6" fill="none" stroke="#D8FF3D" stroke-width="2"/>
+
+  <!-- 05 产出 -->
+  <rect x="972" y="158" width="164" height="86" fill="#D8FF3D"/>
+  <text x="988" y="184" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" letter-spacing="2" fill="#111014" opacity="0.65">05</text>
+  <text x="988" y="222" font-family="'Microsoft YaHei','PingFang SC',-apple-system,sans-serif"
+        font-size="25" font-weight="700" fill="#111014">落库留痕</text>
+</svg>
