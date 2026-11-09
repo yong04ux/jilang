@@ -91,7 +91,8 @@
 .st-toolbar > *:last-child { border-right: 0; }
 /* datalist 是候选数据，不能被上面的 flex 拉出来变成一行正文 */
 .st-toolbar > datalist { display: none; }
-.st-toolbar-right { margin-left: auto; }
+/* 右侧控件紧跟在左侧内容后面，不在横带中间拉出一段空白 */
+.st-toolbar-right { margin-left: 0; }
 
 .st-select {
   position: relative;
