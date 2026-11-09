@@ -359,9 +359,8 @@ export function dashboardTodosHtml(data: Dict): string {
 
   return (
     card('待处理事项', '<div class="st-todos">' + todoHtml + '</div>', '') +
-    '<div class="st-toolbar" style="margin:14px 0 12px">' +
-    '<div class="st-seg" role="group" aria-label="看板分区">' + segHtml + '</div>' +
-    '<div class="st-toolbar-right">' + (data.store?.is_demo ? pill('示例店铺', 'sample') : '') + '</div></div>' +
+    '<div class="st-toolbar st-toolbar--compact" style="margin:14px 0 12px">' +
+    '<div class="st-seg" role="group" aria-label="看板分区">' + segHtml + '</div></div>' +
     '<div id="st-seg-body"></div>'
   )
 }

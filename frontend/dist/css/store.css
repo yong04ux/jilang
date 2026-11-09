@@ -93,6 +93,8 @@
 .st-toolbar > datalist { display: none; }
 /* 右侧控件紧跟在左侧内容后面，不在横带中间拉出一段空白 */
 .st-toolbar-right { margin-left: 0; }
+/* 只有页签、没有右侧控件时按内容收缩，避免横带右侧留一整格空白 */
+.st-toolbar--compact { width: fit-content; max-width: 100%; }
 
 .st-select {
   position: relative;
