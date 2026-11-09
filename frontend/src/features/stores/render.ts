@@ -186,7 +186,7 @@ export function unboundState(): string {
     card(
       '还没有绑定店铺',
       '<div class="row gap-2"><button type="button" class="btn btn-primary btn-sm" id="st-unbound-add">' +
-        icon('plus') + '添加示例店铺</button>' +
+        icon('plus') + '添加店铺</button>' +
         '<a class="btn btn-sm btn-secondary" href="/data" data-link>去导入商品文件</a></div>',
     ) +
     '<div class="st-steps mt-3">' +
@@ -297,9 +297,7 @@ export function authorizeHtml(stores: Dict[], sources: Dict[]): string {
 export function createStoreFormHtml(platformList: Dict[], defaultPlatform: string, currentMarkets: string[]): string {
   return (
     '<form id="st-create" class="st-card" style="padding:16px;margin-top:12px">' +
-    '<div class="st-card-title">添加示例店铺</div>' +
-    '<p class="t-xs t-muted" style="margin:6px 0 0">示例店铺带一组固定的商品与订单，用来试用同步、看板与分析流程；' +
-    '它不代表你的真实经营数据。</p>' +
+    '<div class="st-card-title">添加店铺</div>' +
     '<div class="grid-2 mt-3">' +
     '<label class="field"><span class="field-label">平台</span><select name="platform">' +
     platformList
@@ -314,7 +312,7 @@ export function createStoreFormHtml(platformList: Dict[], defaultPlatform: strin
     currentMarkets.map((code) => '<option value="' + esc(code) + '">' + esc(labelSite(code)) + '</option>').join('') +
     '</select></label>' +
     '<label class="field field-span-2"><span class="field-label">店铺名称</span>' +
-    '<input name="shop_name" required placeholder="例如 我的试用店铺" /></label>' +
+    '<input name="shop_name" required placeholder="例如 我的店铺" /></label>' +
     '</div>' +
     '<div class="row gap-2 mt-3">' +
     '<button type="submit" class="btn btn-primary btn-sm">添加</button>' +
