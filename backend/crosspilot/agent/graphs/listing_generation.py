@@ -189,9 +189,8 @@ class ListingGraph:
     # -- 节点 --------------------------------------------------------------
     def _node_validate_input(self, state: dict[str, Any]) -> dict[str, Any]:
         def body() -> dict[str, Any]:
-            # 延迟导入：definitions 会 import 本模块（技能入口要跑子图），
-            # 模块级导入会形成循环。契约本身没变，只是取用时机后移。
-            from ..definitions import ListingGenerationInput
+            # 输入契约与技能入口共用一份定义（skills.inputs）
+            from ...skills.inputs import ListingGenerationInput
 
             raw = state.get("request") or {}
             try:

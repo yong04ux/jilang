@@ -3,7 +3,7 @@
 评测是"丈量质量的那把尺子"，尺子本身必须被检验，否则它一直在量错的东西
 而没人发现。这里测三类东西：
 
-1. **规模与覆盖**：四个维度都在，用例数达到要求；
+1. **规模与覆盖**：五个维度都在，用例数达到要求；
 2. **确定性**：同一份代码两次生成的用例完全一致（否则基线无法比较）；
 3. **断言真的会失败**：给一个伪造的坏结果，断言必须报错——
    只测"能通过"不测"能失败"，等于没测。
@@ -18,7 +18,7 @@ from crosspilot.eval.known_issues import known_reason
 from crosspilot.eval.report import build_result, compare
 
 
-def test_suite_covers_four_dimensions_and_exceeds_200_cases():
+def test_suite_covers_all_dimensions_and_exceeds_200_cases():
     cases = build_suite()
     stats = suite_stats(cases)
 
@@ -149,6 +149,30 @@ def test_tool_call_check_flags_wrong_workflow_and_extra_node():
     failures = check(case, observed)
     assert any("分派错误" in f for f in failures)
     assert any("计划外" in f for f in failures)
+
+
+def test_routing_check_flags_missing_forbidden_and_wrong_switch():
+    """路由尺子也要能判错：漏选、误选、开关不对都必须报出来。"""
+    case = next(
+        c for c in build_suite() if c.dimension == "routing" and c.expect["mode"] == "auto"
+    )
+    observed = _fake(
+        {
+            "case_id": case.case_id,
+            "dimension": case.dimension,
+            "spec_kind": "auto",
+            "routing": {
+                "mode": "auto",
+                "skill_keys": ["data_validation"],
+                "with_listing": True,
+                "listing_only": True,
+            },
+        }
+    )
+    failures = check(case, observed)
+    assert any("漏选" in f for f in failures), failures
+    assert any("误选" in f for f in failures), failures
+    assert any("with_listing" in f for f in failures), failures
 
 
 def test_recovery_check_flags_swallowed_fault():

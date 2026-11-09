@@ -41,7 +41,7 @@ def _good_draft(case) -> dict:
     }
 
 
-def test_suite_has_twelve_unique_cases():
+def test_suite_has_unique_cases():
     cases = build_live_suite()
     assert len(cases) >= 10
     assert len({c.case_id for c in cases}) == len(cases)

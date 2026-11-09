@@ -10,19 +10,12 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..agent import definitions as skill_definitions
 from ..agent import errors as agent_errors
 from ..agent import registry as agent_registry
+from ..agent import routing as agent_routing
 from ..agent import workflows
 from ..agent.contracts import DEP_LLM, SkillContext, SkillError
-from ..agent.planner import plan_for, resolve_goal
-from ..llm.providers import engine_label
-from ..market.competitor_provider import (
-    MODE_IMPORTED,
-    CompetitorProviderError,
-    CompetitorQuery,
-    build_competitor_provider,
-)
+from ..agent.planner import resolve_goal
 from ..agent.runtime import AgentRunError, create_agent_task, execute_agent, run_agent
 from ..agent.schemas import (
     AgentRunRequest,
@@ -31,10 +24,19 @@ from ..agent.schemas import (
     GoalResolveRequest,
     GoalResolveResponse,
 )
+from ..llm.providers import engine_label
+from ..market.competitor_provider import (
+    MODE_IMPORTED,
+    CompetitorProviderError,
+    CompetitorQuery,
+    build_competitor_provider,
+)
 from ..services import approvals as approval_service
 from ..services import audit
 from ..services import conversations as conversation_service
 from ..services.queue import TaskCancelled
+from ..skills import SKILL_REGISTRY
+from ..skills import discovery as skill_discovery
 from ..tenancy import (
     ROLE_MANAGE,
     ROLE_READ,
@@ -226,52 +228,6 @@ async def decide_approval(
 # ---------------------------------------------------------------------------
 # Agent 注册表
 # ---------------------------------------------------------------------------
-
-
-def _merge_skill(row: dict[str, Any]) -> dict[str, Any]:
-    """把注册表行与代码里的执行器声明合并成一个视图。
-
-    ``skill_definitions`` 表回答"注册了什么"，``SKILL_DEFINITIONS`` 回答
-    "能不能跑"。两者缺一不可：只返回前者，用户看不出哪条点进去跑不了；
-    只返回后者，租户自定义技能就消失了（它们只存在于表里）。
-    """
-    key = str(row.get("skill_key") or "")
-    merged = dict(row)
-    merged["key"] = key
-    definition = skill_definitions.get_definition(key)
-
-    if definition is None:
-        # 租户自定义技能：有元数据、没有执行器。如实标注，不留想象空间。
-        merged.update(
-            {
-                "executor_type": None,
-                "enabled": row.get("status") != "disabled",
-                "executable": False,
-                "required_permissions": [],
-                "dependencies": [],
-                "timeout_seconds": None,
-                "max_retries": None,
-                "note": "自定义技能只有定义，尚未绑定执行器。",
-            }
-        )
-        return merged
-
-    view = definition.as_view()
-    for field in (
-        "executor_type",
-        "enabled",
-        "executable",
-        "required_permissions",
-        "dependencies",
-        "timeout_seconds",
-        "max_retries",
-        "note",
-    ):
-        merged[field] = view[field]
-    # 输入契约以代码里的 Pydantic 模型为准：表里的手写 JSON 会随版本漂移
-    merged["input_schema"] = view["input_schema"]
-    merged["output_schema"] = view["output_schema"] or merged.get("output_schema") or {}
-    return merged
 
 
 @router.get("/api/agents")
@@ -507,12 +463,15 @@ async def run_agent_endpoint(
     degraded = False
     degraded_reason = ""
     spec_payload: dict[str, Any] | None = None
+    # 自动路由复用目标解析拿到的模型客户端；没有 goal 就不路由
+    goal_client: Any = None
 
     if goal:
         _active, _config, provider = api.build_user_provider(user)
+        goal_client = provider.chat_client() if hasattr(provider, "chat_client") else None
         resolution = resolve_goal(
             goal,
-            client=provider.chat_client() if hasattr(provider, "chat_client") else None,
+            client=goal_client,
             fallback_reason=getattr(provider, "fallback_reason", "") or "",
         )
         spec = resolution.spec
@@ -530,8 +489,44 @@ async def run_agent_endpoint(
         if "listing_language" not in explicit:
             data["listing_language"] = spec.listing_language
 
+    # 能力路由：显式选择优先；没选就按目标从技能目录里挑，再映射到现有工作流。
+    entries = skill_discovery.catalog(api.db, tenant.tenant_id)
+    if payload.skill_key:
+        skill_key = payload.skill_key.strip()
+        if SKILL_REGISTRY.get(skill_key) is None:
+            raise HTTPException(status_code=404, detail="技能不存在")
+        if skill_key not in agent_routing.EXPLICIT_ROUTES:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "这个技能需要专属参数，请到技能广场运行",
+                    "skill_key": skill_key,
+                },
+            )
+    decision = agent_routing.decide(
+        skill_key=payload.skill_key,
+        goal=goal,
+        entries=entries,
+        client=goal_client,
+        with_listing_explicit="with_listing" in explicit,
+        listing_only_explicit="listing_only" in explicit,
+    )
+    if decision.mode == "unsupported":
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "这个目标需要专属参数，请到技能广场对应技能里运行",
+                "skill_keys": list(decision.skill_keys),
+            },
+        )
+    if decision.with_listing is not None:
+        data["with_listing"] = decision.with_listing
+    if decision.listing_only is not None:
+        data["listing_only"] = decision.listing_only
+    # Agent 自身的语义约束最后生效：竞品专家永远不写文案
     if payload.agent_key == "competitor_expert":
         data["with_listing"] = False
+        data["listing_only"] = False
     data["degraded"] = degraded
     data["degraded_reason"] = degraded_reason
 
@@ -560,7 +555,7 @@ async def run_agent_endpoint(
         # 来源只在实际来自导入时改写；调用方显式指定的优先级更高
         if "data_source" not in explicit:
             data["data_source"] = competitor_data.source
-    if not competitors and not payload.listing_only:
+    if not competitors and not data.get("listing_only"):
         # 这是「缺输入」而不是「参数写错」：目标能解析，缺的是数据本身，
         # 所以分类用 missing_input，界面可以引导去导入而不是让用户改参数。
         # 例外：``listing_only=true`` 只写文案，本来就不需要竞品数据。
@@ -609,6 +604,8 @@ async def run_agent_endpoint(
             "agent_key": payload.agent_key,
             "competitors": len(competitors),
             "with_listing": bool(data.get("with_listing")),
+            # 会话里留下路由结果：回看历史会话时能看出这次用了哪些能力
+            "skill_keys": list(decision.skill_keys),
         },
     )
 
@@ -620,7 +617,10 @@ async def run_agent_endpoint(
             "这次没有用大模型：按规则生成结果。到「设置 → 模型与密钥」配上 API Key 后效果会更好。"
         )
     conversation_id = conversation["conversation_id"]
-    plan_preview = plan_for(bool(data.get("with_listing")))
+    # 用有效参数取计划：listing_only 只写文案，不会带竞品步骤
+    plan_preview = workflows.choose(data).plan()
+    selected_skills = list(decision.skills)
+    routing_payload = decision.as_dict() if decision.mode != "default" else None
     # 按步骤分配模型：analyze / listing 可能各用不同配置（配置级 task_overrides）
 
     def completion_message(task_id: str) -> None:
@@ -677,6 +677,8 @@ async def run_agent_endpoint(
                 "async": True,
                 "degraded": degraded,
                 "conversation_id": conversation_id,
+                "routing": decision.mode,
+                "skill_keys": list(decision.skill_keys),
             },
             trace_id=recorder.trace_id,
         )
@@ -688,6 +690,8 @@ async def run_agent_endpoint(
             engine=engine_label(provider),
             degraded=degraded,
             degraded_reason=degraded_reason,
+            selected_skills=selected_skills,
+            routing=routing_payload,
         )
 
     try:
@@ -722,6 +726,8 @@ async def run_agent_endpoint(
             "async": False,
             "degraded": degraded,
             "conversation_id": conversation_id,
+            "routing": decision.mode,
+            "skill_keys": list(decision.skill_keys),
         },
     )
     spec = workflows.choose(data)
@@ -745,6 +751,8 @@ async def run_agent_endpoint(
         pending=(
             workflows.pending_payload(final) if workflows.is_paused(final) else None
         ),
+        selected_skills=selected_skills,
+        routing=routing_payload,
     )
 
 

@@ -50,6 +50,18 @@ class SkillSpec:
     requires: tuple[str, ...] = ()
     credits: int = 1
     status: str = "available"
+    #: 能力来源：``builtin`` 随代码发布，``imported`` 由租户上传。
+    source: str = "builtin"
+    #: 面向 Agent 的「做什么 + 何时用」。发现阶段只暴露这一段，不读正文。
+    description: str = ""
+    #: 发现用的召回词（可由 SKILL.md 头部声明）。
+    keywords: tuple[str, ...] = ()
+    #: SKILL.md 正文。给 Agent 按需加载，不进入列表接口。
+    instructions: str = ""
+    #: 目录式技能在磁盘上的位置（导入技能为空）。
+    directory: str = ""
+    #: ``function`` = 一次调用；``graph`` = 多步子图。当前内置技能都是前者。
+    executor_type: str = "function"
 
     def __post_init__(self) -> None:
         if not self.key:
@@ -58,6 +70,11 @@ class SkillSpec:
             raise ValueError(f"{self.key}: 未知的 renderer {self.renderer!r}")
         if not isinstance(self.requires, tuple):
             raise ValueError(f"{self.key}: requires 必须是 tuple")
+
+    @property
+    def executable(self) -> bool:
+        """有声明不等于能跑：导入技能只有说明，没有绑定执行器。"""
+        return self.status != "disabled" and self.executor is not None
 
 
 @dataclass(frozen=True)

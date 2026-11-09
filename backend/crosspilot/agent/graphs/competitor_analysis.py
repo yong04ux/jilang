@@ -145,8 +145,8 @@ class CompetitorGraph:
     # -- 节点 --------------------------------------------------------------
     def _node_validate_input(self, state: dict[str, Any]) -> dict[str, Any]:
         def body() -> dict[str, Any]:
-            # 延迟导入：definitions 会 import 本模块，模块级导入会成环
-            from ..definitions import CompetitorAnalysisInput
+            # 输入契约与技能入口共用一份定义（skills.inputs）
+            from ...skills.inputs import CompetitorAnalysisInput
 
             raw = state.get("request") or {}
             try:

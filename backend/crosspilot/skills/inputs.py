@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..models import (
     CompetitorAnalysisRequest,
@@ -49,9 +49,15 @@ class CompetitorAnalysisInput(BaseModel):
         default_factory=list, title="你的卖点", json_schema_extra={"x-ui": "lines"}
     )
     own_price: float | None = Field(default=None, ge=0, title="你的价格")
+    # 放在 competitors 之前，字段级校验才能读到它（校验顺序按定义顺序）
+    import_batch_id: str | None = Field(
+        default=None, title="已导入的数据批次", json_schema_extra={"x-ui": "hidden"}
+    )
     competitors: list[CompetitorProduct] = Field(
         default_factory=list,
         title="竞品",
+        # 默认值也要过字段校验：漏传 competitors 同样要报「至少 1 个竞品」
+        validate_default=True,
         json_schema_extra={"x-ui": "competitor-lines"},
     )
     keywords: list[KeywordMetric] = Field(default_factory=list, title="关键词")
@@ -61,15 +67,14 @@ class CompetitorAnalysisInput(BaseModel):
         default="manual", title="数据来源"
     )
     locale: Literal["zh-CN", "en-US"] = Field(default="zh-CN", title="站点语言")
-    import_batch_id: str | None = Field(
-        default=None, title="已导入的数据批次", json_schema_extra={"x-ui": "hidden"}
-    )
 
-    @model_validator(mode="after")
-    def _need_source(self) -> "CompetitorAnalysisInput":
-        if not self.competitors and not (self.import_batch_id or "").strip():
+    @field_validator("competitors", mode="after")
+    @classmethod
+    def _need_source(cls, value: list[CompetitorProduct], info) -> list[CompetitorProduct]:
+        """错误定位到 competitors 字段：调用方/界面才知道该补哪一格。"""
+        if not value and not (info.data.get("import_batch_id") or "").strip():
             raise ValueError("至少提供 1 个竞品，或指定一批已导入的数据")
-        return self
+        return value
 
     def to_request(self, competitors: list[CompetitorProduct]) -> CompetitorAnalysisRequest:
         """拼装既有的分析请求。字段一一对应，不做任何补全或改写。"""

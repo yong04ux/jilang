@@ -30,6 +30,10 @@ dev = ["pytest>=8.0", "httpx>=0.27"]
 [project.scripts]
 crosspilot = "crosspilot.cli:main"
 
+[tool.setuptools.package-data]
+# 目录式技能：SKILL.md 与产出结构必须随包发布，否则 wheel 里没有技能
+crosspilot = ["skills/catalog/*/SKILL.md", "skills/catalog/*/*.json"]
+
 [tool.setuptools.packages.find]
 # 包布局：backend/ 是工程根，crosspilot/ 是唯一的顶级包，
 # 其下按业务域分 api / agent / services / engine / llm / market /

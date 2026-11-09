@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "cost_breakdown": { "type": "array" },
+    "break_even": { "type": "object" },
+    "pricing_tiers": { "type": "array" },
+    "sensitivity": { "type": "array" }
+  }
+}

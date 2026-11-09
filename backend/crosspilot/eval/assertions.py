@@ -19,11 +19,12 @@ from .cases import (
     DIM_COMPLETION,
     DIM_FACT,
     DIM_RECOVERY,
+    DIM_ROUTING,
     DIM_TOOL_CALL,
-    EvalCase,
     FAULT_QUALITY,
     KIND_COMPETITOR,
     KIND_LISTING,
+    EvalCase,
 )
 
 #: 绝对化/夸大用语：Listing 里出现即不合格
@@ -240,11 +241,37 @@ def _check_recovery(case: EvalCase, observed: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _check_routing(case: EvalCase, observed: dict[str, Any]) -> list[str]:
+    """路由正确性 = 选中的技能覆盖目标 + 没误选 + 工作流开关与选择一致。"""
+    decision = observed.get("routing") or {}
+    failures: list[str] = []
+    expected_mode = case.expect.get("mode")
+    if expected_mode and decision.get("mode") != expected_mode:
+        failures.append(f"路由模式错误：{decision.get('mode')}，期望 {expected_mode}")
+
+    selected = set(decision.get("skill_keys") or [])
+    missing = set(case.expect.get("skills") or []) - selected
+    if missing:
+        failures.append(f"漏选技能：{sorted(missing)}（实际 {sorted(selected)}）")
+    forbidden = set(case.expect.get("forbidden") or []) & selected
+    if forbidden:
+        failures.append(f"误选技能：{sorted(forbidden)}")
+
+    for field in ("with_listing", "listing_only"):
+        expected = case.expect.get(field)
+        if expected is not None and decision.get(field) != expected:
+            failures.append(
+                f"{field} 不对：{decision.get(field)}，期望 {expected}"
+            )
+    return failures
+
+
 _CHECKERS = {
     DIM_TOOL_CALL: _check_tool_call,
     DIM_FACT: _check_fact_consistency,
     DIM_COMPLETION: _check_completion,
     DIM_RECOVERY: _check_recovery,
+    DIM_ROUTING: _check_routing,
 }
 
 

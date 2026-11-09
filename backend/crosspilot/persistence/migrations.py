@@ -584,6 +584,14 @@ def _users_phone(connection) -> None:
     )
 
 
+def _skill_content(connection) -> None:
+    """0019：技能定义保存原始 SKILL.md。
+
+    导入技能只有说明、没有执行器；正文必须落库，否则重启后就只剩标题。
+    """
+    _add_column(connection, "skill_definitions", "content", "TEXT NOT NULL DEFAULT ''")
+
+
 MIGRATIONS: tuple[Migration, ...] = (
     Migration("0001", "baseline", _baseline),
     Migration("0002", "conversations_and_messages", _conversations),
@@ -604,6 +612,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration("0016", "llm_calls", _llm_calls),
     Migration("0017", "users_avatar", _users_avatar),
     Migration("0018", "users_phone", _users_phone),
+    Migration("0019", "skill_definition_content", _skill_content),
 )
 
 

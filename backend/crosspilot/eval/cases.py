@@ -31,12 +31,14 @@ DIM_TOOL_CALL = "tool_call"
 DIM_FACT = "fact_consistency"
 DIM_COMPLETION = "completion"
 DIM_RECOVERY = "recovery"
+DIM_ROUTING = "routing"
 
-DIMENSIONS = (DIM_TOOL_CALL, DIM_FACT, DIM_COMPLETION, DIM_RECOVERY)
+DIMENSIONS = (DIM_TOOL_CALL, DIM_FACT, DIM_COMPLETION, DIM_RECOVERY, DIM_ROUTING)
 
 KIND_COMPETITOR = "competitor"
 KIND_LISTING = "listing"
 KIND_COMBINED = "combined"
+KIND_ROUTING = "routing"
 
 # ---------------------------------------------------------------------------
 # 故障注入（离线可重复，不依赖网络）
@@ -393,9 +395,267 @@ def _recovery_cases() -> list[EvalCase]:
     return cases
 
 
+#: 路由金标：目标 → 应选能力。required 必须全中，forbidden 命中即错；
+#: ``None`` 的开关表示"不关心"，避免把与目标无关的默认值写死进期望。
+_ROUTING_GOLD: tuple[dict[str, Any], ...] = (
+    {
+        "goal": "帮我分析这批竞品的价格定位",
+        "required": ["competitor_analysis"],
+        "forbidden": ["listing_generation", "data_validation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "看看竞品的评分和评论，找差异化机会",
+        "required": ["competitor_analysis"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "对比一下这几个竞品的价格带和卖点",
+        "required": ["competitor_analysis"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "帮我写一份英文 Listing",
+        "required": ["listing_generation"],
+        "forbidden": ["competitor_analysis"],
+        "with_listing": True,
+        "listing_only": True,
+    },
+    {
+        "goal": "根据商品资料生成标题和五点描述",
+        "required": ["listing_generation"],
+        "forbidden": ["competitor_analysis"],
+        "with_listing": True,
+        "listing_only": True,
+    },
+    {
+        "goal": "写个能过审的产品文案",
+        "required": ["listing_generation"],
+        "forbidden": ["competitor_analysis"],
+        "with_listing": True,
+        "listing_only": True,
+    },
+    {
+        "goal": "先分析竞品，再写文案",
+        "required": ["competitor_analysis", "listing_generation"],
+        "forbidden": [],
+        "with_listing": True,
+        "listing_only": False,
+    },
+    {
+        "goal": "竞品和 listing 一起做",
+        "required": ["competitor_analysis", "listing_generation"],
+        "forbidden": [],
+        "with_listing": True,
+        "listing_only": False,
+    },
+    {
+        "goal": "把这份竞品分析总结成市场机会",
+        "required": ["market_summary"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "这个市场还有没有机会",
+        "required": ["market_summary"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "给我一段市场结论",
+        "required": ["market_summary"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "从评论里挖一下用户痛点",
+        "required": ["review_mining"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "买家差评都在抱怨什么",
+        "required": ["review_mining"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "总结一下用户的需求和顾虑",
+        "required": ["review_mining"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+    },
+    {
+        "goal": "先校验这份 CSV 数据文件",
+        "required": ["data_validation"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "这个 Excel 表格里的字段有没有问题",
+        "required": ["data_validation"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "帮我检查一下导入的数据格式",
+        "required": ["data_validation"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "算一下这批货的成本和利润",
+        "required": ["profit_calc"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "这批货多久能回本",
+        "required": ["profit_calc"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "帮我算盈亏平衡",
+        "required": ["profit_calc"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "毛利率多少才不亏",
+        "required": ["profit_calc"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "核对这份草稿里的数字有没有出处",
+        "required": ["listing_quality"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "检查这份草稿的出处",
+        "required": ["listing_quality"],
+        "forbidden": ["listing_generation", "competitor_analysis"],
+        "with_listing": None,
+        "listing_only": None,
+        "mode": "unsupported",
+    },
+    {
+        "goal": "你好",
+        "required": [],
+        "forbidden": [
+            "competitor_analysis",
+            "listing_generation",
+            "market_summary",
+            "review_mining",
+            "data_validation",
+            "profit_calc",
+            "listing_quality",
+        ],
+        "with_listing": None,
+        "listing_only": None,
+    },
+    {
+        "goal": "帮我看看",
+        "required": [],
+        "forbidden": [
+            "competitor_analysis",
+            "listing_generation",
+            "market_summary",
+            "review_mining",
+            "data_validation",
+            "profit_calc",
+            "listing_quality",
+        ],
+        "with_listing": None,
+        "listing_only": None,
+    },
+    {
+        "goal": "帮我写文案",
+        "skill_key": "competitor_analysis",
+        "required": ["competitor_analysis"],
+        "forbidden": ["listing_generation"],
+        "with_listing": False,
+        "listing_only": False,
+        "mode": "explicit",
+    },
+    {
+        "goal": "分析竞品",
+        "skill_key": "listing_generation",
+        "required": ["listing_generation"],
+        "forbidden": ["competitor_analysis"],
+        "with_listing": True,
+        "listing_only": True,
+        "mode": "explicit",
+    },
+)
+
+
+def _routing_cases() -> list[EvalCase]:
+    """路由金标：自然语言目标 → 应选技能与工作流开关。"""
+    cases: list[EvalCase] = []
+    for index, gold in enumerate(_ROUTING_GOLD, start=1):
+        mode = gold.get("mode", "auto")
+        skill_key = gold.get("skill_key")
+        cases.append(
+            EvalCase(
+                case_id=_case_id(
+                    DIM_ROUTING, f"{index:02d}", "explicit" if skill_key else "auto"
+                ),
+                dimension=DIM_ROUTING,
+                title=gold["goal"],
+                kind=KIND_ROUTING,
+                payload={"goal": gold["goal"], "skill_key": skill_key},
+                expect={
+                    "mode": mode,
+                    "skills": list(gold["required"]),
+                    "forbidden": list(gold["forbidden"]),
+                    "with_listing": gold.get("with_listing"),
+                    "listing_only": gold.get("listing_only"),
+                },
+                note="路由只读，不执行",
+            )
+        )
+    return cases
+
+
 def build_suite() -> list[EvalCase]:
     """全部用例（顺序固定）。"""
-    return [*_tool_call_cases(), *_fact_cases(), *_completion_cases(), *_recovery_cases()]
+    return [
+        *_tool_call_cases(),
+        *_fact_cases(),
+        *_completion_cases(),
+        *_recovery_cases(),
+        *_routing_cases(),
+    ]
 
 
 def suite_stats(cases: list[EvalCase]) -> dict[str, int]:
@@ -411,8 +671,8 @@ __all__ = [
     "DIM_COMPLETION",
     "DIM_FACT",
     "DIM_RECOVERY",
+    "DIM_ROUTING",
     "DIM_TOOL_CALL",
-    "EvalCase",
     "FAULT_ANALYSIS",
     "FAULT_AUTH",
     "FAULT_NETWORK",
@@ -423,6 +683,8 @@ __all__ = [
     "KIND_COMBINED",
     "KIND_COMPETITOR",
     "KIND_LISTING",
+    "KIND_ROUTING",
+    "EvalCase",
     "build_suite",
     "suite_stats",
 ]

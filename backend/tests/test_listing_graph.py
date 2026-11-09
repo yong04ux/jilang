@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from crosspilot.agent.definitions import ListingGenerationInput
+from crosspilot.skills.inputs import ListingGenerationInput
 from crosspilot.agent.graphs.listing_generation import run_listing_graph
 from crosspilot.agent.state import (
     OUTCOME_NEEDS_INPUT,
@@ -302,11 +302,12 @@ def test_degraded_listing_still_succeeds(client):
     assert body["quality"]["passed"] is False
 
 
-def test_listing_skill_contract_is_a_graph():
-    from crosspilot.agent import definitions
+def test_listing_skill_contract_is_runnable():
+    from crosspilot.skills.registry import get_skill_spec
 
-    definition = definitions.get_definition("listing_generation")
-    assert definition.executor_type == "graph"
-    assert definition.executable is True
+    spec = get_skill_spec("listing_generation")
+    assert spec is not None
+    assert spec.executor_type == "function"
+    assert spec.executable is True
     # 输入契约仍可独立校验（对外承诺不变）
     assert ListingGenerationInput(**request_payload()).product.name

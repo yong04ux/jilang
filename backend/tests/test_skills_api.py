@@ -291,3 +291,75 @@ def test_registry_matches_api_surface(client):
     headers = register(client, "skill_surface")
     keys = {item["skill_key"] for item in client.get("/api/skills", headers=headers).json()["items"]}
     assert keys == set(SKILL_REGISTRY)
+
+
+# ---------------------------------------------------------------------------
+# 导入 / 删除 SKILL.md 技能
+# ---------------------------------------------------------------------------
+
+SAMPLE_SKILL_MD = """---
+name: price_guard
+title: 价格守门员
+description: 当用户要检查定价是否低于成本线时使用。
+category: 财务核算
+---
+# 价格守门员
+
+先读取成本，再判断售价是否低于成本线；没有成本数据时停下来问用户。
+"""
+
+
+def test_import_skill_md_creates_instruction_only_skill(client):
+    headers = register(client, "skill_import")
+    resp = client.post(
+        "/api/skills/import", json={"content": SAMPLE_SKILL_MD}, headers=headers
+    )
+    assert resp.status_code == 201, resp.text
+    skill = resp.json()["skill"]
+    assert skill["skill_key"] == "price_guard"
+    assert skill["source"] == "imported"
+    assert skill["runnable"] is False
+
+    # 列表里可见，但不可执行
+    items = client.get("/api/skills", headers=headers).json()["items"]
+    imported = next(item for item in items if item["skill_key"] == "price_guard")
+    assert imported["runnable"] is False
+
+    # 详情带正文，供 Agent 按需加载
+    detail = client.get("/api/skills/price_guard", headers=headers).json()
+    assert "先读取成本" in detail["instructions"]
+    # 只返回正文，不能把 frontmatter 一起当正文塞给 Agent
+    assert not detail["instructions"].startswith("---")
+
+
+def test_import_rejects_executor_binding(client):
+    headers = register(client, "skill_import_bad")
+    content = SAMPLE_SKILL_MD.replace(
+        "category: 财务核算", "category: 财务核算\nexecutor: os:system"
+    )
+    resp = client.post("/api/skills/import", json={"content": content}, headers=headers)
+    assert resp.status_code == 400
+    assert "不能绑定执行器" in resp.text
+
+
+def test_imported_skill_cannot_be_run_or_shadow_builtin(client):
+    headers = register(client, "skill_import_guard")
+    client.post("/api/skills/import", json={"content": SAMPLE_SKILL_MD}, headers=headers)
+
+    assert run_skill(client, headers, "price_guard", {}).status_code == 404
+
+    shadow = SAMPLE_SKILL_MD.replace("name: price_guard", "name: competitor_analysis")
+    resp = client.post("/api/skills/import", json={"content": shadow}, headers=headers)
+    assert resp.status_code == 409
+
+
+def test_delete_imported_skill_hides_it(client):
+    headers = register(client, "skill_import_delete")
+    client.post("/api/skills/import", json={"content": SAMPLE_SKILL_MD}, headers=headers)
+
+    resp = client.delete("/api/skills/price_guard", headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["skill"]["status"] == "disabled"
+
+    detail = client.get("/api/skills/price_guard", headers=headers).json()
+    assert detail["status"] == "disabled"

@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dim",
         default="",
-        help="只跑某个维度：tool_call / fact_consistency / completion / recovery",
+        help="只跑某个维度：tool_call / fact_consistency / completion / recovery / routing",
     )
     parser.add_argument("--limit", type=int, default=0, help="每个维度最多跑多少条（调试用）")
     parser.add_argument("--write-report", action="store_true", help="生成 docs/eval-report.md")

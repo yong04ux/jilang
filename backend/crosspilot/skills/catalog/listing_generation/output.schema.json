@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "title": { "type": "string" },
+    "bullets": { "type": "array" },
+    "description": { "type": "string" },
+    "fact_ledger": { "type": "array" },
+    "quality_check": { "type": "object" }
+  }
+}

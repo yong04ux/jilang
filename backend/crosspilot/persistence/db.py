@@ -204,6 +204,7 @@ CREATE TABLE IF NOT EXISTS skill_definitions (
     summary     TEXT NOT NULL,
     input_schema  TEXT NOT NULL DEFAULT '{}',
     output_schema TEXT NOT NULL DEFAULT '{}',
+    content     TEXT NOT NULL DEFAULT '',
     version     TEXT NOT NULL,
     status      TEXT NOT NULL,
     updated_at  TEXT NOT NULL,
@@ -2393,7 +2394,7 @@ class Database:
     )
     _SKILL_FIELDS = (
         "skill_key", "tenant_id", "name", "summary", "input_schema",
-        "output_schema", "version", "status", "updated_at",
+        "output_schema", "content", "version", "status", "updated_at",
     )
     _TOOL_FIELDS = (
         "tool_key", "tenant_id", "name", "summary", "input_schema",

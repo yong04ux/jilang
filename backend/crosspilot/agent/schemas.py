@@ -46,6 +46,8 @@ class AgentRunRequest(BaseModel):
     #: 只生成 Listing：跳过竞品分析与市场总结，直接用商品事实写文案。
     #: 置 true 时 ``competitors`` 可以为空——这条路径不需要竞品数据。
     listing_only: bool = False
+    #: 用户显式选择的技能。给了就以它为准；不给则按目标自动路由。
+    skill_key: str | None = Field(default=None, max_length=64)
     listing_language: str = "en-US"
     data_source: str = "manual"
     conversation_id: str | None = Field(default=None, description="关联会话；为空则自动新建")
@@ -90,6 +92,9 @@ class AgentRunResponse(BaseModel):
     degraded_reason: str = ""
     #: 组合工作流暂停时的待确认内容。非暂停时为 None。
     pending: dict[str, Any] | None = None
+    #: 本次实际选中的技能（显式选择或 Agent 自动路由），供界面如实展示
+    selected_skills: list[dict[str, Any]] = Field(default_factory=list)
+    routing: dict[str, Any] | None = None
 
 
 class TaskResult(BaseModel):

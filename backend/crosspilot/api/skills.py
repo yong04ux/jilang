@@ -25,6 +25,8 @@ from ..agent import registry as agent_registry
 from ..labels import humanize_message
 from ..llm.providers import ProviderError
 from ..skills import REQUIRE_LLM, SKILL_REGISTRY
+from ..skills import discovery as skills_discovery
+from ..skills import importer as skill_importer
 from ..skills import registry as skills_registry
 from ..llm.providers import engine_label
 from ..skills import runtime as skills_runtime
@@ -59,6 +61,58 @@ async def list_skills(
     return {"items": skills_registry.list_skill_views(api.db, tenant.tenant_id)}
 
 
+@router.get("/api/skills/catalog")
+async def list_skill_catalog(
+    tenant: TenantContext = Depends(require_tenant), api: ApiContext = Depends(get_ctx)
+) -> dict[str, Any]:
+    """给 Agent 的轻量目录：只有 name/description，不含参数与正文。
+
+    路径必须声明在 ``/api/skills/{skill_key}`` 之前，否则 ``catalog``
+    会被当成技能 key。
+    """
+    return {"items": [entry.as_dict() for entry in skills_discovery.catalog(api.db, tenant.tenant_id)]}
+
+
+@router.post("/api/skills/discover")
+async def discover_skills(
+    payload: dict[str, Any],
+    user: dict[str, Any] = Depends(require_user),
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    """按自然语言目标挑技能，命中后才加载 SKILL.md 正文。
+
+    只读：不执行技能、不建任务、不改 Agent 计划。
+    """
+    require_role(tenant, ROLE_WRITE)
+    goal = str(payload.get("goal") or "").strip()
+    if not goal:
+        raise HTTPException(status_code=422, detail={"message": "goal 不能为空"})
+    try:
+        limit = int(payload.get("limit") or skills_discovery.DEFAULT_LIMIT)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail={"message": "limit 必须是整数"}) from exc
+
+    load_body = payload.get("load_body") is not False
+    entries = skills_discovery.catalog(api.db, tenant.tenant_id)
+    _active, _config, provider = api.build_user_provider(user)
+    client = provider.chat_client() if hasattr(provider, "chat_client") else None
+
+    try:
+        result = skills_discovery.discover(
+            goal,
+            entries=entries,
+            client=client,
+            db=api.db,
+            tenant_id=tenant.tenant_id,
+            load_body=load_body,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"message": str(exc)}) from exc
+    return result.as_dict(with_body=load_body)
+
+
 @router.get("/api/skills/{skill_key}")
 async def get_skill(
     skill_key: str,
@@ -78,6 +132,61 @@ async def get_skill(
 
 def _registry_http_error(exc: agent_registry.RegistryError) -> HTTPException:
     return HTTPException(status_code=exc.status_code, detail=str(exc))
+
+
+@router.post("/api/skills/import", status_code=201)
+async def import_skill(
+    payload: dict[str, Any],
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    """导入一份 SKILL.md。
+
+    导入的技能只有说明、没有执行器：它会出现在技能广场，可被查看与删除，
+    但 ``/run`` 仍然只认绑定过执行器的内置技能。
+    """
+    require_role(tenant, ROLE_MANAGE)
+    try:
+        parsed = skill_importer.parse_skill_md(payload.get("content"))
+    except skill_importer.SkillImportError as exc:
+        raise HTTPException(status_code=400, detail={"message": str(exc)}) from exc
+
+    if parsed.key in SKILL_REGISTRY:
+        raise HTTPException(status_code=409, detail={"message": "不能覆盖平台内置技能"})
+    if api.db.get_skill_definition(parsed.key, tenant.tenant_id) is not None:
+        raise HTTPException(
+            status_code=409, detail={"message": f"技能已存在：{parsed.key}（请先删除）"}
+        )
+
+    try:
+        agent_registry.create_skill(
+            api.db,
+            tenant.tenant_id,
+            {
+                "key": parsed.key,
+                "name": parsed.name,
+                "summary": parsed.summary,
+                "input_schema": {},
+                "output_schema": {},
+                "version": parsed.version,
+                "status": "available",
+            },
+            content=parsed.content,
+        )
+    except agent_registry.RegistryError as exc:
+        raise _registry_http_error(exc) from exc
+
+    api.audit_context(
+        tenant,
+        audit.ACTION_SKILL_CREATE,
+        target_type="skill",
+        target_id=parsed.key,
+        detail={"version": parsed.version, "source": "import"},
+    )
+    return {
+        "ok": True,
+        "skill": skills_registry.get_skill_view(api.db, tenant.tenant_id, parsed.key),
+    }
 
 
 @router.post("/api/skills", status_code=201)

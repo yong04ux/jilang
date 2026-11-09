@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .cases import DIMENSIONS, EvalCase
+from .cases import DIM_ROUTING, DIMENSIONS, EvalCase
 
 
 def _percentile(values: list[int], ratio: float) -> int:
@@ -72,9 +72,11 @@ def build_result(
         }
 
     durations = [r["duration_ms"] for r in rows]
+    # 路由用例只做决策、不执行任务；把它们算进完成率会让指标失真
+    task_rows = [r for r in rows if r["dimension"] != DIM_ROUTING]
     outcomes: dict[str, int] = {}
     errors: dict[str, int] = {}
-    for row in rows:
+    for row in task_rows:
         outcomes[row["outcome"] or "(空)"] = outcomes.get(row["outcome"] or "(空)", 0) + 1
         if row["error_code"]:
             errors[row["error_code"]] = errors.get(row["error_code"], 0) + 1
@@ -82,6 +84,8 @@ def build_result(
     # 完成率口径：跑通或标了 partial 都算"给出结果"，拦下与失败不算
     finished = sum(outcomes.get(k, 0) for k in ("succeeded", "partial"))
     delivered = finished + outcomes.get("needs_user_input", 0)
+    # 完成率的分母只含执行型用例；通过率的分母仍是全部用例
+    rate_total = len(task_rows) or 1
     total = len(rows) or 1
 
     known_rows = [r for r in rows if r["known"]]
@@ -111,9 +115,9 @@ def build_result(
         },
         "rates": {
             # 「完成率」只统计该给出结果的用例（排除故意注入故障的那批）
-            "completion_rate": round(finished / total, 4),
-            "answered_rate": round(delivered / total, 4),
-            "failed_rate": round(outcomes.get("failed", 0) / total, 4),
+            "completion_rate": round(finished / rate_total, 4),
+            "answered_rate": round(delivered / rate_total, 4),
+            "failed_rate": round(outcomes.get("failed", 0) / rate_total, 4),
         },
         "outcomes": outcomes,
         "errors": errors,
@@ -186,6 +190,7 @@ _DIMENSION_LABEL = {
     "fact_consistency": "Listing 事实一致性",
     "completion": "任务完成率",
     "recovery": "失败恢复",
+    "routing": "技能路由",
 }
 
 

@@ -1,32 +1,34 @@
 {
-  "generated_at": "2026-11-01T07:14:09+00:00",
+  "generated_at": "2026-11-09T03:43:37+00:00",
   "engine": "rule（确定性，不调模型）",
   "suite": {
-    "total": 235,
+    "total": 262,
     "dimensions": {
       "tool_call": 92,
       "fact_consistency": 64,
       "completion": 43,
-      "recovery": 36
+      "recovery": 36,
+      "routing": 27
     }
   },
   "summary": {
-    "passed": 216,
+    "passed": 243,
     "failed": 0,
     "known": 19,
     "pass_rate": 1.0,
-    "total_ms": 3478
+    "total_ms": 3162
   },
   "timing": {
-    "p50_ms": 9,
-    "p95_ms": 34,
-    "max_ms": 54,
-    "total_ms": 3478,
+    "p50_ms": 5,
+    "p95_ms": 36,
+    "max_ms": 47,
+    "total_ms": 3162,
     "by_dimension": {
-      "tool_call": 963,
-      "fact_consistency": 1095,
-      "completion": 940,
-      "recovery": 480
+      "tool_call": 909,
+      "fact_consistency": 761,
+      "completion": 980,
+      "recovery": 512,
+      "routing": 0
     }
   },
   "rates": {
@@ -54,28 +56,35 @@
       "passed": 92,
       "failed": 0,
       "known": 0,
-      "total_ms": 963
+      "total_ms": 909
     },
     "fact_consistency": {
       "cases": 64,
       "passed": 48,
       "failed": 0,
       "known": 16,
-      "total_ms": 1095
+      "total_ms": 761
     },
     "completion": {
       "cases": 43,
       "passed": 43,
       "failed": 0,
       "known": 0,
-      "total_ms": 940
+      "total_ms": 980
     },
     "recovery": {
       "cases": 36,
       "passed": 33,
       "failed": 0,
       "known": 3,
-      "total_ms": 480
+      "total_ms": 512
+    },
+    "routing": {
+      "cases": 27,
+      "passed": 27,
+      "failed": 0,
+      "known": 0,
+      "total_ms": 0
     }
   },
   "failures": [],
@@ -185,7 +194,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 18,
+      "duration_ms": 29,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -209,7 +218,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -221,7 +230,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 4,
+      "duration_ms": 5,
       "error_code": "",
       "reasons": []
     },
@@ -233,7 +242,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -305,7 +314,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -317,7 +326,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 6,
       "error_code": "",
       "reasons": []
     },
@@ -329,7 +338,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 2,
+      "duration_ms": 1,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -341,7 +350,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 4,
+      "duration_ms": 3,
       "error_code": "",
       "reasons": []
     },
@@ -413,7 +422,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 4,
+      "duration_ms": 3,
       "error_code": "",
       "reasons": []
     },
@@ -449,7 +458,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -461,7 +470,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -509,7 +518,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -521,7 +530,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 6,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -557,7 +566,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 4,
+      "duration_ms": 3,
       "error_code": "",
       "reasons": []
     },
@@ -569,7 +578,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 4,
+      "duration_ms": 6,
       "error_code": "",
       "reasons": []
     },
@@ -581,7 +590,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -593,7 +602,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -617,7 +626,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 2,
+      "duration_ms": 1,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -629,7 +638,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 4,
+      "duration_ms": 3,
       "error_code": "",
       "reasons": []
     },
@@ -665,7 +674,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 6,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -677,7 +686,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -689,7 +698,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 2,
+      "duration_ms": 1,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -701,7 +710,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 4,
+      "duration_ms": 3,
       "error_code": "",
       "reasons": []
     },
@@ -737,7 +746,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -761,7 +770,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 8,
+      "duration_ms": 6,
       "error_code": "",
       "reasons": []
     },
@@ -773,7 +782,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -785,7 +794,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -797,7 +806,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -821,7 +830,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -833,7 +842,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -857,7 +866,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 4,
+      "duration_ms": 3,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -869,7 +878,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 25,
+      "duration_ms": 22,
       "error_code": "",
       "reasons": []
     },
@@ -881,7 +890,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 25,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -893,7 +902,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -905,7 +914,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 23,
       "error_code": "",
       "reasons": []
     },
@@ -917,7 +926,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 22,
       "error_code": "",
       "reasons": []
     },
@@ -941,7 +950,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 24,
+      "duration_ms": 28,
       "error_code": "",
       "reasons": []
     },
@@ -953,7 +962,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 23,
+      "duration_ms": 28,
       "error_code": "",
       "reasons": []
     },
@@ -977,7 +986,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 20,
       "error_code": "",
       "reasons": []
     },
@@ -989,7 +998,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -1013,7 +1022,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 24,
+      "duration_ms": 23,
       "error_code": "",
       "reasons": []
     },
@@ -1025,7 +1034,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 26,
+      "duration_ms": 23,
       "error_code": "",
       "reasons": []
     },
@@ -1049,7 +1058,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1061,7 +1070,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1073,7 +1082,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 3,
+      "duration_ms": 2,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -1085,7 +1094,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 25,
+      "duration_ms": 22,
       "error_code": "",
       "reasons": []
     },
@@ -1097,7 +1106,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 23,
+      "duration_ms": 24,
       "error_code": "",
       "reasons": []
     },
@@ -1109,7 +1118,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 47,
       "error_code": "",
       "reasons": []
     },
@@ -1121,7 +1130,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 17,
       "error_code": "",
       "reasons": []
     },
@@ -1133,7 +1142,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": []
     },
@@ -1145,7 +1154,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 3,
+      "duration_ms": 2,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -1157,7 +1166,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 24,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -1169,7 +1178,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 26,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -1181,7 +1190,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 54,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": []
     },
@@ -1193,7 +1202,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": []
     },
@@ -1205,7 +1214,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 20,
       "error_code": "",
       "reasons": []
     },
@@ -1217,7 +1226,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 3,
+      "duration_ms": 2,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -1229,7 +1238,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 24,
+      "duration_ms": 26,
       "error_code": "",
       "reasons": []
     },
@@ -1241,7 +1250,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 24,
+      "duration_ms": 22,
       "error_code": "",
       "reasons": []
     },
@@ -1253,7 +1262,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1277,7 +1286,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1289,7 +1298,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1301,7 +1310,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 23,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1313,7 +1322,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1327,7 +1336,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": []
     },
@@ -1339,7 +1348,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1351,7 +1360,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": []
     },
@@ -1363,7 +1372,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 20,
+      "duration_ms": 17,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1377,7 +1386,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 24,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -1389,7 +1398,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 25,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": []
     },
@@ -1401,7 +1410,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 22,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1413,7 +1422,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 23,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1427,7 +1436,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 32,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1439,7 +1448,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 37,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1451,7 +1460,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 43,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1463,7 +1472,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 34,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1477,7 +1486,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 34,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": []
     },
@@ -1489,7 +1498,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 36,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1501,7 +1510,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 36,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1513,7 +1522,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 33,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1527,7 +1536,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 32,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -1539,7 +1548,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 29,
+      "duration_ms": 17,
       "error_code": "",
       "reasons": []
     },
@@ -1551,7 +1560,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 24,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -1577,7 +1586,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 24,
+      "duration_ms": 22,
       "error_code": "",
       "reasons": []
     },
@@ -1589,7 +1598,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 22,
+      "duration_ms": 23,
       "error_code": "",
       "reasons": []
     },
@@ -1601,7 +1610,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 31,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -1613,7 +1622,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 22,
+      "duration_ms": 20,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1627,7 +1636,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 23,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -1639,7 +1648,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 22,
+      "duration_ms": 20,
       "error_code": "",
       "reasons": []
     },
@@ -1651,7 +1660,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 22,
+      "duration_ms": 20,
       "error_code": "",
       "reasons": []
     },
@@ -1663,7 +1672,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 21,
+      "duration_ms": 20,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1701,7 +1710,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 9,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1713,7 +1722,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "needs_review",
-      "duration_ms": 6,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1727,7 +1736,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1739,7 +1748,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 8,
+      "duration_ms": 5,
       "error_code": "",
       "reasons": []
     },
@@ -1751,7 +1760,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 6,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1763,7 +1772,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "needs_review",
-      "duration_ms": 7,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1777,7 +1786,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 6,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1789,7 +1798,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 8,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1801,7 +1810,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 10,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1813,7 +1822,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "needs_review",
-      "duration_ms": 9,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1827,7 +1836,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 9,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1839,7 +1848,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 9,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1851,7 +1860,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 9,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1863,7 +1872,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "needs_review",
-      "duration_ms": 10,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1877,7 +1886,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 10,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1889,7 +1898,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 8,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1901,7 +1910,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 10,
+      "duration_ms": 6,
       "error_code": "",
       "reasons": []
     },
@@ -1913,7 +1922,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "needs_review",
-      "duration_ms": 7,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1927,7 +1936,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 5,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1939,7 +1948,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 7,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1951,7 +1960,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 10,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -1963,7 +1972,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "needs_review",
-      "duration_ms": 7,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -1977,7 +1986,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 12,
+      "duration_ms": 5,
       "error_code": "",
       "reasons": []
     },
@@ -1989,7 +1998,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 7,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -2001,7 +2010,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 6,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -2013,7 +2022,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "needs_review",
-      "duration_ms": 7,
+      "duration_ms": 5,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -2027,7 +2036,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 6,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -2039,7 +2048,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 6,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -2051,7 +2060,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 10,
+      "duration_ms": 5,
       "error_code": "",
       "reasons": []
     },
@@ -2063,7 +2072,7 @@
       "known": "只有规格、没有卖点时，规则引擎产出 0 条要点的空草稿，任务仍以成功收尾。待定：是在事实闸门处拦成「待补充卖点」，还是把空草稿降级为待复核。",
       "ok": false,
       "outcome": "needs_review",
-      "duration_ms": 9,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": [
         "草稿没有任何要点"
@@ -2077,7 +2086,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 7,
+      "duration_ms": 4,
       "error_code": "",
       "reasons": []
     },
@@ -2101,7 +2110,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 27,
+      "duration_ms": 23,
       "error_code": "",
       "reasons": []
     },
@@ -2113,7 +2122,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 30,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -2125,7 +2134,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 23,
+      "duration_ms": 18,
       "error_code": "",
       "reasons": []
     },
@@ -2137,7 +2146,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 23,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -2149,7 +2158,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 8,
+      "duration_ms": 2,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -2161,7 +2170,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 33,
+      "duration_ms": 23,
       "error_code": "",
       "reasons": []
     },
@@ -2173,7 +2182,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 28,
+      "duration_ms": 22,
       "error_code": "",
       "reasons": []
     },
@@ -2185,7 +2194,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 25,
+      "duration_ms": 21,
       "error_code": "",
       "reasons": []
     },
@@ -2197,7 +2206,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 24,
+      "duration_ms": 30,
       "error_code": "",
       "reasons": []
     },
@@ -2209,7 +2218,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 3,
+      "duration_ms": 7,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -2221,7 +2230,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 26,
+      "duration_ms": 38,
       "error_code": "",
       "reasons": []
     },
@@ -2233,7 +2242,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 28,
+      "duration_ms": 25,
       "error_code": "",
       "reasons": []
     },
@@ -2245,7 +2254,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 23,
+      "duration_ms": 25,
       "error_code": "",
       "reasons": []
     },
@@ -2257,7 +2266,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 22,
+      "duration_ms": 20,
       "error_code": "",
       "reasons": []
     },
@@ -2281,7 +2290,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 27,
+      "duration_ms": 30,
       "error_code": "",
       "reasons": []
     },
@@ -2305,7 +2314,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 22,
+      "duration_ms": 38,
       "error_code": "",
       "reasons": []
     },
@@ -2317,7 +2326,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 25,
+      "duration_ms": 40,
       "error_code": "",
       "reasons": []
     },
@@ -2329,7 +2338,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 3,
+      "duration_ms": 7,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -2341,7 +2350,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 31,
+      "duration_ms": 47,
       "error_code": "",
       "reasons": []
     },
@@ -2353,7 +2362,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 26,
+      "duration_ms": 40,
       "error_code": "",
       "reasons": []
     },
@@ -2365,7 +2374,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 23,
+      "duration_ms": 33,
       "error_code": "",
       "reasons": []
     },
@@ -2377,7 +2386,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 24,
+      "duration_ms": 26,
       "error_code": "",
       "reasons": []
     },
@@ -2401,7 +2410,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 28,
+      "duration_ms": 46,
       "error_code": "",
       "reasons": []
     },
@@ -2413,7 +2422,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 37,
+      "duration_ms": 45,
       "error_code": "",
       "reasons": []
     },
@@ -2425,7 +2434,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 50,
+      "duration_ms": 36,
       "error_code": "",
       "reasons": []
     },
@@ -2437,7 +2446,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 47,
+      "duration_ms": 37,
       "error_code": "",
       "reasons": []
     },
@@ -2449,7 +2458,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 7,
+      "duration_ms": 6,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -2461,7 +2470,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 49,
+      "duration_ms": 32,
       "error_code": "",
       "reasons": []
     },
@@ -2485,7 +2494,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 33,
+      "duration_ms": 30,
       "error_code": "",
       "reasons": []
     },
@@ -2509,7 +2518,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 3,
+      "duration_ms": 2,
       "error_code": "validation_error",
       "reasons": []
     },
@@ -2521,7 +2530,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_user_input",
-      "duration_ms": 12,
+      "duration_ms": 20,
       "error_code": "",
       "reasons": []
     },
@@ -2533,7 +2542,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_user_input",
-      "duration_ms": 12,
+      "duration_ms": 11,
       "error_code": "",
       "reasons": []
     },
@@ -2545,7 +2554,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_user_input",
-      "duration_ms": 13,
+      "duration_ms": 19,
       "error_code": "",
       "reasons": []
     },
@@ -2557,7 +2566,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_user_input",
-      "duration_ms": 21,
+      "duration_ms": 17,
       "error_code": "",
       "reasons": []
     },
@@ -2569,7 +2578,7 @@
       "known": "",
       "ok": true,
       "outcome": "partial",
-      "duration_ms": 7,
+      "duration_ms": 11,
       "error_code": "",
       "reasons": []
     },
@@ -2593,7 +2602,7 @@
       "known": "",
       "ok": true,
       "outcome": "succeeded",
-      "duration_ms": 9,
+      "duration_ms": 5,
       "error_code": "",
       "reasons": []
     },
@@ -2605,7 +2614,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 29,
+      "duration_ms": 26,
       "error_code": "rate_limited",
       "reasons": []
     },
@@ -2617,7 +2626,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 26,
+      "duration_ms": 22,
       "error_code": "rate_limited",
       "reasons": []
     },
@@ -2629,7 +2638,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 25,
+      "duration_ms": 22,
       "error_code": "rate_limited",
       "reasons": []
     },
@@ -2653,7 +2662,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 7,
+      "duration_ms": 4,
       "error_code": "rate_limited",
       "reasons": []
     },
@@ -2665,7 +2674,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 6,
+      "duration_ms": 7,
       "error_code": "rate_limited",
       "reasons": []
     },
@@ -2677,7 +2686,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 37,
+      "duration_ms": 36,
       "error_code": "model_timeout",
       "reasons": []
     },
@@ -2689,7 +2698,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 19,
+      "duration_ms": 34,
       "error_code": "model_timeout",
       "reasons": []
     },
@@ -2701,7 +2710,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 19,
+      "duration_ms": 22,
       "error_code": "model_timeout",
       "reasons": []
     },
@@ -2725,7 +2734,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 3,
+      "duration_ms": 5,
       "error_code": "model_timeout",
       "reasons": []
     },
@@ -2737,7 +2746,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 4,
+      "duration_ms": 7,
       "error_code": "model_timeout",
       "reasons": []
     },
@@ -2749,7 +2758,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 26,
+      "duration_ms": 32,
       "error_code": "provider_unavailable",
       "reasons": []
     },
@@ -2761,7 +2770,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 28,
+      "duration_ms": 19,
       "error_code": "provider_unavailable",
       "reasons": []
     },
@@ -2773,7 +2782,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 26,
+      "duration_ms": 20,
       "error_code": "provider_unavailable",
       "reasons": []
     },
@@ -2785,7 +2794,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 5,
+      "duration_ms": 9,
       "error_code": "provider_unavailable",
       "reasons": []
     },
@@ -2797,7 +2806,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 6,
+      "duration_ms": 5,
       "error_code": "provider_unavailable",
       "reasons": []
     },
@@ -2809,7 +2818,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 5,
+      "duration_ms": 6,
       "error_code": "provider_unavailable",
       "reasons": []
     },
@@ -2821,7 +2830,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 18,
+      "duration_ms": 14,
       "error_code": "internal_error",
       "reasons": []
     },
@@ -2833,7 +2842,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 11,
+      "duration_ms": 12,
       "error_code": "internal_error",
       "reasons": []
     },
@@ -2845,7 +2854,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 16,
+      "duration_ms": 12,
       "error_code": "internal_error",
       "reasons": []
     },
@@ -2857,7 +2866,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 5,
+      "duration_ms": 7,
       "error_code": "",
       "reasons": []
     },
@@ -2869,7 +2878,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 7,
+      "duration_ms": 5,
       "error_code": "",
       "reasons": []
     },
@@ -2893,7 +2902,7 @@
       "known": "组合流程在「质检未通过且无法修订」时仍标成功（历史决定：降级生成不算 partial）。后果是用户可能把未过质检的草稿当成可用产出，建议改为 needs_review。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 32,
+      "duration_ms": 35,
       "error_code": "",
       "reasons": [
         "质检未通过却被标成 succeeded"
@@ -2907,7 +2916,7 @@
       "known": "组合流程在「质检未通过且无法修订」时仍标成功（历史决定：降级生成不算 partial）。后果是用户可能把未过质检的草稿当成可用产出，建议改为 needs_review。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 33,
+      "duration_ms": 41,
       "error_code": "",
       "reasons": [
         "质检未通过却被标成 succeeded"
@@ -2921,7 +2930,7 @@
       "known": "组合流程在「质检未通过且无法修订」时仍标成功（历史决定：降级生成不算 partial）。后果是用户可能把未过质检的草稿当成可用产出，建议改为 needs_review。",
       "ok": false,
       "outcome": "succeeded",
-      "duration_ms": 28,
+      "duration_ms": 39,
       "error_code": "",
       "reasons": [
         "质检未通过却被标成 succeeded"
@@ -2935,7 +2944,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 6,
+      "duration_ms": 11,
       "error_code": "",
       "reasons": []
     },
@@ -2947,7 +2956,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 8,
+      "duration_ms": 11,
       "error_code": "",
       "reasons": []
     },
@@ -2959,7 +2968,7 @@
       "known": "",
       "ok": true,
       "outcome": "needs_review",
-      "duration_ms": 9,
+      "duration_ms": 11,
       "error_code": "",
       "reasons": []
     },
@@ -2995,7 +3004,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 4,
+      "duration_ms": 9,
       "error_code": "model_timeout",
       "reasons": []
     },
@@ -3007,7 +3016,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 4,
+      "duration_ms": 2,
       "error_code": "model_timeout",
       "reasons": []
     },
@@ -3019,7 +3028,7 @@
       "known": "",
       "ok": true,
       "outcome": "failed",
-      "duration_ms": 3,
+      "duration_ms": 2,
       "error_code": "model_timeout",
       "reasons": []
     },
@@ -3033,6 +3042,330 @@
       "outcome": "failed",
       "duration_ms": 2,
       "error_code": "model_timeout",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-01-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-02-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-03-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-04-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-05-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-06-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-07-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-08-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-09-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-10-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-11-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-12-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-13-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-14-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-15-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-16-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-17-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-18-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-19-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-20-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-21-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-22-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-23-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-24-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-25-auto",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-26-explicit",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
+      "reasons": []
+    },
+    {
+      "case_id": "routing-27-explicit",
+      "dimension": "routing",
+      "kind": "routing",
+      "fault": "",
+      "known": "",
+      "ok": true,
+      "outcome": "succeeded",
+      "duration_ms": 0,
+      "error_code": "",
       "reasons": []
     }
   ]

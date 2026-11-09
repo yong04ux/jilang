@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "passed": { "type": "boolean" },
+    "errors": { "type": "array" },
+    "warnings": { "type": "array" },
+    "pending_confirmations": { "type": "array" }
+  }
+}

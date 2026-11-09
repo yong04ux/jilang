@@ -1,7 +1,7 @@
 """评测体系，分两层。
 
 **离线层**（``cases`` / ``assertions`` / ``runner`` / ``report``）
-    四个维度：工具调用正确性、Listing 事实一致性、任务完成率、失败恢复。
+    五个维度：工具调用正确性、Listing 事实一致性、任务完成率、失败恢复、技能路由。
     规则引擎 + 内存 checkpoint，同输入同输出，可逐条 diff。
 
 **模型层**（``live_cases`` / ``live_scoring`` / ``live_runner``）

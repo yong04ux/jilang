@@ -40,17 +40,9 @@ def _schema(properties: dict[str, str], required: list[str] | None = None) -> st
 # 定义数据（与代码里的真实能力一一对应）
 # ---------------------------------------------------------------------------
 #
-# ``SKILLS`` **不再单独维护**：它从 ``agent/definitions.SKILL_DEFINITIONS``
-# 派生。手写静态 JSON 容易和 ``agent/skills.py`` 的函数对不上（有元数据没实现、
-# 有实现没元数据），导致「技能库」页面把跑不了的技能列成可用。唯一真源是
-# definitions，本表只负责落库与租户覆盖。
-#
-# ``status`` 的语义也收敛了：``available`` 表示"有实现"，``dev`` 表示"只有声明"。
-# 真正的可执行判定是 ``SkillDefinition.executable``（见 contracts.py），
-# 接口会把两者一起返回。
-
-# Skills 不再是这里手写的第二份清单：``skills.registry.SKILL_REGISTRY`` 是唯一真源，
-# 这里只把它摊平成写库需要的行。改一处即可，不会再出现「代码改了注册表没改」。
+# Skills 不再是这里手写的第二份清单：唯一真源是 ``skills/catalog/<key>/SKILL.md``，
+# 由 ``skills.registry`` 扫描得到。这里只把它摊平成写库需要的行，
+# 不会再出现「代码改了、注册表没改」。
 SKILLS: list[dict[str, Any]] = skills_registry.seed_rows()
 
 TOOLS: list[dict[str, Any]] = [
@@ -141,6 +133,7 @@ def seed_registry(db: Database) -> None:
                 "summary": skill["summary"],
                 "input_schema": skill["input"],
                 "output_schema": skill["output"],
+                "content": "",
                 "version": skills_registry.VERSION,
                 "status": skill["status"],
                 "updated_at": now,
@@ -300,6 +293,7 @@ def _skill_row(
     output_schema: dict[str, Any],
     version: str,
     status: str,
+    content: str = "",
 ) -> dict[str, Any]:
     return {
         "skill_key": key,
@@ -308,6 +302,7 @@ def _skill_row(
         "summary": summary,
         "input_schema": json.dumps(input_schema or {}, ensure_ascii=False),
         "output_schema": json.dumps(output_schema or {}, ensure_ascii=False),
+        "content": content or "",
         "version": version,
         "status": status,
         "updated_at": _now(),
@@ -417,7 +412,9 @@ def disable_agent(db: Database, tenant_id: str, key: str) -> dict[str, Any]:
     return db.get_agent_definition(key, tenant_id) or {}
 
 
-def create_skill(db: Database, tenant_id: str, data: dict[str, Any]) -> dict[str, Any]:
+def create_skill(
+    db: Database, tenant_id: str, data: dict[str, Any], *, content: str = ""
+) -> dict[str, Any]:
     _require_tenant_space(tenant_id)
     key = str(_pick(data, "key", data.get("skill_key")) or "").strip()
     status = str(_pick(data, "status", "available"))
@@ -443,6 +440,7 @@ def create_skill(db: Database, tenant_id: str, data: dict[str, Any]) -> dict[str
             output_schema=data.get("output_schema") or {},
             version=str(_pick(data, "version", "1.0.0")),
             status=status,
+            content=content,
         )
     )
     return db.get_skill_definition(key, tenant_id) or {}
@@ -472,7 +470,13 @@ def update_skill(db: Database, tenant_id: str, key: str, data: dict[str, Any]) -
     )
     version = str(_pick(data, "version", _bump_version(existing.get("version") or "1.0.0")))
     db.upsert_skill(
-        _skill_row(key=key, tenant_id=tenant_id, version=version, **merged)
+        _skill_row(
+            key=key,
+            tenant_id=tenant_id,
+            version=version,
+            content=str(_pick(data, "content", existing.get("content")) or ""),
+            **merged,
+        )
     )
     return db.get_skill_definition(key, tenant_id) or {}
 
@@ -494,6 +498,7 @@ def disable_skill(db: Database, tenant_id: str, key: str) -> dict[str, Any]:
             output_schema=existing.get("output_schema") or {},
             version=existing.get("version") or "1.0.0",
             status="disabled",
+            content=existing.get("content") or "",
         )
     )
     return db.get_skill_definition(key, tenant_id) or {}

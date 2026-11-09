@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "ok": { "type": "boolean" },
+    "total_rows": { "type": "integer" },
+    "valid_rows": { "type": "integer" },
+    "errors": { "type": "array" }
+  }
+}

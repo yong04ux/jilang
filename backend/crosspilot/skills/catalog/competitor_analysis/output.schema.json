@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "product_name": { "type": "string" },
+    "price_analysis": { "type": "object" },
+    "review_insights": { "type": "object" },
+    "differentiation_opportunities": { "type": "array" },
+    "data_provenance": { "type": "object" }
+  }
+}

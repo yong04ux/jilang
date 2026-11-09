@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "headline": { "type": "string" },
+    "points": { "type": "array" },
+    "data_is_demo": { "type": "boolean" },
+    "limitations": { "type": "array" }
+  }
+}

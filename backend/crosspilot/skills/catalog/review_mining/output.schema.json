@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "total_samples": { "type": "integer" },
+    "pain_points": { "type": "array" },
+    "needs": { "type": "array" },
+    "concerns": { "type": "array" }
+  }
+}

@@ -201,7 +201,7 @@ class CombinedGraph:
     # -- 阶段一：竞品分析 --------------------------------------------------
     def _node_validate(self, state: dict[str, Any]) -> dict[str, Any]:
         def body() -> dict[str, Any]:
-            from ..definitions import CompetitorAnalysisInput, ListingGenerationInput
+            from ...skills.inputs import CompetitorAnalysisInput, ListingGenerationInput
 
             request = state.get("request") or {}
             analysis_fields = {

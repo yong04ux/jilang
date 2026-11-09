@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from typing import Any, Iterator
 
 from .cases import (
-    EvalCase,
+    DIM_ROUTING,
     FAULT_ANALYSIS,
     FAULT_AUTH,
     FAULT_NETWORK,
@@ -27,6 +27,7 @@ from .cases import (
     FAULT_RATE_LIMIT,
     FAULT_TIMEOUT,
     KIND_LISTING,
+    EvalCase,
 )
 
 EVAL_TENANT = "eval-tenant"
@@ -120,7 +121,7 @@ def injected(case: EvalCase) -> Iterator[None]:
 
             patchers.append(patch("crosspilot.engine.analysis.run_analysis", _boom))
         elif fault == FAULT_QUALITY:
-            from ..models import QualityCheck, QualityIssue, IssueCode, Severity
+            from ..models import IssueCode, QualityCheck, QualityIssue, Severity
 
             def _always_fail(*args: Any, **kwargs: Any) -> QualityCheck:
                 return QualityCheck(
@@ -170,8 +171,48 @@ def _memory_checkpointer() -> Any:
     return InMemorySaver()
 
 
+def _observe_routing(case: EvalCase) -> dict[str, Any]:
+    """路由用例只跑决策，不跑图：它评的是「选没选对」，不是「写没写好」。"""
+    from ..agent import routing
+    from ..skills.discovery import catalog
+
+    start = time.perf_counter()
+    payload = case.payload
+    decision = routing.decide(
+        skill_key=payload.get("skill_key"),
+        goal=str(payload.get("goal") or ""),
+        entries=catalog(None, ""),
+        client=None,  # 离线层只评确定性兜底；模型路由由真模型评测负责
+        # 金标只覆盖「目标 → 技能」；显式参数优先级由单元测试守着
+        with_listing_explicit=False,
+        listing_only_explicit=False,
+    )
+    return {
+        "case_id": case.case_id,
+        "dimension": case.dimension,
+        "spec_kind": decision.mode,
+        "plan": [],
+        "steps": [],
+        "outcome": "succeeded",
+        "task_status": "succeeded",
+        "paused": False,
+        "paused_once": False,
+        "pending": None,
+        "report": {},
+        "listing": {},
+        "provenance": {},
+        "error_code": "",
+        "error_message": "",
+        "duration_ms": int((time.perf_counter() - start) * 1000),
+        "routing": decision.as_dict(),
+    }
+
+
 def observe(case: EvalCase) -> dict[str, Any]:
     """执行一条用例并返回观测结果（不做断言）。"""
+    if case.dimension == DIM_ROUTING:
+        return _observe_routing(case)
+
     from unittest.mock import patch
 
     from ..agent import errors as agent_errors
