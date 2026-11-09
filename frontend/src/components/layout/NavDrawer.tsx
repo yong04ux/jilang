@@ -4,6 +4,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { Icon } from '@/components/shared/Icon'
+import { usePresence } from '@/hooks/usePresence'
 
 export function NavDrawer({
   open,
@@ -13,6 +14,7 @@ export function NavDrawer({
   onClose: () => void
 }) {
   const drawerRef = useRef<HTMLDivElement>(null)
+  const { mounted, state } = usePresence(open)
   const nav = window.CPCatalog?.NAV ?? []
 
   useEffect(() => {
@@ -26,16 +28,20 @@ export function NavDrawer({
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
+  if (!mounted) return null
+
   return (
     <>
-      {open && <div className="drawer-scrim" onClick={onClose} />}
+      <div className="drawer-scrim" data-state={state} onClick={onClose} />
       <div
         id="nav-drawer"
         className="drawer"
+        data-state={state}
         role="dialog"
         aria-modal="true"
         aria-label="全部导航"
-        hidden={!open}
+        aria-hidden={state === 'closed'}
+        inert={state === 'closed'}
         ref={drawerRef}
       >
         <div className="drawer-head" style={{ alignItems: 'center' }}>

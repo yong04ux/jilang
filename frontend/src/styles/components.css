@@ -1035,28 +1035,6 @@
 .copy-btn:hover { color: var(--foreground); }
 .copy-btn .icon { width: 12px; height: 12px; }
 
-/* ----------------------------------------------------------------------------
-   数据源状态行
-   ---------------------------------------------------------------------------- */
-
-.src-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 2px dotted var(--ink-3);
-}
-.src-row:last-child { border-bottom: 0; }
-.src-row .grow { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.src-name { font-size: var(--fs-md); font-weight: 900; letter-spacing: -.01em; color: var(--foreground); }
-.src-desc { font-family: var(--font-serif); font-size: var(--fs-sm); color: var(--ink-3); line-height: var(--lh-normal); }
-.src-flags {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .source-column-name {
   display: inline-flex;
   align-items: center;
@@ -1196,14 +1174,89 @@ body.is-resizing-y { user-select: none; cursor: row-resize; }
 
 .drawer-scrim { animation: motion-fade var(--dur-2) var(--ease-out); }
 
+/* 退场：usePresence 在卸载前置 data-state="closed"，动画播完才移除节点 */
+.drawer[data-state="closed"] { animation: motion-slide-out var(--dur-3) var(--ease-out) both; }
+@keyframes motion-slide-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: .4; transform: translateX(24px); }
+}
+.drawer-scrim[data-state="closed"],
+.modal[data-state="closed"] { animation: motion-fade-out var(--dur-2) var(--ease-out) both; }
+@keyframes motion-fade-out { from { opacity: 1; } to { opacity: 0; } }
+.modal-card[data-state="closed"] { animation: motion-pop-out var(--dur-2) var(--ease-out) both; }
+@keyframes motion-pop-out {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateY(6px) scale(.985); }
+}
+
 .toast { animation: motion-toast var(--dur-2) var(--ease-out); }
 @keyframes motion-toast {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
 
+/* ----------------------------------------------------------------------------
+   页签墨条 / 等待 spinner
+   ---------------------------------------------------------------------------- */
+
+/* 横条：滑到当前页签底下；竖条：滑到当前分区左脊。位置与尺寸由 lib/tabs.ts 量 */
+.tab-ink {
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 4px;
+  width: 0;
+  background: var(--acid-magenta);
+  border-radius: 0;
+  pointer-events: none;
+  transition: transform var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out),
+              opacity var(--dur-2) var(--ease-out);
+}
+.set-ink {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 0;
+  background: var(--acid-magenta);
+  pointer-events: none;
+  transition: transform var(--dur-3) var(--ease-out), height var(--dur-3) var(--ease-out),
+              opacity var(--dur-2) var(--ease-out);
+}
+
+/* 盖章：状态真的变了才播（StatusBadge 记录上一状态后重挂节点） */
+.badge.stamp-slam { animation: stamp-slam var(--dur-3) var(--ease-spring) both; }
+@keyframes stamp-slam {
+  0%   { opacity: 0; transform: rotate(-14deg) scale(1.7); }
+  60%  { opacity: 1; transform: rotate(2deg) scale(.94); }
+  100% { opacity: 1; transform: rotate(0deg) scale(1); }
+}
+
+/* 方头转块：跟粗框同权重，不用圆环 loader */
+.cp-spin {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 0;
+  animation: cp-spin .7s linear infinite;
+}
+@keyframes cp-spin { to { transform: rotate(360deg); } }
+
+/* 按钮文案切换：调用方给 label span 换 key，新文案淡入而不是硬跳 */
+.btn-swap { display: inline-block; animation: motion-fade var(--dur-2) var(--ease-out); }
+
 @media (prefers-reduced-motion: reduce) {
   .modal, .modal-card, .drawer, .drawer-scrim, .toast { animation: none; }
+  .drawer[data-state="closed"], .drawer-scrim[data-state="closed"],
+  .modal[data-state="closed"], .modal-card[data-state="closed"] { animation: none; }
+  .tab-ink, .set-ink { transition: none; }
+  .badge.stamp-slam { animation: none; }
+  .cp-spin { animation: none; border-right-color: currentColor; opacity: .6; }
+  /* tw-animate-css 的进出场自带 150ms，不吃 --dur-*，这里统一归零 */
+  [class*="animate-in"], [class*="animate-out"] { animation-duration: 0ms !important; }
 }
 
 /* ----------------------------------------------------------------------------
@@ -1256,7 +1309,11 @@ body.is-resizing-y { user-select: none; cursor: row-resize; }
   font-variant-numeric: tabular-nums;
 }
 
-.cp-bar { transition: fill var(--dur-1) var(--ease-out); }
+.cp-bar {
+  transition: fill var(--dur-1) var(--ease-out);
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
 
 /* ============================================================================
    shadcn 基件（Tailwind 版）的反调印刷化

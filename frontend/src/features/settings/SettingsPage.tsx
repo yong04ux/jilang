@@ -19,6 +19,8 @@ import { saveAvatar } from '@/lib/avatar'
 import { api } from '@/lib/api'
 import { copy, fmtTime, toast } from '@/lib/ui'
 import { getHealth, invalidateHealth, useHealthStore } from '@/lib/health/health'
+import { inkBar } from '@/lib/tabs'
+import { usePresence } from '@/hooks/usePresence'
 import { logout, loadMe, useAuthStore } from '@/stores/authStore'
 import { Icon } from '@/components/shared/Icon'
 import { PageFrame, PageShell } from '@/components/shared/PageShell'
@@ -129,7 +131,6 @@ interface EditingState {
 const SECTION_ITEMS = [
   { key: 'account', label: '账号' },
   { key: 'model', label: '模型与密钥' },
-  { key: 'data', label: '数据源' },
   { key: 'team', label: '团队与角色' },
   { key: 'audit', label: '审计日志' },
 ]
@@ -175,8 +176,13 @@ function SectionNav({
   active: string
   onJump: (key: string) => void
 }) {
+  const navRef = useRef<HTMLElement>(null)
+  useEffect(
+    () => inkBar(navRef.current, { axis: 'y', item: ':scope > .set-nav-item', className: 'set-ink' }),
+    [],
+  )
   return (
-    <nav className="set-nav" aria-label="设置分区" id="settings-nav">
+    <nav className="set-nav" aria-label="设置分区" id="settings-nav" ref={navRef}>
       {items.map((item) => {
         const on = item.key === active
         return (
@@ -200,12 +206,10 @@ export function SettingsPage({ section }: { section?: string }) {
   const [providers, setProviders] = useState<Dict | null>(null)
   const [tenant, setTenant] = useState<Dict | null>(null)
   const [members, setMembers] = useState<Dict[]>([])
-  const [sources, setSources] = useState<Dict[]>([])
   const [auditItems, setAuditItems] = useState<Dict[]>([])
   const [ready, setReady] = useState(false)
-  /* 团队 / 数据源进视野才请求；审计在打开弹窗时才请求 */
+  /* 团队进视野才请求；审计在打开弹窗时才请求 */
   const [membersLoaded, setMembersLoaded] = useState(false)
-  const [sourcesLoaded, setSourcesLoaded] = useState(false)
 
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [busy, setBusy] = useState(false)
@@ -360,10 +364,6 @@ export function SettingsPage({ section }: { section?: string }) {
       const mem = await api.get<{ items?: Dict[] }>('/api/tenants/members').catch(() => ({ items: [] }))
       setMembers(mem?.items || [])
       setMembersLoaded(true)
-    } else if (key === 'data') {
-      const src = await api.get<{ items?: Dict[] }>('/api/marketplace/sources').catch(() => ({ items: [] }))
-      setSources(src?.items || [])
-      setSourcesLoaded(true)
     } else if (key === 'audit') {
       const audit = await api.get<{ items?: Dict[] }>('/api/audit?limit=20').catch(() => ({ items: [] }))
       setAuditItems(audit?.items || [])
@@ -386,10 +386,8 @@ export function SettingsPage({ section }: { section?: string }) {
       },
       { rootMargin: '240px 0px' },
     )
-    ;['data', 'team'].forEach((key) => {
-      const el = document.getElementById(`section-${key}`)
-      if (el) observer.observe(el)
-    })
+    const teamEl = document.getElementById('section-team')
+    if (teamEl) observer.observe(teamEl)
     return () => observer.disconnect()
   }, [ready, loadSection])
 
@@ -612,7 +610,7 @@ export function SettingsPage({ section }: { section?: string }) {
     history.replaceState({}, '', `/settings?section=${key}`)
   }
 
-  /* ?section=account|model|data|team|audit → 滚动到对应卡片（现有实现同样支持） */
+  /* ?section=account|model|team|audit → 滚动到对应卡片（现有实现同样支持） */
   useEffect(() => {
     if (!ready || !section) return
     const target = document.getElementById(`section-${section}`)
@@ -640,12 +638,9 @@ export function SettingsPage({ section }: { section?: string }) {
           <SectionNav items={sectionItems} active={activeSection} onJump={jumpToSection} />
 
           {/* ---------------- 账号 ---------------- */}
-          <div className="card scroll-mt-28" id="section-account">
+          <div className="card scroll-mt-28" id="section-account" data-reveal="">
             <div className="card-head">
-              <div>
-                <div className="card-title">账号</div>
-                <div className="card-sub">当前登录身份</div>
-              </div>
+              <div className="card-title">账号</div>
             </div>
             <div className="card-body">
               <div className="acct-avatar">
@@ -748,7 +743,7 @@ export function SettingsPage({ section }: { section?: string }) {
           </div>
 
           {/* ---------------- 模型与密钥 ---------------- */}
-          <div className="card scroll-mt-28" id="section-model">
+          <div className="card scroll-mt-28" id="section-model" data-reveal="">
             <div className="card-head">
               <div>
                 <div className="card-title">模型与密钥</div>
@@ -786,9 +781,6 @@ export function SettingsPage({ section }: { section?: string }) {
                   <p className="wo-empty-huge">
                     还没有配置
                     <em>模型密钥</em>
-                  </p>
-                  <p className="wo-empty-desc">
-                    激浪不提供模型额度。添加一个你自己的模型配置并设为当前使用后，才能运行生成类任务。
                   </p>
                   <div className="empty-actions">
                     <button
@@ -996,7 +988,10 @@ export function SettingsPage({ section }: { section?: string }) {
                   </p>
                   <div className="row gap-2 mt-4">
                     <button type="submit" className="btn btn-primary" disabled={busy}>
-                      {busy ? '保存中…' : '保存配置'}
+                      {busy ? <span className="cp-spin" aria-hidden="true" /> : null}
+                      <span key={busy ? '保存中…' : '保存配置'} className="btn-swap">
+                        {busy ? '保存中…' : '保存配置'}
+                      </span>
                     </button>
                     <button
                       type="button"
@@ -1021,51 +1016,8 @@ export function SettingsPage({ section }: { section?: string }) {
             </div>
           </div>
 
-          {/* ---------------- 数据源 ---------------- */}
-          <div className="card scroll-mt-28" id="section-data">
-            <div className="card-head">
-              <div>
-                <div className="card-title">数据源</div>
-                <div className="card-sub">每个数据域现在用的是哪一份数据、上次什么时候同步</div>
-              </div>
-            </div>
-            <div className="card-body">
-              {!sourcesLoaded ? (
-                <p className="t-sm t-muted">正在载入数据来源…</p>
-              ) : sources.length === 0 ? (
-                <p className="t-sm t-muted">暂时读不到数据来源信息。</p>
-              ) : (
-                sources.map((s, i) => {
-                  let badge: React.ReactNode
-                  if (s.mode === 'upload') badge = <span className="badge">你的文件</span>
-                  else if (s.configured && s.mode === 'live')
-                    badge = <span className="badge badge-ok">已连接</span>
-                  else if (s.configured) badge = <span className="badge">示例数据</span>
-                  else badge = <span className="badge">未设置</span>
-                  return (
-                    <div className="src-row" key={i}>
-                      <span className="grow">
-                        <span className="src-name">{s.label}</span>
-                        <span className="src-desc">
-                          {s.detail}
-                          {s.last_sync_at ? ` · 最后同步 ${fmtTime(s.last_sync_at)}` : ''}
-                        </span>
-                      </span>
-                      <span className="src-flags">{badge}</span>
-                    </div>
-                  )
-                })
-              )}
-              <div className="row gap-2 mt-4">
-                <a className="btn btn-sm" href="/stores" data-link="">
-                  管理店铺与渠道
-                </a>
-              </div>
-            </div>
-          </div>
-
           {/* ---------------- 团队 ---------------- */}
-          <div className="card scroll-mt-28" id="section-team">
+          <div className="card scroll-mt-28" id="section-team" data-reveal="">
             <div className="card-head">
               <div>
                 <div className="card-title">团队与角色</div>
@@ -1167,12 +1119,9 @@ export function SettingsPage({ section }: { section?: string }) {
 
           {/* ---------------- 审计 ---------------- */}
           {manage ? (
-            <div className="card card-pad scroll-mt-28" id="section-audit">
+            <div className="card card-pad scroll-mt-28" id="section-audit" data-reveal="">
               <div className="row between gap-2">
-                <div>
-                  <div className="card-title">审计日志</div>
-                  <div className="card-sub">记录谁在什么时候改了什么，写入后不可修改</div>
-                </div>
+                <div className="card-title">审计日志</div>
                 <button
                   type="button"
                   className="btn btn-sm"
@@ -1191,45 +1140,44 @@ export function SettingsPage({ section }: { section?: string }) {
         </div>
       </PageShell>
 
-      {profileModal
-        ? createPortal(
-            <ProfileModal
-              kind={profileModal}
-              busy={profileBusy}
-              error={profileError}
-              nickname={newNickname}
-              phone={newPhone}
-              currentPwd={currentPwd}
-              newPwd={newPwd}
-              confirmPwd={confirmPwd}
-              onNickname={setNewNickname}
-              onPhone={setNewPhone}
-              onCurrent={setCurrentPwd}
-              onNew={setNewPwd}
-              onConfirm={setConfirmPwd}
-              onClose={() => setProfileModal(null)}
-              onSubmit={() =>
-                void (profileModal === 'nickname'
-                  ? submitNickname()
-                  : profileModal === 'phone'
-                    ? submitPhone()
-                    : submitPassword())
-              }
-            />,
-            document.body,
-          )
-        : null}
+      {createPortal(
+        <ProfileModal
+          open={profileModal !== null}
+          kind={profileModal}
+          busy={profileBusy}
+          error={profileError}
+          nickname={newNickname}
+          phone={newPhone}
+          currentPwd={currentPwd}
+          newPwd={newPwd}
+          confirmPwd={confirmPwd}
+          onNickname={setNewNickname}
+          onPhone={setNewPhone}
+          onCurrent={setCurrentPwd}
+          onNew={setNewPwd}
+          onConfirm={setConfirmPwd}
+          onClose={() => setProfileModal(null)}
+          onSubmit={() => {
+            if (!profileModal) return
+            void (profileModal === 'nickname'
+              ? submitNickname()
+              : profileModal === 'phone'
+                ? submitPhone()
+                : submitPassword())
+          }}
+        />,
+        document.body,
+      )}
 
-      {auditOpen
-        ? createPortal(
-            <AuditModal
-              items={auditItems}
-              memberName={memberName}
-              onClose={() => setAuditOpen(false)}
-            />,
-            document.body,
-          )
-        : null}
+      {createPortal(
+        <AuditModal
+          open={auditOpen}
+          items={auditItems}
+          memberName={memberName}
+          onClose={() => setAuditOpen(false)}
+        />,
+        document.body,
+      )}
     </PageFrame>
   )
 }
@@ -1239,40 +1187,49 @@ export function SettingsPage({ section }: { section?: string }) {
  * 所以默认收起，点「查看」再浮上来。
  */
 function AuditModal({
+  open,
   items,
   memberName,
   onClose,
 }: {
+  open: boolean
   items: Dict[]
   memberName: Record<string, string>
   onClose: () => void
 }) {
+  const { mounted, state } = usePresence(open, '--dur-2')
   useEffect(() => {
+    if (!open) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [open, onClose])
+
+  if (!mounted) return null
 
   return (
     <div
       className="modal"
       id="audit-modal"
+      data-state={state}
       role="dialog"
       aria-modal="true"
       aria-labelledby="audit-modal-title"
+      aria-hidden={state === 'closed'}
+      inert={state === 'closed'}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="modal-card is-wide">
+      <div className="modal-card is-wide" data-state={state}>
         <div className="modal-head">
           <div>
             <div className="card-title" id="audit-modal-title">
               审计日志
             </div>
-            <div className="card-sub">最近 20 条；记录写入后不可修改</div>
+            <div className="card-sub">最近 20 条</div>
           </div>
           <button type="button" className="btn-icon" data-audit-close="" aria-label="关闭" onClick={onClose}>
             <Icon name="close" />
@@ -1322,6 +1279,7 @@ function AuditModal({
 
 /** 修改用户名 / 密码：两个字段形状不同，但弹窗壳与提交路径一致，合成一个组件。 */
 function ProfileModal({
+  open,
   kind,
   busy,
   error,
@@ -1338,7 +1296,8 @@ function ProfileModal({
   onClose,
   onSubmit,
 }: {
-  kind: 'nickname' | 'password' | 'phone'
+  open: boolean
+  kind: 'nickname' | 'password' | 'phone' | null
   busy: boolean
   error: string
   nickname: string
@@ -1354,35 +1313,47 @@ function ProfileModal({
   onClose: () => void
   onSubmit: () => void
 }) {
+  const { mounted, state } = usePresence(open, '--dur-2')
+  // 退场期间 kind 已置空，保留上一次的表单形状避免内容跳变
+  const lastKindRef = useRef<'nickname' | 'password' | 'phone' | null>(kind)
+  if (kind) lastKindRef.current = kind
+  const shownKind = kind ?? lastKindRef.current
+
   useEffect(() => {
+    if (!open) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [open, onClose])
+
+  if (!mounted) return null
 
   return (
     <div
       className="modal"
       id="account-modal"
+      data-state={state}
       role="dialog"
       aria-modal="true"
       aria-labelledby="account-modal-title"
+      aria-hidden={state === 'closed'}
+      inert={state === 'closed'}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="modal-card">
+      <div className="modal-card" data-state={state}>
         <div className="modal-head">
           <div>
             <div className="card-title" id="account-modal-title">
-              {kind === 'nickname' ? '修改昵称' : kind === 'phone' ? '绑定手机号' : '修改密码'}
+              {shownKind === 'nickname' ? '修改昵称' : shownKind === 'phone' ? '绑定手机号' : '修改密码'}
             </div>
             <div className="card-sub">
-              {kind === 'nickname'
+              {shownKind === 'nickname'
                 ? '昵称显示在账号菜单与书脊账号章，用户名不可改'
-                : kind === 'phone'
+                : shownKind === 'phone'
                   ? '只用于账号标识，解绑请留空保存'
                   : '改完会退出所有会话，需要用新密码重新登录'}
             </div>
@@ -1398,7 +1369,7 @@ function ProfileModal({
             onSubmit()
           }}
         >
-          {kind === 'nickname' ? (
+          {shownKind === 'nickname' ? (
             <label className="field">
               <span className="field-label">
                 新昵称<span className="field-req">*</span>
@@ -1413,7 +1384,7 @@ function ProfileModal({
               />
               <span className="field-help">昵称只改显示，登录仍用用户名。</span>
             </label>
-          ) : kind === 'phone' ? (
+          ) : shownKind === 'phone' ? (
             <label className="field">
               <span className="field-label">手机号</span>
               <input
@@ -1482,7 +1453,10 @@ function ProfileModal({
             取消
           </button>
           <button type="button" className="btn btn-primary" disabled={busy} onClick={onSubmit}>
-            {busy ? '正在保存…' : '保存'}
+            {busy ? <span className="cp-spin" aria-hidden="true" /> : null}
+            <span key={busy ? '正在保存…' : '保存'} className="btn-swap">
+              {busy ? '正在保存…' : '保存'}
+            </span>
           </button>
         </div>
       </div>

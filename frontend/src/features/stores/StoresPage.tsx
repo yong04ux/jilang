@@ -14,6 +14,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
+import { inkBar } from '@/lib/tabs'
 import { esc, icon, toast } from '@/lib/ui'
 import { go } from '@/app/router'
 import { PageFrame } from '@/components/shared/PageShell'
@@ -122,6 +123,7 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
   })
 
   const stageRef = useRef<HTMLDivElement>(null)
+  const tabsRef = useRef<HTMLElement>(null)
   const ctx: StoreCtx = useMemo(
     () => ({ view, range, segment, ledger, asin, storeId, stores: stores || [] }),
     [view, range, segment, ledger, asin, storeId, stores],
@@ -332,6 +334,9 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
         toolsHtml() + body)
     window.CPIcon?.hydrate(stage)
 
+    // 墨条在每次 paint 之后挂；上一轮的 cleanup 已由 React 先跑，不会叠出多条
+    const detachInk = inkBar(tabsRef.current, { item: ':scope > .st-tab' })
+
     /* 图表：容器已在文档里，宽度才量得到 */
     if (view === 'dashboard' && dash && !viewError) {
       mountTrend(stage.querySelector('#st-trend') as HTMLElement | null, {
@@ -368,6 +373,10 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
         label: '单品销售走势',
         emptyText: '这个商品这段时间还没有销售记录',
       })
+    }
+
+    return () => {
+      detachInk()
     }
   }, [view, stores, storesError, sources, busy, viewError, dash, segment, products, asin, detail,
     ledger, ledgerItems, trendKey, ctx])
@@ -557,7 +566,7 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
             </div>
           </div>
 
-          <nav className="st-tabs" aria-label="店铺经营助手">
+          <nav className="st-tabs" aria-label="店铺经营助手" ref={tabsRef}>
             {TABS.map((tab) => (
               <a
                 className={'st-tab' + (tab.key === view ? ' is-active' : '')}

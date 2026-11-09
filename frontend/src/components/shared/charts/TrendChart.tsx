@@ -14,6 +14,8 @@
  * 空数据时不画贴底零线（原实现的纪律），直接给一句明确空态。
  */
 import { money, num } from '@/lib/charts'
+import { tokenMs } from '@/lib/motion'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import {
   Area,
   AreaChart,
@@ -33,6 +35,8 @@ export interface TrendChartProps {
   series: TrendPoint[]
   /** 图表高度（px）；外层容器宽度由 ResponsiveContainer 实测 */
   height?: number
+  /** 撑满所在容器（面板等高时用），矮屏由 CSS 的 min-height 兜底 */
+  fill?: boolean
   /** 数值格式：number 走千分位，money 走货币符号 */
   format?: 'number' | 'money'
   currency?: string
@@ -42,10 +46,22 @@ export interface TrendChartProps {
   emptyText?: string
 }
 
-/** 只保留 5 个刻度左右：日期标签太密反而看不清 */
-function tickInterval(count: number): number {
-  if (count <= 6) return 0
-  return Math.ceil(count / 5) - 1
+interface DotArgs {
+  cx?: number
+  cy?: number
+  index?: number
+  payload?: TrendPoint
+}
+
+/** 均匀取 6 个日期刻度，且必定包含首尾两天——最右边的「今天」不能被抽掉 */
+function pickTicks(rows: TrendPoint[]): string[] {
+  const count = rows.length
+  if (count <= 6) return rows.map((row) => row.date)
+  const picks = new Set<number>()
+  for (let i = 0; i < 6; i += 1) picks.add(Math.round(((count - 1) * i) / 5))
+  return Array.from(picks)
+    .sort((a, b) => a - b)
+    .map((index) => rows[index].date)
 }
 
 /** `2026-10-28` → `10-28` */
@@ -63,21 +79,46 @@ function formatValue(value: number, format: TrendChartProps['format'], currency:
 export function TrendChart({
   series,
   height = 148,
+  fill = false,
   format = 'number',
   currency = 'USD',
   label,
   emptyText = '这段时间还没有数据',
 }: TrendChartProps) {
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const rows = Array.isArray(series) ? series : []
+  // 稀疏序列才画点：只标有数的日子，零值留白；长序列不标，免得糊成一条珠链
+  const renderDot = (props: DotArgs) => {
+    const key = 'dot-' + (props.index ?? 0)
+    const value = Number(props.payload?.value ?? 0)
+    if (rows.length > 31 || props.cx == null || props.cy == null) return <g key={key} />
+    if (!value && rows.length > 1) return <g key={key} />
+    return (
+      <circle
+        key={key}
+        cx={props.cx}
+        cy={props.cy}
+        r={2.4}
+        fill="var(--paper-2)"
+        stroke="var(--chart-1)"
+        strokeWidth={2}
+      />
+    )
+  }
 
   if (!rows.length) {
     return <div className="cp-chart-empty">{emptyText}</div>
   }
 
   return (
-    <div style={{ height }} role="img" aria-label={label || '趋势图'}>
+    <div
+      className={fill ? 'cp-chart-fill' : undefined}
+      style={fill ? { height: '100%' } : { height }}
+      role="img"
+      aria-label={label || '趋势图'}
+    >
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={rows} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+        <AreaChart data={rows} margin={{ top: 12, right: 26, bottom: 0, left: 0 }}>
           <CartesianGrid
             vertical={false}
             stroke="var(--border)"
@@ -87,7 +128,8 @@ export function TrendChart({
           <XAxis
             dataKey="date"
             tickFormatter={shortDate}
-            interval={tickInterval(rows.length)}
+            ticks={pickTicks(rows)}
+            interval={0}
             tickLine={false}
             axisLine={false}
             tick={{ fill: 'var(--faint)', fontSize: 10 }}
@@ -117,16 +159,18 @@ export function TrendChart({
             }}
           />
           <Area
-            type="monotone"
+            /* 每日计数是离散量：直线段比平滑曲线更诚实，别把断层画成渐变 */
+            type="linear"
             dataKey="value"
             stroke="var(--chart-1)"
-            strokeWidth={1.6}
+            strokeWidth={2.2}
             fill="var(--chart-1)"
-            fillOpacity={0.08}
-            /* 只有一个点时 Recharts 不画线也不画点，整块看着是空的 —— 显式补点 */
-            dot={rows.length === 1 ? { r: 2.5, fill: 'var(--chart-1)', strokeWidth: 0 } : false}
-            activeDot={{ r: 3, strokeWidth: 0, fill: 'var(--chart-1)' }}
-            isAnimationActive={false}
+            fillOpacity={0.12}
+            dot={renderDot}
+            activeDot={{ r: 3.4, strokeWidth: 0, fill: 'var(--chart-1)' }}
+            isAnimationActive={!reduceMotion}
+            animationDuration={tokenMs('--dur-5', 420)}
+            animationEasing="ease-out"
           />
         </AreaChart>
       </ResponsiveContainer>

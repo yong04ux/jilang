@@ -138,6 +138,10 @@ v2.0 的「卡片零阴影、圆角 6/10、不用胶囊、品牌蓝面积 ≤5%�
 
 **编号与标签只留给真实关系**：01、02… 只用于工序步骤、执行步骤这类真的有先后的地方，以及来自服务端的真实计数；导航、页签、分区这类并列入口不编号。纯装饰的序号、缩写英文标签（TOTAL / WORK ORDER / SECTION / ROWS 之类）一律不写进界面。
 
+**数字与状态不加复述型副文案**（2026-11-07 定稿）：指标卡下、面板标题旁、卡片标题下都不写复述或自证——「含全部状态」「均来自服务端」「最近执行记录」「草稿与版本」「当前登录身份」这类一律删；时间口径并进标题（如「任务趋势 · 14 天」）。空态只写事实，不写「不画假折线」这类实现说明。
+副标只保留两类：真实状态/数据（租户名 · 我的角色、最近 20 条、来源：激浪内置）与操作约束（不提供额度、加密保存、解绑请留空、改密会退出会话）。
+真实性标注不受此限——示例数据、规则引擎 / 模型、未连接 / 未配置必须保留。
+
 ---
 
 ## 9. 状态视觉
@@ -173,6 +177,52 @@ v2.0 的「卡片零阴影、圆角 6/10、不用胶囊、品牌蓝面积 ≤5%�
 - 手写样式文件名与顺序固定：`tokens base components layout pages store skills`，加 `tailwind`。新增样式文件要同步改 `vite.config.ts` 的 `HAND_CSS` / `CSS_FILES` 与 `index.html`。
 - 禁止从 JS/CSS import 图片与字体（`forbidBundleAssets` 插件会直接报错）。静态资源一律放 `src/assets/` 用 `/media/...` 引用。
 - 新动效走 `CPMotion`，时长曲线用 `--dur-1/2/3` + `--ease-out`，跑马灯用 `--dur-4`。
+- 动效只做「补齐半截」，不引第三方动画库（2026-11-07 定稿，第一批）：
+  - **退场**：条件挂载的抽屉/弹窗用 `hooks/usePresence`，卸载前置 `data-state="closed"`
+    播退场（components.css 的 `motion-*-out`），播完才移除节点；Radix 浮层走
+    tw-animate-css 的 `data-[state=open/closed]` 进出场类。
+  - **墨条**：页签/分区导航的当前项指示用 `lib/tabs.ts` 的 `inkBar`（横 `.tab-ink` /
+    竖 `.set-ink`），量位置后滑动；容器必须 `position: relative`；innerHTML 重绘会冲掉
+    墨条，inkBar 自己补挂并重新生长。
+  - **等待**：busy 用 `.cp-spin`（方头转块）+ 文案 `.btn-swap`（换 key 淡入）；
+    shadcn `Button` 有 `busy` prop，`asChild` 时不插 spinner（Slot 只接受单子元素）。
+  - **按压**：shadcn `Button` 与手写 `.btn` 同一手感——hover 抬 1px、按下陷 2px、硬投影收掉。
+  - **轮询纪律**：轮询刷新只 patch 真的变了的段，禁止整块 innerHTML 重写
+    （workbench 结果面板按 head/tabs/body 三段签名比对；`.res-tabs` 节点身份必须稳定，
+    否则墨条与滚动位置每秒被冲掉）。启动期与完成时各允许一次整页 render。
+  - **降级**：`prefers-reduced-motion` 下 `--dur-*` 归零之外，tw-animate-css 的
+    `animate-in/out` 与 `.tab-ink/.set-ink` 过渡、`.cp-spin` 也一并归零（components.css）。
+
+- 页面级动效（第二批，2026-11-07 定稿）：
+  - **切页走纸**：`router.ts` 的 `pageFeed` 先把旧页克隆成固定定位的「纸」，再同步换页
+    （`flushSync`），旧纸先平移滑出、后段淡掉，新页从右推入。**不用 View Transitions**：
+    `document.startViewTransition()` 的更新回调是异步调用的，会让 `go()` 在 DOM 换页前返回，
+    破掉「`go()` 返回即新页面」的验收契约。同路径重绘只做淡入；克隆节点超过 2500 个只做进场。
+    此时新页加 `.view--fed` 关掉 CSS 兜底进场，遗留页在 `legacy.tsx` 里改播同一条推入。
+  - **列表 FLIP**：`hooks/useFlipList`，deps 传列表签名（id 串）。位置用 `offsetLeft/offsetTop`
+    量——`getBoundingClientRect` 会把上一轮动画的 transform 算进去，连续筛选会漂移。
+    被移除的项由 React 直接卸载，不做退场（要退场得给每项留挂载壳，不值）。
+  - **骨架显影**：`Suspense fallback={null}` + `PageVeil`（`usePresence`）。骨架延迟 90ms
+    才淡入（快加载不闪），内容挂载后骨架 180ms 淡出，与内容的 `.view` 进场交叠。
+  - **叠加顺序**：走纸（0–280ms）覆盖骨架淡入（90–270ms），交接后由骨架承接到内容。
+  - **幽灵层隔离**：走纸用的旧页克隆放在 `closed` shadow root 里（样式表启动时就克隆好）。
+    `document.querySelector` 穿不过 shadow 边界——否则验收脚本在 `go()` 之后同步查询
+    会把旧页元素多数一遍（9 个 chip 变 18），还会撞重复 id。
+
+- 品牌签名动效（第三批，2026-11-07 定稿）：
+  - **套准**：`.page-title` 的洋红错版层用 `@property --mis-x` 从 12px 滑回 3px；
+    浏览器不支持 `@property` 时保持静态 3px，不改版面。
+  - **盖章**：`StatusBadge` 记住上一状态，状态真的变了才换 key 重挂并播 `stamp-slam`；
+    首帧不播，避免进页面时一墙徽章同时砸下来。
+  - **计数**：`CountUp` 直接改 `textContent`（不走 setState），从上一值滚到新值；
+    非数字原样输出，终值永远是后端真值。
+  - **图表**：Recharts 的 `isAnimationActive` 按 reduced-motion 开关；手写 SVG 柱体
+    首绘时从底部生长、折线用 `stroke-dashoffset` 描出，`WeakSet` 记账保证 resize 重绘不重播。
+  - **滚动揭示**：初始隐藏交给 CSS（`html.cp-reveal-on [data-reveal]:not([data-revealed])`），
+    不用 JS 设 opacity——设置页的区块是数据回来后才挂载的新节点，JS 在挂载时藏一遍会藏在
+    马上被替换的旧节点上。`usePageReveal` 用 MutationObserver 接住晚出现的区块，
+    揭示后打 `data-revealed`；另挂滚动扫尾（瞬移到底部不漏）与 1.2s 兜底。
+    每页只标 3–6 个区块。
 
 ## 12. 验收清单
 

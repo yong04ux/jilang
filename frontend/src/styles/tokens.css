@@ -188,12 +188,13 @@
   --dur-2: 180ms;
   --dur-3: 280ms;
   --dur-4: 22s;            /* 跑马灯 */
+  --dur-5: 420ms;          /* 计数 / 图表生长 */
   --dur:   var(--dur-1);
 }
 
 /* 动效降级：时长归零，跑马灯静止，版面与层级不受影响 */
 @media (prefers-reduced-motion: reduce) {
-  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur-4: 0ms; --dur: 0ms; }
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --dur-4: 0ms; --dur-5: 0ms; --dur: 0ms; }
 }
 
 /* 暗色：墨底 + 同一套撞色（撞色不做正文字色，两版都成立） */

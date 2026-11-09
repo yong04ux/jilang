@@ -254,35 +254,29 @@ export function DataPage() {
     const imported = status === 'imported'
     const hasResult = Boolean(result)
     const errCount = errors.length
-    const pending = Math.max(columns.length - mappedCount, 0)
     return [
       {
         name: '选文件',
-        desc: fileName ? fileName : 'CSV / JSON / Excel，单个不超过 5 MB',
         state: fileName ? '已选择' : '待选择',
         tone: fileName ? 'done' : 'wait',
       },
       {
         name: '上传校验',
-        desc: hasResult ? `共 ${result?.total_rows || 0} 行 · ${columns.length} 列` : '上传后自动识别行列',
         state: uploading ? '校验中' : hasResult ? '已完成' : '待执行',
         tone: uploading ? 'run' : hasResult ? 'done' : '',
       },
       {
         name: '字段映射',
-        desc: columns.length ? `${mappedCount} 列已对上 · ${pending} 列待确认` : '等待识别列',
         state: imported ? '已完成' : columns.length ? '进行中' : '待执行',
         tone: imported ? 'done' : columns.length ? 'run' : '',
       },
       {
         name: '逐行校验',
-        desc: hasResult ? `${errCount} 行需要修正` : '映射确认后开始',
         state: errCount ? `需修正 ${errCount} 行` : hasResult ? '无行级错误' : '待执行',
         tone: errCount ? 'hit' : hasResult ? 'done' : '',
       },
       {
         name: '入库确认',
-        desc: imported ? `已写入 ${result?.valid_rows || 0} 条` : '映射与校验通过后提交',
         state: imported ? '已提交' : '待提交',
         tone: imported ? 'done' : '',
       },
@@ -293,11 +287,14 @@ export function DataPage() {
     <div className="data-wo-steps">
       <div className="data-wo-title">导入走五步</div>
       {steps.map((s, i) => (
-        <div className={`data-step${s.tone ? ' is-' + s.tone : ''}`} key={s.name}>
+        <div
+          className={`data-step${s.tone ? ' is-' + s.tone : ''}`}
+          key={s.name}
+          data-reveal=""
+        >
           <span className="data-step-no">{i + 1}</span>
           <div className="data-step-body">
             <span className="data-step-name">{s.name}</span>
-            <span className="data-step-desc">{s.desc}</span>
             <span className="data-step-state">{s.state}</span>
           </div>
         </div>
@@ -316,7 +313,6 @@ export function DataPage() {
               <Icon name="table" />
             </span>
             <p className="empty-title">还没有导入结果</p>
-            <p className="empty-desc">上传文件后，这里会先显示识别到的列与预览，再由你确认字段映射。</p>
           </div>
         </div>
       )
@@ -520,7 +516,10 @@ export function DataPage() {
             disabled={!result?.can_commit || busy !== null}
             onClick={commit}
           >
-            {busy === 'commit' ? '提交中…' : '提交导入'}
+            {busy === 'commit' ? <span className="cp-spin" aria-hidden="true" /> : null}
+            <span key={busy === 'commit' ? '提交中…' : '提交导入'} className="btn-swap">
+              {busy === 'commit' ? '提交中…' : '提交导入'}
+            </span>
           </button>
           <button
             type="button"
@@ -529,7 +528,10 @@ export function DataPage() {
             disabled={busy !== null}
             onClick={repreview}
           >
-            {busy === 'remap' ? '校验中…' : '用新映射重新校验'}
+            {busy === 'remap' ? <span className="cp-spin" aria-hidden="true" /> : null}
+            <span key={busy === 'remap' ? '校验中…' : '用新映射重新校验'} className="btn-swap">
+              {busy === 'remap' ? '校验中…' : '用新映射重新校验'}
+            </span>
           </button>
         </div>
         {!result?.can_commit ? (
@@ -576,7 +578,6 @@ export function DataPage() {
           </span>
           <div>
             <div className="card-title">数据集列表</div>
-            <p className="card-sub">导入并保存文件后，数据集会显示在这里。</p>
           </div>
           <span className="badge">暂无数据集</span>
         </div>
@@ -648,15 +649,6 @@ export function DataPage() {
                 </span>
               </div>
             </div>
-            <div className="data-hero-note">
-              <span className="data-hero-mark">
-                <Icon name="database" />
-              </span>
-              <div>
-                <strong>让数据成为运营决策的起点</strong>
-                <p>当前可通过文件导入体验数据校验与字段映射，真实平台数据将在完成连接后呈现。</p>
-              </div>
-            </div>
           </section>
 
           <section className="data-overview" aria-label="数据概览">
@@ -667,7 +659,6 @@ export function DataPage() {
               <div>
                 <span className="data-stat-label">已保存数据集</span>
                 <strong id="data-stat-sources">{sourcesLoaded ? String(sources.length) : '—'}</strong>
-                <small>个数据集</small>
               </div>
             </div>
             <div className="data-stat-card">
@@ -677,7 +668,6 @@ export function DataPage() {
               <div>
                 <span className="data-stat-label">最近校验</span>
                 <strong id="data-stat-valid">{statValid}</strong>
-                <small>导入文件后自动更新</small>
               </div>
             </div>
             <div className="data-stat-card">
@@ -689,9 +679,6 @@ export function DataPage() {
                 <strong id="data-stat-latest">
                   {latest ? fmtTime(latest.created_at) || '已记录' : '—'}
                 </strong>
-                <small id="data-stat-latest-note">
-                  {latest ? latest.name || '最近导入的数据集' : '等待文件导入'}
-                </small>
               </div>
             </div>
             <div className="data-stat-card">
@@ -701,7 +688,6 @@ export function DataPage() {
               <div>
                 <span className="data-stat-label">数据来源</span>
                 <strong>文件导入</strong>
-                <small>CSV · JSON · Excel</small>
               </div>
             </div>
           </section>
@@ -712,7 +698,6 @@ export function DataPage() {
                 <div className="row between">
                   <div>
                     <div className="card-title">导入商品数据</div>
-                    <div className="card-sub">CSV / JSON / Excel，先预览再提交</div>
                   </div>
                   <span className="t-xs t-muted">≤ 5 MB</span>
                 </div>
@@ -749,8 +734,13 @@ export function DataPage() {
                     disabled={!file || uploading}
                     onClick={onUpload}
                   >
-                    <Icon name="upload" />
-                    {previewed ? '预览并校验' : '开始导入'}
+                    {uploading ? <span className="cp-spin" aria-hidden="true" /> : <Icon name="upload" />}
+                    <span
+                      key={uploading ? '校验中…' : previewed ? '预览并校验' : '开始导入'}
+                      className="btn-swap"
+                    >
+                      {uploading ? '校验中…' : previewed ? '预览并校验' : '开始导入'}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -762,15 +752,12 @@ export function DataPage() {
                     示例文件
                   </button>
                 </div>
-                <p className="form-note t-xs t-muted mt-2">
-                  支持 CSV、JSON、Excel。导入前可预览并确认字段映射。
-                </p>
               </div>
             </div>
 
             <div>
               {renderSteps()}
-              <div className="card data-result-panel" id="data-result">
+              <div className="card data-result-panel" id="data-result" data-reveal="">
                 {renderResultCard()}
                 {renderMappingCard()}
               </div>
@@ -781,7 +768,6 @@ export function DataPage() {
             <div className="card-head">
               <div>
                 <div className="card-title">数据集列表</div>
-                <div className="card-sub">查看已保存的数据集与最近更新时间</div>
               </div>
               <span className="badge" id="data-source-count">
                 {sources.length} 个数据集

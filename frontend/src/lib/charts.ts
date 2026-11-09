@@ -18,6 +18,26 @@ export interface ChartPoint {
   value?: number | string
 }
 
+/* 首绘才生长的记账本：窗口 resize 会重绘，重绘不该再长一遍 */
+const grown = new WeakSet<Element>()
+
+function animateFirst(host: HTMLElement): boolean {
+  if (grown.has(host)) return false
+  if (typeof window === 'undefined' || typeof window.CPMotion === 'undefined') return false
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+  grown.add(host)
+  return true
+}
+
+/** 读 tokens.css 的时长；charts 模块刻意不 import 任何东西，这里就地读 */
+function tokenDuration(name: string, fallback: number): number {
+  if (typeof window === 'undefined') return fallback
+  const raw = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  const value = parseFloat(raw)
+  if (!Number.isFinite(value)) return fallback
+  return raw.endsWith('ms') ? value : value * 1000
+}
+
 export interface ChartSpec {
   series?: ChartPoint[]
   format?: string
@@ -195,7 +215,7 @@ export function line(host: HTMLElement | null, spec: ChartSpec): void {
     (spec.label || '走势图') + '">' +
     grid + ticks +
     '<path d="' + area + '" fill="' + themeColor('--primary', COLOR.line) + '" fill-opacity="0.07" />' +
-    '<path d="' + path + '" fill="none" stroke="' + themeColor('--primary', COLOR.line) +
+    '<path class="cp-chart-line" d="' + path + '" fill="none" stroke="' + themeColor('--primary', COLOR.line) +
     '" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" />' +
     '<line class="cp-chart-guide" x1="0" y1="' + padT + '" x2="0" y2="' + (padT + innerH) +
     '" stroke="' + themeColor('--primary', COLOR.line) +
@@ -204,6 +224,18 @@ export function line(host: HTMLElement | null, spec: ChartSpec): void {
     themeColor('--primary', COLOR.line) + '" stroke-width="2" opacity="0" />' +
     '</svg>'
   host.insertAdjacentHTML('beforeend', svg)
+
+  /* 折线描出来：先按路径长度藏进 dash 间隔，再让 offset 归零 */
+  const linePath = host.querySelector<SVGPathElement>('.cp-chart-line')
+  if (linePath && animateFirst(host)) {
+    const length = linePath.getTotalLength()
+    linePath.style.strokeDasharray = String(length)
+    void window.CPMotion?.animate(
+      linePath,
+      [{ strokeDashoffset: String(length) }, { strokeDashoffset: '0' }],
+      { duration: tokenDuration('--dur-5', 420), easing: 'cubic-bezier(.4,0,.2,1)' },
+    )
+  }
 
   const svgEl = host.querySelector('svg') as SVGSVGElement
   const guide = host.querySelector('.cp-chart-guide') as SVGElement
@@ -325,6 +357,18 @@ export function bars(host: HTMLElement | null, spec: ChartSpec): void {
     '" width="100%" height="' + height + '" role="img" aria-label="' +
     (spec.label || '分布图') + '">' + grid + rects + ticks + '</svg>'
   host.insertAdjacentHTML('beforeend', svg)
+
+  /* 柱体从底部生长，按序错开；只在首绘播一次 */
+  if (animateFirst(host)) {
+    const duration = tokenDuration('--dur-5', 420)
+    host.querySelectorAll<SVGRectElement>('.cp-bar').forEach((bar, index) => {
+      void window.CPMotion?.animate(
+        bar,
+        [{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }],
+        { duration, delay: index * 40 },
+      )
+    })
+  }
 
   const svgEl = host.querySelector('svg') as SVGSVGElement
   const tip = ensureTip(host)

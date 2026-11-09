@@ -12,6 +12,8 @@
 // @ts-nocheck
 /* eslint-disable */
 
+import { inkBar } from '@/lib/tabs'
+
 let U
 let A
 let C
@@ -32,6 +34,64 @@ function ensureDeps() {
   C = window.CPCatalog
   R = window.CPRender
   AR = window.CPAsyncRun
+}
+
+/* 墨条与一次性监听都挂在「会被整块重绘销毁」的节点上：重绘前先解绑旧的，
+   避免 MutationObserver / ResizeObserver 累积。 */
+let resInkCleanup = null
+let mobileInkCleanup = null
+function teardownInk() {
+  if (resInkCleanup) { resInkCleanup(); resInkCleanup = null }
+  if (mobileInkCleanup) { mobileInkCleanup(); mobileInkCleanup = null }
+}
+
+/* 输入框是 sticky 常驻视口底部的，滚动内容必须让出它的高度，否则最后一行卡片会被压住。
+   高度会随「代入技能」的 echo 行和多行输入变化，用 ResizeObserver 跟；
+   只在内容本身已经超出视口时才补，短页面不会凭空多出一段可滚动的空白。 */
+let composerDockRo = null
+let composerDockResize = null
+function teardownComposerDock() {
+  if (composerDockRo) { composerDockRo.disconnect(); composerDockRo = null }
+  if (composerDockResize) { window.removeEventListener("resize", composerDockResize); composerDockResize = null }
+}
+function dockComposer(root) {
+  teardownComposerDock()
+  const scroll = root.querySelector(".wb-scroll");
+  const composer = root.querySelector(".composer");
+  if (!scroll) return;
+  const apply = function () {
+    if (!composer) { scroll.style.paddingBottom = ""; return }
+    scroll.style.paddingBottom = "";
+    /* 判据：内容比「视口去掉输入框后剩下的高度」还高，就说明末尾会被框压住。
+       用文档坐标算，滚动不影响判断；也不能用 scrollHeight（overflow:visible 不统计溢出内容），
+       更不能用「文档能不能滚」—— .wb-empty 的 min-height 与顶栏高度差不一致，文档恒比视口高 44px。 */
+    const content = (scroll.querySelector(".wb-home") || scroll) as HTMLElement;
+    const topDoc = scroll.getBoundingClientRect().top + window.scrollY;
+    const available = window.innerHeight - topDoc - composer.offsetHeight;
+    scroll.style.paddingBottom = content.getBoundingClientRect().height > available
+      ? composer.offsetHeight + 24 + "px"
+      : "";
+  };
+  apply();
+  /* 首帧内容还没完全落定（字体、最近会话等），再复测一次，别给短页面凭空留白 */
+  window.requestAnimationFrame(function () { window.requestAnimationFrame(apply) });
+  if (composer && typeof ResizeObserver === "function") {
+    composerDockRo = new ResizeObserver(apply);
+    composerDockRo.observe(composer);
+  }
+  if (composer) {
+    composerDockResize = apply;
+    window.addEventListener("resize", composerDockResize);
+  }
+}
+
+/* 结果面板改成局部重绘后，页签等节点会跨多次 renderInPlace 存活；
+   同一节点只绑一次，防止轮询把 click 监听叠起来。 */
+const boundOnce = new WeakSet()
+function bindOnce(el, fn) {
+  if (!el || boundOnce.has(el)) return
+  boundOnce.add(el)
+  el.addEventListener("click", fn)
 }
 
   const state = {
@@ -210,8 +270,6 @@ function ensureDeps() {
   function expertPanel() {
     return (
       `<div class="wb-start">` +
-      `<p class="wb-start-lead">选一位专家，它就只做那一类事：目标相同，但用的技能和产出不同。` +
-      `选好后在下面输入目标即可。</p>` +
       `<div class="skill-grid">${C.AGENTS.map(expertCard).join("")}</div>` +
       `</div>`
     );
@@ -584,7 +642,6 @@ function ensureDeps() {
     return (
       `<div class="wb-aside-card">` +
       `<div class="wb-aside-title">本次任务将会执行</div>` +
-      `<p class="wb-aside-note">AI 将按以下步骤完成任务，时长是预计值，实际以执行记录为准。</p>` +
       `<ol class="wb-plan-list">` +
       stages.map(function (name, index) {
         return `<li class="wb-plan-item">` +
@@ -626,8 +683,7 @@ function ensureDeps() {
       `<div class="wb-task" id="wb-params">` +
       `<div class="wb-task-head">` +
       `<button type="button" class="btn-icon" data-act="back" aria-label="返回">${U.icon("arrowLeft")}</button>` +
-      `<div><h1 class="wb-task-title">新建任务</h1>` +
-      `<p class="wb-task-desc">请描述你的目标，补充商品资料和参数，AI 将为你完成专业的跨境电商运营任务。</p></div>` +
+      `<div><h1 class="wb-task-title">新建任务</h1></div>` +
       `</div>` +
       `<div class="wb-task-grid">` +
       `<div class="wb-task-main">` + (listing ? listingConfigCard() : taskForm()) + `</div>` +
@@ -654,7 +710,10 @@ function ensureDeps() {
   function openListingEditor(root) {
     const listing = state.listing;
     if (!listing || !listing.listing_id) return;
-    closeListingEditor();
+    /* 重开不等退场：旧的立刻移除，避免两个同 id scrim 并存 */
+    const prev = document.getElementById("wb-ls-editor-scrim");
+    if (prev) prev.remove();
+    document.removeEventListener("keydown", onListingEditorKeydown);
     const fields = listingToEditorFields(listing);
 
     const scrim = document.createElement("div");
@@ -712,7 +771,8 @@ function ensureDeps() {
         search_terms: scrim.querySelector("#wb-ls-edit-terms").value.trim(),
       };
       save.disabled = true;
-      save.textContent = "保存中…";
+      save.setAttribute("aria-busy", "true");
+      save.innerHTML = `<span class="cp-spin" aria-hidden="true"></span><span class="btn-swap">保存中…</span>`;
       try {
         const data = await A.post(`/api/listings/${encodeURIComponent(listing.listing_id)}/versions`, payload);
         state.listing = data.listing || state.listing;
@@ -721,7 +781,8 @@ function ensureDeps() {
         render(root);
       } catch (err) {
         save.disabled = false;
-        save.textContent = "保存为新版本";
+        save.removeAttribute("aria-busy");
+        save.innerHTML = `<span class="btn-swap">保存为新版本</span>`;
         error.hidden = false;
         error.textContent = err.message || "保存失败，请稍后重试。";
       }
@@ -730,8 +791,22 @@ function ensureDeps() {
 
   function closeListingEditor() {
     const scrim = document.getElementById("wb-ls-editor-scrim");
-    if (scrim) scrim.remove();
     document.removeEventListener("keydown", onListingEditorKeydown);
+    if (!scrim || scrim.dataset.closing) return;
+    scrim.dataset.closing = "1";
+    const motion = window.CPMotion;
+    if (!motion) { scrim.remove(); return; }
+    /* 面板与遮罩并行退场、播完一起移除：让 fadeOut 独自移除会把面板退场截断 */
+    const jobs = [motion.fadeOut(scrim, { y: 4, remove: false })];
+    const drawer = scrim.querySelector(".drawer");
+    if (drawer) {
+      jobs.push(motion.animate(drawer, [
+        { opacity: 1, transform: "translate3d(0,0,0)" },
+        { opacity: 0, transform: "translate3d(24px,0,0)" },
+      ], { fill: "forwards" }));
+    }
+    const remove = function () { if (scrim.parentNode) scrim.parentNode.removeChild(scrim); };
+    Promise.all(jobs).then(remove, remove);
   }
 
   function onListingEditorKeydown(event) {
@@ -768,8 +843,7 @@ function ensureDeps() {
       ? `<label class="field field-span-2"><span class="field-label">商品</span>` +
         `<select id="wb-ls-product">` +
         `<option value="">选择要生成 Listing 的商品</option>` + productOptions +
-        `</select>` +
-        `<span class="field-help">商品名称与价格从商品库带入，不用手写。</span></label>`
+        `</select></label>`
       : `<label class="field field-span-2"><span class="field-label">商品名称 <span class="t-danger">*</span></span>` +
         `<input id="wb-ls-name" value="${U.esc(state.listingName || "")}" placeholder="还没有店铺商品，先写商品名称" />` +
         `<span class="field-help">${U.esc(state.productsError || "接到店铺后这里会变成商品选择器。")}</span></label>`;
@@ -777,8 +851,7 @@ function ensureDeps() {
     return (
       `<div class="wb-inline">` +
       `<div class="card card-pad">` +
-      `<div class="row between"><div><div class="card-title">生成 Listing</div>` +
-      `<div class="card-sub">选好商品就能生成；竞品数据不是必需的</div></div>` +
+      `<div class="row between"><div><div class="card-title">生成 Listing</div></div>` +
       `<button type="button" class="btn-icon" data-act="back" aria-label="取消">${U.icon("close")}</button></div>` +
 
       `<div class="grid-2 mt-4">` + productField +
@@ -809,8 +882,7 @@ function ensureDeps() {
       `<label class="field mt-3"><span class="field-label">规格（每行「键: 值」）</span>` +
       `<textarea id="wb-ls-specs" rows="3" spellcheck="false" placeholder="容量: 750ml&#10;材质: 304 不锈钢">${U.esc(state.listingSpecsText || "")}</textarea></label>` +
       `<label class="field mt-3"><span class="field-label">卖点（每行一条）</span>` +
-      `<textarea id="wb-ls-features" rows="3" placeholder="双层真空保温 24 小时">${U.esc(state.listingFeaturesText || "")}</textarea>` +
-      `<span class="field-help">不填也能生成，但质检会因为缺少可核对的规格而给出更多待确认项。</span></label>` +
+      `<textarea id="wb-ls-features" rows="3" placeholder="双层真空保温 24 小时">${U.esc(state.listingFeaturesText || "")}</textarea></label>` +
       `</details>` +
 
       (state.error ? `<p class="callout callout-danger mt-3">${U.esc(state.error)}</p>` : "") +
@@ -851,7 +923,7 @@ function ensureDeps() {
       state.products = [];
       // 409 = 还没添加店铺；这不是故障，是还没接入商品来源
       state.productsError = err.status === 409
-        ? "还没有添加店铺：商品选择器要接一个店铺才有货，现在可以先写商品名称直接生成。"
+        ? "还没有添加店铺：接一个店铺后这里才会出现商品选择器，现在也可以直接写商品名称生成。"
         : "读不到店铺商品，先写商品名称也能生成。";
     }
     if (state.mode === "params") render(root);
@@ -1172,7 +1244,10 @@ function ensureDeps() {
     return AR.stepList(state.steps, state.plan);
   }
 
-  function resultPane() {
+  /* 结果面板拆成 head / tabs / body 三段：轮询时逐段比对签名，只写真的变了的段。
+     .res-tabs 节点必须身份稳定——页签墨条（inkBar）挂在它上面，整块冲掉会让墨条
+     每秒重建生长；所以页签只在原地 toggle is-active，可用栏变化时才换按钮。 */
+  function resultHeadHtml() {
     const running = AR.isRunning(state.taskStatus) || state.busy;
     /* 失败只认服务端的任务状态。state.error 是「表单/请求层面」的错误，
        任务已经建出来之后，它的成败以 task.status 为准——否则一次编辑保存、
@@ -1182,7 +1257,6 @@ function ensureDeps() {
     /* 暂停等确认**不是**完成：少了这一档，停在 waiting_for_review 的任务会被
        显示成绿色「已完成」，用户以为跑完了，其实它还在等一个决定。 */
     const waiting = state.taskStatus === "waiting_for_review";
-    const tab = state.resTab;
 
     return (
       `<div class="wb-pane-head">` +
@@ -1201,9 +1275,17 @@ function ensureDeps() {
       `<div class="wb-run-actions">` +
       (running && state.taskId ? `<button type="button" class="btn btn-sm" id="wb-cancel">取消</button>` : "") +
       (state.taskId ? `<a class="btn btn-sm" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
-      `</div></div>` +
-      AR.resultTabs({ active: tab, available: availableTabs() }) +
-      `<div class="res-body"><div class="res-inner">` +
+      `</div></div>`
+    );
+  }
+
+  function resBodyInner() {
+    const running = AR.isRunning(state.taskStatus) || state.busy;
+    const failed = state.taskStatus === "failed" || (!state.taskId && Boolean(state.error) && !running);
+    const waiting = state.taskStatus === "waiting_for_review";
+    const tab = state.resTab;
+
+    return (
       (running ? `<div class="progress is-indeterminate"><div class="progress-bar"></div></div>` : "") +
       (state.degraded
         ? `<div class="callout callout-warn">${U.icon("alert")}<div><strong>执行参数是按文字推断的</strong><br>` +
@@ -1220,8 +1302,24 @@ function ensureDeps() {
       keyHint() +
       (!running && !state.taskId
         ? `<p class="t-sm t-muted">还没有执行任何任务。</p>`
-        : "") +
-      `</div></div>`
+        : "")
+    );
+  }
+
+  function resultParts() {
+    return {
+      head: resultHeadHtml(),
+      tabs: AR.resultTabs({ active: state.resTab, available: availableTabs() }),
+      body: resBodyInner(),
+    };
+  }
+
+  function resultPane() {
+    const parts = resultParts();
+    return (
+      parts.head +
+      parts.tabs +
+      `<div class="res-body"><div class="res-inner">` + parts.body + `</div></div>`
     );
   }
 
@@ -1332,11 +1430,25 @@ function ensureDeps() {
     const live = root.querySelector("#composer-input");
     if (live) state.composerDraft = live.value;
 
+    /* 旧节点即将被 innerHTML 销毁：先解绑挂在上面的墨条 */
+    teardownInk();
+
     /* params 也走首页骨架：参数卡是本页输出的一段内容，不是另一张页面 */
     const body = state.mode === "run" ? renderRun() : renderEmpty();
     root.innerHTML = `<div class="view">${body}</div>`;
     window.CPIcon.hydrate(root);
     bind(root);
+    dockComposer(root);
+
+    /* 首绘即记下签名：第一次轮询若内容没变就一个 DOM 都不碰 */
+    const pane = root.querySelector("#wb-res-pane");
+    if (pane) {
+      pane._wbPaneSig = resultParts();
+      const tabs = pane.querySelector(".res-tabs");
+      if (tabs) resInkCleanup = inkBar(tabs, { item: ":scope > .res-tab" });
+    }
+    const mobileTabs = root.querySelector(".wb-mobile-tabs");
+    if (mobileTabs) mobileInkCleanup = inkBar(mobileTabs, { item: ":scope > .wb-mobile-tab" });
 
     const input = root.querySelector("#composer-input");
     if (input && state.composerDraft) {
@@ -1362,21 +1474,68 @@ function ensureDeps() {
     window.CPIcon.hydrate(home);
   }
 
+  /* 页签条原地同步：同一组栏只 toggle is-active / aria-selected（墨条靠
+     MutationObserver 感知 class 变化滑动）；可用栏增减时才重建按钮，
+     且保留 .res-tabs 节点与已挂上的墨条。 */
+  function syncResTabs(bar, tabsHtml) {
+    if (!bar) return;
+    const holder = document.createElement("div");
+    holder.innerHTML = tabsHtml;
+    const next = holder.firstElementChild;
+    if (!next) return;
+    const oldBtns = Array.prototype.slice.call(bar.querySelectorAll(":scope > .res-tab"));
+    const newBtns = Array.prototype.slice.call(next.querySelectorAll(":scope > .res-tab"));
+    const sameSet = oldBtns.length === newBtns.length && oldBtns.every(function (btn, i) {
+      return btn.getAttribute("data-res-tab") === newBtns[i].getAttribute("data-res-tab");
+    });
+    if (sameSet) {
+      oldBtns.forEach(function (btn, i) {
+        const on = newBtns[i].classList.contains("is-active");
+        btn.classList.toggle("is-active", on);
+        const selected = on ? "true" : "false";
+        if (btn.getAttribute("aria-selected") !== selected) btn.setAttribute("aria-selected", selected);
+      });
+      return;
+    }
+    const ink = bar.querySelector(":scope > .tab-ink");
+    while (bar.firstChild) bar.removeChild(bar.firstChild);
+    newBtns.forEach(function (btn) { bar.appendChild(btn); });
+    if (ink) bar.appendChild(ink);
+  }
+
   function renderInPlace(root) {
-    /* 轮询期间只重绘结果面板，保留对话框里正在输入的内容 */
+    /* 轮询期间只更新结果面板里真的变了的段，对话区（含正在输入的 followup）不碰 */
     if (state.mode !== "run") { render(root); return; }
-    const draftInput = root.querySelector("#wb-followup-input");
-    const draft = draftInput ? draftInput.value : "";
     const pane = root.querySelector("#wb-res-pane");
     if (pane) {
-      pane.innerHTML = resultPane();
-      window.CPIcon.hydrate(pane);
-      bindResultPane(root);
+      const parts = resultParts();
+      const sig = pane._wbPaneSig;
+      if (!sig || sig.head !== parts.head || sig.tabs !== parts.tabs || sig.body !== parts.body) {
+        if (!sig || sig.head !== parts.head) {
+          const head = pane.querySelector(".wb-pane-head");
+          if (head) head.outerHTML = parts.head;
+          else pane.insertAdjacentHTML("afterbegin", parts.head);
+        }
+        if (!sig || sig.tabs !== parts.tabs) {
+          syncResTabs(pane.querySelector(".res-tabs"), parts.tabs);
+        }
+        if (!sig || sig.body !== parts.body) {
+          const body = pane.querySelector(".res-body");
+          const inner = body && body.querySelector(".res-inner");
+          if (inner) {
+            /* .res-body 是滚动容器：内容替换会把 scrollTop 归零，先记后还 */
+            const top = body.scrollTop;
+            inner.innerHTML = parts.body;
+            body.scrollTop = top;
+          }
+        }
+        pane._wbPaneSig = parts;
+        window.CPIcon.hydrate(pane);
+        bindResultPane(root);
+      }
     }
     /* 对话里的执行概况跟结果面板同源，轮询到新步骤时一起换 */
     refreshPlanCard(root);
-    const restored = root.querySelector("#wb-followup-input");
-    if (restored && draft) restored.value = draft;
   }
 
   function loadConversations(root) {
@@ -1438,28 +1597,23 @@ function ensureDeps() {
 
   function bindResultPane(root) {
     root.querySelectorAll("[data-res-tab]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+      bindOnce(btn, function () {
         state.resTab = btn.getAttribute("data-res-tab");
         renderInPlace(root);
         if (state.resTab === "log") ensureLog(root);
       });
     });
     /* 直接在面板里绑：结果面板是独立重绘的，走 root 的事件委托在重绘后不够可靠 */
-    const editBtn = root.querySelector("#wb-ls-edit");
-    if (editBtn) editBtn.addEventListener("click", function () { openListingEditor(root); });
+    bindOnce(root.querySelector("#wb-ls-edit"), function () { openListingEditor(root); });
 
     root.querySelectorAll("[data-copy]").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+      bindOnce(btn, function () {
         U.copy(btn.getAttribute("data-copy"), "内容");
       });
     });
-    const cancel = root.querySelector("#wb-cancel");
-    if (cancel) cancel.addEventListener("click", function () { cancelRun(root); });
-
-    const cont = root.querySelector("#wb-confirm-continue");
-    if (cont) cont.addEventListener("click", function () { void confirmPending(root, "continue"); });
-    const stop = root.querySelector("#wb-confirm-cancel");
-    if (stop) stop.addEventListener("click", function () { void confirmPending(root, "cancel"); });
+    bindOnce(root.querySelector("#wb-cancel"), function () { cancelRun(root); });
+    bindOnce(root.querySelector("#wb-confirm-continue"), function () { void confirmPending(root, "continue"); });
+    bindOnce(root.querySelector("#wb-confirm-cancel"), function () { void confirmPending(root, "cancel"); });
   }
 
   function bind(root) {
@@ -2136,6 +2290,7 @@ function ensureDeps() {
 
   async function entryImpl(root, params, query) {
     closeListingEditor();
+    teardownInk();
     resetState();
     if (query && query.agent) state.agentKey = query.agent;
     // 技能清单来自接口（唯一真源），拉不到就照常渲染——空态会提示没有可用能力

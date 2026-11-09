@@ -20,6 +20,8 @@ import {
   YAxis,
 } from 'recharts'
 import { money, num } from '@/lib/charts'
+import { tokenMs } from '@/lib/motion'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 
 export interface BarPoint {
   /** X 轴显示文案 */
@@ -53,6 +55,7 @@ export function BarChart({
   emptyText = '这段时间没有数据',
   maxBarSize = 28,
 }: BarChartProps) {
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const rows = Array.isArray(series) ? series : []
   const hasValue = rows.some((r) => Number(r.value) > 0)
 
@@ -104,7 +107,14 @@ export function BarChart({
               )
             }}
           />
-          <Bar dataKey="value" radius={[2, 2, 0, 0]} maxBarSize={maxBarSize} isAnimationActive={false}>
+          <Bar
+            dataKey="value"
+            radius={[2, 2, 0, 0]}
+            maxBarSize={maxBarSize}
+            isAnimationActive={!reduceMotion}
+            animationDuration={tokenMs('--dur-5', 420)}
+            animationEasing="ease-out"
+          >
             {rows.map((row, i) => (
               <Cell key={i} fill="var(--chart-2)" />
             ))}

@@ -7,7 +7,7 @@
  *  - 趋势全 0 时不画贴底零线 —— 那是「空壳图」，什么信息都没给。
  *
  * 视觉：反调印刷 —— 巨型指标 + 跨列不等宽的阶梯反网格 + 硬框面板 + 校样清单。
- * 结构：KPI 带 / 经营概览 / 任务趋势 / 最近报告 / 近期任务 / 最近 Listing / 数据源状态。
+ * 结构：KPI 带 / 经营概览 / 任务趋势 / 最近报告 / 近期任务 / 最近 Listing。
  *
  * 趋势图用 `lib/charts.ts` 的手写内联 SVG：零依赖，28 项字节级对照；换 Recharts 会给
  * 本页 chunk 增加约 90 KB，收益只有可交互 tooltip，要用时单独评估体积。
@@ -29,6 +29,7 @@ import {
 } from '@/lib/labels'
 import { PageFrame, PageShell } from '@/components/shared/PageShell'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { CountUp } from '@/components/shared/CountUp'
 /* Recharts 单独成 chunk：它是本页最重的一块（约 350 KB raw），
    而 KPI / 列表 / 空态并不需要它。拆开后进工作台先看到数字，
    图表随后补上；也避免把它塞进任何其它页面。 */
@@ -36,7 +37,6 @@ const TrendChart = lazy(() =>
   import('@/components/shared/charts/TrendChart').then((m) => ({ default: m.TrendChart })),
 )
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Alert, AlertTitle } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -63,7 +63,6 @@ type View =
 function Tile({
   label,
   value,
-  note,
   span = 3,
   stagger,
   giant,
@@ -71,7 +70,6 @@ function Tile({
 }: {
   label: string
   value: unknown
-  note?: string
   span?: 2 | 3 | 4 | 5
   stagger?: 14 | 20 | 30 | 40
   giant?: boolean
@@ -93,8 +91,9 @@ function Tile({
       <div className="dtile-lab" data-kpi-label>
         {label}
       </div>
-      <div className="dtile-num">{String(value)}</div>
-      {note ? <div className="dtile-sub">{note}</div> : null}
+      <div className="dtile-num">
+        {typeof value === 'number' ? <CountUp value={value} /> : String(value)}
+      </div>
     </div>
   )
 }
@@ -102,24 +101,28 @@ function Tile({
 /** 硬框面板：表头带 + 内容区；data-dash-card 是验收锚点，恒定带上 */
 function PressPanel({
   title,
-  meta,
   action,
   className,
   bodyClass,
+  reveal,
   children,
 }: {
   title: string
-  meta?: string
   action?: React.ReactNode
   className?: string
   bodyClass?: string
+  /** 交给 usePageReveal：只有长页面底部的几块主面板开启，避免整页都在动 */
+  reveal?: boolean
   children: React.ReactNode
 }) {
   return (
-    <section className={cn('press-panel', className)} data-dash-card="">
+    <section
+      className={cn('press-panel', className)}
+      data-dash-card=""
+      data-reveal={reveal ? '' : undefined}
+    >
       <div className="ph">
         <span className="ph-title">{title}</span>
-        {meta ? <span className="ph-meta">{meta}</span> : null}
         {action ? <span className="ph-act">{action}</span> : null}
       </div>
       <div className={cn('pb', bodyClass)}>{children}</div>
@@ -131,12 +134,10 @@ function PressPanel({
 function EmptyBlock({
   icon: Icon,
   title,
-  desc,
   actions,
 }: {
   icon: typeof FileText
   title: string
-  desc: string
   actions?: React.ReactNode
 }) {
   return (
@@ -145,7 +146,6 @@ function EmptyBlock({
         <Icon className="size-5" aria-hidden="true" />
       </span>
       <p className="de-title">{title}</p>
-      <p className="de-desc">{desc}</p>
       {actions ? <div className="de-act">{actions}</div> : null}
     </div>
   )
@@ -229,8 +229,7 @@ function ShopOverview({ m, className }: { m: Dict; className?: string }) {
   return (
     <PressPanel
       className={cn('dash-ov', className)}
-      title="经营概览"
-      meta={`近 ${m.days || 30} 天`}
+      title={`经营概览 · ${m.days || 30} 天`}
       action={
         <a className="ph-all" href="/stores" data-link="">
           经营看板
@@ -244,7 +243,6 @@ function ShopOverview({ m, className }: { m: Dict; className?: string }) {
         {cell('orderCount', '订单量', num)}
         {cell('aov', '客单价', money)}
       </div>
-      <div className="ov-foot">这家店近 {m.days || 30} 天的销售，与上一个等长周期对比。</div>
     </PressPanel>
   )
 }
@@ -356,16 +354,8 @@ export function DashboardPage() {
   const tasks = data.recent_tasks || []
   const reports = data.recent_reports || []
   const listings = data.recent_listings || []
-  const sources = data.data_sources || []
   const hasTrend = (data.daily_tasks || []).some((d) => Number(d.count) > 0)
   const awaiting = Number(stats.awaiting_approval) || 0
-
-  const badgeFor = (s: Dict) => {
-    if (s.mode === 'upload') return <Badge variant="secondary">你的文件</Badge>
-    if (s.configured && s.mode === 'live') return <Badge variant="success">已连接</Badge>
-    if (s.configured) return <Badge variant="secondary">示例数据</Badge>
-    return <Badge variant="outline">未设置</Badge>
-  }
 
   return (
     <PageFrame>
@@ -388,33 +378,24 @@ export function DashboardPage() {
               </span>
               <div className="al-body">
                 <strong className="al-strong">还差一步：配置你自己的 API Key。</strong>
-                <div className="al-p">
-                  激浪不提供模型额度，竞品分析与 Listing 生成都用你自己的 Key。Key 加密保存，只用于你的账号，随时可以删除。
-                  <a className="underline underline-offset-2" href="/settings" data-link="">
-                    去「设置 → 模型与密钥」
-                  </a>
-                  配置后回到这里发起第一个任务。想先看效果？
-                  <a className="underline underline-offset-2" href="/workbench" data-link="">
-                    去 AI 助手用示例数据跑一次
-                  </a>
-                  。
-                </div>
               </div>
+              <a className="btn btn-sm btn-primary al-go" href="/settings" data-link="">
+                去配置
+              </a>
             </div>
           ) : null}
 
           {/* 反网格 KPI 带：巨型首格 + 不等宽 + 阶梯错位，全部数字来自服务端 */}
           <div className="dash-tiles">
-            <Tile giant label="任务总数" value={stats.total || 0} note="含全部状态 · 均来自服务端" />
-            <Tile span={2} stagger={20} label="进行中" value={stats.running || 0} note="运行中与排队中" />
-            <Tile span={2} stagger={40} label="报告" value={stats.reports || 0} note="竞品分析结果" />
-            <Tile span={2} stagger={14} label="Listing" value={stats.listings || 0} note="草稿与版本" />
+            <Tile giant label="任务总数" value={stats.total || 0} />
+            <Tile span={2} stagger={20} label="进行中" value={stats.running || 0} />
+            <Tile span={2} stagger={40} label="报告" value={stats.reports || 0} />
+            <Tile span={2} stagger={14} label="Listing" value={stats.listings || 0} />
             <Tile
               span={2}
               stagger={30}
               label="待审批"
               value={awaiting}
-              note="需要人工确认"
               stamp={{ text: awaiting > 0 ? '需处理' : '无积压', tone: awaiting > 0 ? 'danger' : 'done' }}
             />
           </div>
@@ -423,9 +404,8 @@ export function DashboardPage() {
 
           <div className="dash-grid">
             <PressPanel
-              className="c7"
-              title="任务趋势"
-              meta="近 14 天 · 每天新建"
+              className="c7 dash-trend"
+              title="任务趋势 · 14 天"
               action={
                 <a className="ph-all" href="/tasks" data-link="">
                   查看全部
@@ -436,7 +416,7 @@ export function DashboardPage() {
               <div id="dash-trend">
                 <Suspense
                   fallback={
-                    <div style={{ height: 148 }}>
+                    <div className="cp-chart-fill" style={{ minHeight: 240 }}>
                       <Skeleton className="h-full w-full" />
                     </div>
                   }
@@ -450,15 +430,15 @@ export function DashboardPage() {
                           }))
                         : []
                     }
-                    height={148}
+                    fill
                     label={`近 ${(data.daily_tasks || []).length} 天任务数量趋势`}
-                    emptyText="这 14 天还没有新建任务 · 不画假折线"
+                    emptyText="这 14 天还没有新建任务"
                   />
                 </Suspense>
               </div>
             </PressPanel>
 
-            <PressPanel className="c5 stagger" title="最近报告" meta="竞品分析">
+            <PressPanel className="c5 stagger" title="最近报告" reveal>
               {reports.length ? (
                 reports.map((r, i) => (
                   <ProofRow
@@ -476,7 +456,6 @@ export function DashboardPage() {
                 <EmptyBlock
                   icon={FileText}
                   title="还没有报告"
-                  desc="生成第一份竞品分析后，报告会出现在这里。"
                 />
               )}
             </PressPanel>
@@ -484,8 +463,8 @@ export function DashboardPage() {
             <PressPanel
               className="c8"
               title="近期任务"
-              meta="最近执行记录"
               bodyClass="pb-tight"
+              reveal
               action={
                 tasks.length ? (
                   <a className="ph-all" href="/tasks" data-link="">
@@ -527,7 +506,6 @@ export function DashboardPage() {
                 <EmptyBlock
                   icon={ListChecks}
                   title="还没有任务"
-                  desc="在 AI 助手描述一个业务目标，Agent 会依次完成竞品分析、数据核对与 Listing 生成。"
                   actions={
                     <>
                       <Button size="sm" asChild>
@@ -546,7 +524,7 @@ export function DashboardPage() {
               )}
             </PressPanel>
 
-            <PressPanel className="c4 stagger" title="最近 Listing" meta="草稿与版本" data-dash-card="">
+            <PressPanel className="c4 stagger" title="最近 Listing" data-dash-card="" reveal>
               {listings.length ? (
                 listings.map((l, i) => (
                   <ProofRow
@@ -562,7 +540,6 @@ export function DashboardPage() {
                 <EmptyBlock
                   icon={ScrollText}
                   title="还没有 Listing 草稿"
-                  desc="基于已确认的商品事实生成，并自动做事实对齐质检。"
                   actions={
                     <Button size="sm" variant="outline" asChild>
                       <a href="/workbench" data-link="">
@@ -574,38 +551,12 @@ export function DashboardPage() {
               )}
             </PressPanel>
 
-            {sources.length ? (
-              <PressPanel
-                className="c12"
-                title="数据源状态"
-                meta="每个数据域当前用的哪份数据"
-                data-dash-card=""
-                action={
-                  <a className="ph-all" href="/settings#data" data-link="">
-                    数据源设置
-                  </a>
-                }
-              >
-                {sources.map((s, i) => (
-                  <div className="proof" key={i}>
-                    <span className="proof-main">
-                      <span className="proof-nm">{s.label}</span>
-                      {s.detail ? <span className="proof-mt">{s.detail}</span> : null}
-                    </span>
-                    <span className="proof-tm">{badgeFor(s)}</span>
-                  </div>
-                ))}
-              </PressPanel>
-            ) : null}
           </div>
 
           {/* 巨型描边排版收尾：真实任务总数，治短页面死白 */}
           <div className="bigfill">
             <span className="bf-n">{String(stats.total || 0).padStart(2, '0')}</span>
-            <span className="bf-t">
-              条任务记录
-              <em>状态与数字均来自服务端</em>
-            </span>
+            <span className="bf-t">条任务记录</span>
           </div>
         </div>
       </PageShell>

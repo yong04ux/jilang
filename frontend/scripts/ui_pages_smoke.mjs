@@ -179,7 +179,8 @@ async function main() {
     await ev(`!document.getElementById('source-banner').hidden`),
     '数据来源提示条可见',
   )
-  check(dash.desc.length > 0, '有页面说明', dash.desc.slice(0, 20))
+  // v3.0 定稿（2026-11-07）删除了主标题下的说明文，这里断言它确实不在
+  check(dash.desc.length === 0, '主标题下无说明文（v3 定稿）', dash.desc.slice(0, 20))
   check(dash.kpis === 5, 'KPI 5 格', dash.kpis)
   check(
     dash.kpiLabels.join('|') === '任务总数|进行中|报告|Listing|待审批',
@@ -383,7 +384,7 @@ async function main() {
   const st = JSON.parse(
     await ev(`JSON.stringify({
       title: (document.querySelector('.page-title') || {}).textContent || '',
-      sections: ['account','model','data','team'].map((k) => !!document.getElementById('section-' + k)),
+      sections: ['account','model','team'].map((k) => !!document.getElementById('section-' + k)),
       auditCard: !!document.getElementById('section-audit'),
       canInvite: !!document.getElementById('btn-invite'),
       teamHint: (document.querySelector('#section-team .callout') || {}).textContent || '',
@@ -392,7 +393,7 @@ async function main() {
     })`),
   )
   check(st.title === '设置', '标题正确', st.title)
-  check(st.sections.every(Boolean), '账号/模型/数据源/团队四张卡都在', st.sections)
+  check(st.sections.every(Boolean), '账号/模型/团队三张卡都在', st.sections)
   check(st.activeLine.indexOf('当前生效：') === 0, '「当前生效」一行存在', st.activeLine)
   check(
     st.canInvite || /只有 admin \/ owner/.test(st.teamHint),

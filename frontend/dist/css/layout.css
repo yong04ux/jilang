@@ -375,6 +375,12 @@
   gap: 20px;
   margin-bottom: 22px;
 }
+/* 套准：标题的洋红版进场时从 12px 偏位滑回 3px，像丝网印一版一版对齐 */
+@property --mis-x {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 3px;
+}
 .page-title {
   font-family: var(--font-sans);
   font-size: var(--fs-hero);
@@ -382,7 +388,13 @@
   letter-spacing: var(--tr-tight);
   line-height: var(--lh-tight);
   /* 丝网印错位：所有页面共用同一份，别按页挑 */
-  text-shadow: 3px 2px 0 var(--acid-magenta);
+  --mis-x: 3px;
+  text-shadow: var(--mis-x) 2px 0 var(--acid-magenta);
+  animation: mis-settle var(--dur-3) var(--ease-out) both;
+}
+@keyframes mis-settle {
+  from { --mis-x: 12px; }
+  to   { --mis-x: 3px; }
 }
 .page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 
@@ -392,8 +404,42 @@
   from { opacity: 0; transform: translateY(3px); }
   to   { opacity: 1; transform: none; }
 }
+/* 走纸过渡由 JS 播（router.ts），此时关掉 CSS 兜底进场，避免双重动画 */
+.view.view--fed { animation: none; }
+
+/* 走纸过渡：旧页的克隆层，固定在同一位置、剪裁、不吃指针事件 */
+.cp-page-ghost {
+  position: fixed;
+  z-index: 5;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+  contain: paint;
+}
+
+/* 滚动揭示：初始隐藏交给 CSS，晚挂载的区块才不会先露出来再消失。
+   JS 只负责加 html 上的开关和给揭示过的节点打 data-revealed。 */
+html.cp-reveal-on [data-reveal]:not([data-revealed]) { opacity: 0; }
+
+/* 骨架显影：慢 chunk 时盖在内容区上，内容解析后淡出，与内容的 view-in 交叠 */
+.view-root { position: relative; }
+.page-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+  /* 透明：让 body 的网点纸纹透上来，骨架与内容在同一个纸面上 */
+  background: transparent;
+}
+.page-veil[data-state="open"] { animation: veil-in var(--dur-2) var(--ease-out) 90ms both; }
+.page-veil[data-state="closed"] { animation: motion-fade-out var(--dur-2) var(--ease-out) both; }
+@keyframes veil-in { from { opacity: 0; } to { opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
   .view { animation: none; }
+  .page-veil { animation: none !important; }
+  .page-title { animation: none; }
 }
 
 /* ----------------------------------------------------------------------------

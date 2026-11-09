@@ -13,6 +13,7 @@
  */
 import type { ComponentType } from 'react'
 import { flushSync } from 'react-dom'
+import { animate, reduced, tokenMs } from '@/lib/motion'
 
 export interface RoutePageProps {
   params: Record<string, string>
@@ -126,6 +127,153 @@ function initialPath(): string {
 let snapshot: RouterSnapshot = { path: initialPath(), nonce: 0 }
 const listeners = new Set<() => void>()
 
+const PAGE_SEL = ':scope > .view, :scope > .mount-slot > .view'
+
+/* 幽灵层放在 closed shadow root 里：document.querySelector 穿不过去，
+   验收脚本在 go() 之后同步查询时不会把旧页元素多数一遍，也不会撞重复 id。
+   宿主与样式表只建一次，后续换页只换内容，避免首次克隆时闪一下无样式。 */
+let ghostHost: HTMLDivElement | null = null
+let ghostShadow: ShadowRoot | null = null
+
+function ghostShell(): ShadowRoot | null {
+  if (ghostShadow && ghostHost?.isConnected) return ghostShadow
+  if (typeof document === 'undefined' || typeof Element === 'undefined') return null
+  if (typeof Element.prototype.attachShadow !== 'function') return null
+  const host = document.createElement('div')
+  host.className = 'cp-page-ghost'
+  host.setAttribute('aria-hidden', 'true')
+  const shadow = host.attachShadow({ mode: 'closed' })
+  document.querySelectorAll('link[rel="stylesheet"], style').forEach((node) => {
+    shadow.appendChild(node.cloneNode(true))
+  })
+  const slot = document.createElement('div')
+  slot.className = 'cp-page-ghost-slot'
+  shadow.appendChild(slot)
+  document.body.appendChild(host)
+  ghostHost = host
+  ghostShadow = shadow
+  return shadow
+}
+
+function takeGhostSlot(): HTMLElement | null {
+  const shadow = ghostShell()
+  const slot = shadow?.lastElementChild as HTMLElement | null
+  if (!slot) return null
+  slot.textContent = ''
+  return slot
+}
+
+function hideGhost(): void {
+  if (!ghostHost) return
+  ghostHost.style.display = 'none'
+  ghostHost.style.opacity = ''
+  ghostHost.style.transform = ''
+  const slot = ghostShadow?.lastElementChild as HTMLElement | null
+  if (slot) slot.textContent = ''
+}
+
+/** 新页进场由 JS 负责时，关掉 `.view` 自带的 CSS 进场，避免双重动画 */
+function markFed(root: HTMLElement | null): void {
+  root?.querySelector<HTMLElement>(PAGE_SEL)?.classList.add('view--fed')
+}
+
+/**
+ * 走纸式切页：先把旧页克隆成一张贴在同一位置的「纸」，再同步换页，
+ * 最后旧纸向左抽走、新页从右推入。
+ *
+ * 为什么不用 View Transitions：`document.startViewTransition()` 的更新回调是
+ * 异步调用的，go() 会在 DOM 换页之前就返回，而验收脚本依赖「go() 返回即新页面」
+ * 的同步语义。克隆方案能在一次同步调用里完成换页并拿到旧页快照。
+ *
+ * 超大 DOM 不克隆（>2500 节点）只做新页进场，避免克隆开销拖慢切页。
+ */
+function pageFeed(apply: () => void, slide: boolean): void {
+  const root = document.getElementById('view-root')
+  const gate = document.getElementById('auth-gate')
+  const hasPage = Boolean(root?.querySelector(PAGE_SEL))
+  if (!root || !hasPage || reduced() || (gate && !gate.hidden)) {
+    // 没有旧页可克隆时保留 CSS 兜底进场，不做标记
+    apply()
+    return
+  }
+
+  const rect = root.getBoundingClientRect()
+  const ghostRoot = root.cloneNode(true) as HTMLElement
+  const cheap = ghostRoot.querySelectorAll('*').length <= 2500
+  let box: HTMLDivElement | null = null
+
+  if (cheap && rect.width > 0) {
+    const slot = takeGhostSlot()
+    if (slot && ghostHost) {
+      ghostRoot.removeAttribute('id')
+      ghostRoot.classList.add('view--fed')
+      ghostRoot.style.position = 'absolute'
+      ghostRoot.style.left = '0'
+      ghostRoot.style.top = '0'
+      ghostRoot.style.width = rect.width + 'px'
+      slot.appendChild(ghostRoot)
+      box = ghostHost
+      box.style.display = 'block'
+      box.style.opacity = ''
+      box.style.transform = ''
+      box.style.left = rect.left + 'px'
+      box.style.top = rect.top + 'px'
+      box.style.width = rect.width + 'px'
+      box.style.height = rect.height + 'px'
+    }
+  }
+
+  document.documentElement.dataset.cpFeed = '1'
+  try {
+    apply()
+  } catch (err) {
+    hideGhost()
+    delete document.documentElement.dataset.cpFeed
+    throw err
+  }
+  markFed(root)
+
+  const next = root.querySelector<HTMLElement>(PAGE_SEL)
+  const duration = tokenMs('--dur-3', 280)
+  const jobs: Promise<unknown>[] = []
+  if (box) {
+    jobs.push(
+      animate(
+        box,
+        slide
+          ? [
+              { opacity: 1, transform: 'none', offset: 0 },
+              // 先带着整张纸滑出去，后段才淡掉——一上来就淡会像交叉溶解，不像抽纸
+              { opacity: 1, transform: 'translate3d(-15px,0,0)', offset: 0.45 },
+              { opacity: 0, transform: 'translate3d(-28px,0,0)', offset: 1 },
+            ]
+          : [{ opacity: 1 }, { opacity: 0 }],
+        { duration, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' },
+      ),
+    )
+  }
+  if (next) {
+    jobs.push(
+      animate(
+        next,
+        slide
+          ? [{ opacity: 0, transform: 'translate3d(30px,0,0)' }, { opacity: 1, transform: 'none' }]
+          : [{ opacity: 0 }, { opacity: 1 }],
+        { duration: duration + 40 },
+      ),
+    )
+  }
+  const done = () => {
+    hideGhost()
+    // 等遗留页的挂载 effect 跑完再摘标记（它的 stagger 靠这个标记跳过）
+    window.setTimeout(() => {
+      delete document.documentElement.dataset.cpFeed
+    }, 240)
+  }
+  if (jobs.length) void Promise.all(jobs).then(done, done)
+  else done()
+}
+
 /**
  * 提交路由变更。
  *
@@ -142,7 +290,9 @@ function notify(nextPath?: string): void {
     }
     listeners.forEach((fn) => fn())
   }
-  flushSync(apply)
+  // 同路径重绘是「刷新」，不做横向抽纸；换页才走纸
+  const slide = normalize(nextPath ?? location.pathname + location.search) !== normalize(snapshot.path)
+  pageFeed(() => flushSync(apply), slide)
 }
 
 export function subscribeRouter(listener: () => void): () => void {
@@ -199,6 +349,8 @@ let installed = false
 export function installRouterListeners(): void {
   if (installed) return
   installed = true
+  // 启动时先把幽灵层的样式表挂好（display:none），首次切页才不会闪一下无样式
+  ghostShell()
 
   window.addEventListener('popstate', () => {
     notify(location.pathname + location.search)

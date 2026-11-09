@@ -319,7 +319,7 @@ textarea {
 }
 
 input::placeholder,
-textarea::placeholder { color: #9A9182; letter-spacing: .04em; }
+textarea::placeholder { color: var(--faint); letter-spacing: .04em; }
 
 input:hover,
 textarea:hover,
