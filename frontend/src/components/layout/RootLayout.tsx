@@ -12,6 +12,7 @@ import type { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { SourceBanner } from './SourceBanner'
+import { ImageLightbox } from '@/components/shared/ImageLightbox'
 import { useUiStore } from '@/stores/uiStore'
 
 export function RootLayout({ activeKey, children }: { activeKey: string; children: ReactNode }) {
@@ -37,6 +38,7 @@ export function RootLayout({ activeKey, children }: { activeKey: string; childre
           {children}
         </main>
       </div>
+      <ImageLightbox />
     </div>
   )
 }

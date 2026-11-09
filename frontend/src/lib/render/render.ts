@@ -128,7 +128,7 @@ function competitorTable(report: Dict): string {
     .map((c: Dict) => {
       // 有图才出图；没有就留一个同尺寸的占位，避免各行名字起点参差
       const thumb = c.image
-        ? `<img class="cp-thumb" src="${esc(c.image)}" alt="" loading="lazy" width="40" height="40" />`
+        ? `<img class="cp-thumb" src="${esc(c.image)}" alt="${esc(c.name)}" loading="lazy" width="40" height="40" data-zoom data-zoom-title="${esc(c.name)}" />`
         : `<span class="cp-thumb cp-thumb-empty" aria-hidden="true"></span>`
       return (
         `<tr>` +

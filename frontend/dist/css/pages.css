@@ -3250,9 +3250,21 @@ a.proof:hover .proof-nm {
 }
 .wb-artifact-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .wb-listing-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
   padding: var(--sp-3);
   border: 2px solid var(--ink);
   background: var(--paper);
+}
+.wb-listing-preview-body { display: flex; flex-direction: column; min-width: 0; }
+.wb-listing-thumb {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  object-fit: contain;
 }
 .wb-listing-preview-label {
   display: block;
@@ -3587,3 +3599,128 @@ a.proof:hover .proof-nm {
 }
 .wb-chat-empty .icon { width: 28px; height: 28px; color: var(--ink-3); }
 .wb-chat-empty p { margin: 0; }
+
+/* 澄清卡里的商品缩略图：选中店铺商品后出现的实物确认 */
+.wb-product-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+}
+.wb-product-preview img {
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.wb-product-preview-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wb-product-preview-name {
+  font-size: var(--fs-sm);
+  font-weight: 900;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-product-preview-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: .06em;
+  color: var(--ink-3);
+}
+
+/* 过程与产物在会话内展开 */
+.chat-inner > div[data-inline-process]:empty { display: none; }
+.wb-inline-process-body { gap: var(--sp-3); }
+.wb-task-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+}
+.wb-task-info > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 6px 0;
+  border-bottom: 2px dotted var(--ink-3);
+}
+.wb-task-info span {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: .08em;
+  color: var(--ink-3);
+}
+.wb-task-info strong {
+  font-size: var(--fs-sm);
+  font-weight: 900;
+  text-align: right;
+  color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .wb-task-info { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 任务中心：行内展开详情（不再右侧抽屉） */
+.tasks-table tbody tr.task-inline-row { cursor: default; }
+.tasks-table tbody tr.task-inline-row td {
+  padding: 0;
+  border-left: 0 !important;
+  background: var(--paper-3);
+}
+.task-inline-detail {
+  padding: 16px 18px 20px;
+  border-top: 3px solid var(--ink);
+  background: var(--paper);
+}
+.task-inline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 2px dotted var(--ink-3);
+}
+.task-inline-body { min-width: 0; }
+
+/* 任务详情：执行步骤可收起 */
+.task-steps-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.task-steps-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+.task-steps-toggle { display: inline-flex; align-items: center; gap: 4px; }
+.task-steps-toggle .icon { width: 14px; height: 14px; }
+
+/* 过程与产物：每个分区显式标出收起 / 展开 */
+.wb-drawer-sec > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+.wb-drawer-toggle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: .06em;
+  color: var(--ink-3);
+}
+.wb-drawer-sec[open] .when-closed { display: none; }
+.wb-drawer-sec:not([open]) .when-open { display: none; }

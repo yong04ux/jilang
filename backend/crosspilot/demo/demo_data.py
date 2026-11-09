@@ -129,6 +129,7 @@ DEMO_COMPETITORS: list[dict[str, Any]] = [
 DEMO_OWN_PRODUCT: dict[str, Any] = {
     "name": "EcoSip Insulated Water Bottle",
     "brand": "EcoSip",
+    "image": "/media/products/ecosip-bottle-black.png",
     "category": "Sports Water Bottles",
     "specifications": {
         "容量": "750ml",

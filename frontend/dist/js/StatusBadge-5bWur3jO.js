@@ -1,0 +1,1 @@
+import{f as e,l as t,t as n}from"./jsx-runtime-CcRl0Edp.js";import{E as r}from"./index-D9pB1OPE.js";var i=e(t(),1),a=n();function o({status:e}){let t=r[e]||r.queued,n=(0,i.useRef)(e),o=n.current!==e;(0,i.useEffect)(()=>{n.current=e},[e]);let s=o?t.cls+` stamp-slam`:t.cls;return(0,a.jsx)(`span`,{className:s,children:t.label},o?e:`idle`)}export{o as t};

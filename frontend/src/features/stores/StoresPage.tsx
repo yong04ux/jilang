@@ -348,6 +348,13 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
         currency: dash.currency,
         height: 232,
         label: '业绩走势',
+        xLabel: '日期',
+        yLabel:
+          trendKey === 'salesAmount'
+            ? `销售额（${dash.currency || 'USD'}）`
+            : trendKey === 'unitCount'
+              ? '销量（件）'
+              : '订单量（单）',
         emptyText: '这段时间还没有销售记录',
       })
       mountBars(stage.querySelector('#st-hours') as HTMLElement | null, {
@@ -358,6 +365,8 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
         format: 'number',
         height: 168,
         label: '24 小时下单分布',
+        xLabel: '时段',
+        yLabel: '订单量（单）',
         emptyText: '这段时间还没有订单',
       })
     }
@@ -371,6 +380,8 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
         currency: detail.currency || detail.product?.currency,
         height: 232,
         label: '单品销售走势',
+        xLabel: '日期',
+        yLabel: `销售额（${detail.currency || detail.product?.currency || 'USD'}）`,
         emptyText: '这个商品这段时间还没有销售记录',
       })
     }
@@ -395,7 +406,7 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
 
     const onClick = async (event: MouseEvent) => {
       const el = (event.target as Element).closest(
-        '[data-range],[data-seg-key],[data-seg],[data-trend-key],[data-kind],[data-sync],[data-pick],[data-expand],#st-unbound-add,#st-cancel',
+        '[data-range],[data-seg-key],[data-seg],[data-trend-key],[data-kind],[data-sync],[data-pick],[data-back-products],[data-expand],#st-unbound-add,#st-cancel',
       ) as HTMLElement | null
       if (!el) return
 
@@ -427,6 +438,12 @@ export function StoresPage({ view, query }: { view: string; query: Record<string
         const next = el.getAttribute('data-kind') || 'listing'
         setLedger(next)
         syncUrl({ ...ctx, ledger: next })
+        return
+      }
+      if (el.hasAttribute('data-back-products')) {
+        event.preventDefault()
+        setAsin('')
+        syncUrl({ ...ctx, asin: '' })
         return
       }
       if (el.hasAttribute('data-pick')) {

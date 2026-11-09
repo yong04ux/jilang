@@ -634,7 +634,7 @@ export function productListHtml(products: Dict[], currencyFallback?: string): st
       (withImage
         ? '<td class="st-col-thumb">' +
           (item.image
-            ? '<img class="st-thumb" src="' + esc(item.image) + '" alt="" loading="lazy" width="40" height="40" />'
+            ? '<img class="st-thumb" src="' + esc(item.image) + '" alt="' + esc(item.name) + '" loading="lazy" width="40" height="40" data-zoom data-zoom-title="' + esc(item.name) + '" />'
             : '<span class="st-thumb st-thumb-empty" aria-hidden="true"></span>') +
           '</td>'
         : '') +
@@ -674,7 +674,7 @@ export function productDetailHtml(detail: Dict): string {
     '<div class="st-product">' +
     '<span class="st-product-thumb">' +
     (p.image
-      ? '<img src="' + esc(p.image) + '" alt="" loading="lazy" width="58" height="58" />'
+      ? '<img src="' + esc(p.image) + '" alt="' + esc(p.name) + '" loading="lazy" width="96" height="96" data-zoom data-zoom-title="' + esc(p.name) + '" />'
       : esc(String(p.asin || '?').slice(0, 2))) +
     '</span>' +
     '<div class="st-product-main">' +
@@ -718,6 +718,9 @@ export function productDetailHtml(detail: Dict): string {
   )
 
   return (
+    '<div class="st-product-back">' +
+    '<button type="button" class="btn btn-sm btn-quiet" data-back-products>' +
+    icon('chevronLeft') + '返回商品列表</button></div>' +
     summary +
     (warnings ? '<div class="mt-3">' + warnings + '</div>' : '') +
     card('核心指标', '<div class="st-metrics">' + metrics + '</div>') +

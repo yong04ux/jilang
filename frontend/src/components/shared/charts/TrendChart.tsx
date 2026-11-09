@@ -40,6 +40,10 @@ export interface TrendChartProps {
   /** 数值格式：number 走千分位，money 走货币符号 */
   format?: 'number' | 'money'
   currency?: string
+  /** 纵轴说明，例如「销售额（USD）」「任务数（个）」 */
+  yLabel?: string
+  /** 横轴说明，默认「日期」 */
+  xLabel?: string
   /** 无障碍描述，同时用作 tooltip 的标题 */
   label?: string
   /** 空态文案 */
@@ -82,11 +86,14 @@ export function TrendChart({
   fill = false,
   format = 'number',
   currency = 'USD',
+  yLabel,
+  xLabel = '日期',
   label,
   emptyText = '这段时间还没有数据',
 }: TrendChartProps) {
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const rows = Array.isArray(series) ? series : []
+  const resolvedYLabel = yLabel || (format === 'money' ? `金额（${currency}）` : '数值')
   // 稀疏序列才画点：只标有数的日子，零值留白；长序列不标，免得糊成一条珠链
   const renderDot = (props: DotArgs) => {
     const key = 'dot-' + (props.index ?? 0)
@@ -115,10 +122,10 @@ export function TrendChart({
       className={fill ? 'cp-chart-fill' : undefined}
       style={fill ? { height: '100%' } : { height }}
       role="img"
-      aria-label={label || '趋势图'}
+      aria-label={`${label || '趋势图'}，横轴：${xLabel}，纵轴：${resolvedYLabel}`}
     >
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={rows} margin={{ top: 12, right: 26, bottom: 0, left: 0 }}>
+        <AreaChart data={rows} margin={{ top: 12, right: 22, bottom: 18, left: 4 }}>
           <CartesianGrid
             vertical={false}
             stroke="var(--border)"
@@ -134,14 +141,26 @@ export function TrendChart({
             axisLine={false}
             tick={{ fill: 'var(--faint)', fontSize: 10 }}
             dy={4}
+            label={{
+              value: xLabel,
+              position: 'insideBottom',
+              offset: -2,
+              style: { fill: 'var(--faint)', fontSize: 10 },
+            }}
           />
           <YAxis
-            width={34}
+            width={52}
             tickLine={false}
             axisLine={false}
             allowDecimals={false}
             tick={{ fill: 'var(--faint)', fontSize: 10 }}
             tickFormatter={(v: number) => formatValue(v, format, currency)}
+            label={{
+              value: resolvedYLabel,
+              angle: -90,
+              position: 'insideLeft',
+              style: { textAnchor: 'middle', fill: 'var(--faint)', fontSize: 10 },
+            }}
           />
           <Tooltip
             cursor={{ stroke: 'var(--border-strong)', strokeWidth: 1 }}

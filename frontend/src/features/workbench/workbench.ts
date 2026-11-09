@@ -94,7 +94,7 @@ function dockView(root, selector) {
     taskId: null,
     taskRaw: null,
     poller: null,
-    drawerOpen: false,       // 过程与产物抽屉
+    inlineOpen: false,       // 过程与产物在会话内展开
     continuing: false,        // 本次目标是在当前会话里继续，而不是新建
     missingFocus: false,      // 从「缺资料」进入澄清卡时自动展开缺失项
     needKey: false,           // 上一步因为没配 Key 被 428 拦下 → 给一个可点的入口
@@ -513,6 +513,34 @@ function dockView(root, selector) {
     );
   }
 
+  function matchedProduct() {
+    const name = String(state.productName || "").trim();
+    return (state.products || []).filter(function (p) { return p.name === name; })[0] || null;
+  }
+
+  function productPreview(product) {
+    if (!product || !product.image) return "";
+    const price = typeof product.price === "number"
+      ? `${product.currency || "USD"} ${product.price.toFixed(2)}`
+      : "";
+    return (
+      `<div class="wb-product-preview">` +
+      `<img src="${U.esc(product.image)}" alt="${U.esc(product.name)}" width="56" height="56" loading="lazy" ` +
+      `data-zoom data-zoom-title="${U.esc(product.name)}" />` +
+      `<div class="wb-product-preview-body">` +
+      `<span class="wb-product-preview-name">${U.esc(product.name)}</span>` +
+      (price ? `<span class="wb-product-preview-meta">${U.esc(price)}</span>` : "") +
+      `</div></div>`
+    );
+  }
+
+  function paintProductPreview(root) {
+    const host = root.querySelector("#wb-product-preview");
+    if (!host) return;
+    host.innerHTML = productPreview(matchedProduct());
+    window.CPIcon.hydrate(host);
+  }
+
   function goalEditor() {
     return (
       `<details class="wb-more"${state.goal ? "" : " open"}>` +
@@ -576,6 +604,7 @@ function dockView(root, selector) {
       `<input id="wb-category" value="${U.esc(state.productCategory || "")}" placeholder="例如 Pet Supplies > Pet Fountains" /></label>` +
       `</div>` +
       productPicker +
+      `<div id="wb-product-preview">${productPreview(matchedProduct())}</div>` +
       `<label class="field"><span class="field-label">竞品数据 <span class="t-danger">*</span>` +
       `<span class="t-xs t-muted" id="wb-competitor-count">${parsedCount ? `· 已识别 ${parsedCount} 个` : ""}</span></span>` +
       `<textarea id="wb-competitors" rows="4" spellcheck="false" placeholder="竞品 A | 25.99 | 4.2 | 380 | 盖子漏水&#10;竞品 B | 19.99">${U.esc(state.competitorsText)}</textarea>` +
@@ -617,6 +646,7 @@ function dockView(root, selector) {
           `${U.esc(window.CPLabel.language(code))}</option>`;
       }).join("") + `</select></label>` +
       `</div>` +
+      productPreview(state.listingProduct) +
       `<label class="field"><span class="field-label">平台</span>` +
       `<select id="wb-ls-platform">` +
       ["amazon", "ebay"].map(function (p) {
@@ -927,7 +957,7 @@ function dockView(root, selector) {
       (meta.degraded ? `<div class="t-xs t-muted mt-2">这次没能完全读懂你的描述，参数是按文本推断的，开始前请核对一下。</div>` : "") +
       `</div>` +
       `<div class="msg-time">${message.task_id
-        ? `<a href="/tasks/${U.esc(message.task_id)}" data-link>查看任务</a> · `
+        ? `<button type="button" class="btn-link" data-open-process>查看任务</button> · `
         : ""}${U.esc(U.fmtTime(message.created_at))}</div>` +
       `</div></div>`;
   }
@@ -1150,8 +1180,7 @@ function dockView(root, selector) {
         ? `<button type="button" class="btn btn-primary" id="wb-retry-input">补充资料并重试</button>`
         : `<button type="button" class="btn btn-primary" id="wb-confirm-continue">确认并继续</button>` +
           `<button type="button" class="btn btn-quiet" id="wb-confirm-cancel">取消任务</button>`) +
-      `<button type="button" class="btn btn-quiet" data-open-drawer>查看已有结果</button>` +
-      (state.taskId ? `<a class="btn btn-quiet" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
+      processButton("btn btn-quiet", "查看已有结果", "收起结果") +
       `</div>` +
       `</div>`
     );
@@ -1271,11 +1300,11 @@ function dockView(root, selector) {
         : "") +
       `</div>` +
       `<div class="wb-card-foot">` +
-      `<button type="button" class="btn btn-quiet btn-sm" data-open-drawer>查看过程</button>` +
+      processButton("btn btn-quiet btn-sm", "查看过程", "收起过程") +
       (phase === "running" && state.taskId
         ? `<button type="button" class="btn btn-sm" id="wb-cancel">停止</button>`
         : "") +
-      (state.taskId ? `<a class="btn btn-quiet btn-sm" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
+      (state.taskId ? `<button type="button" class="btn btn-quiet btn-sm" data-open-process>任务详情</button>` : "") +
       `</div>` +
       `</div>`
     );
@@ -1291,7 +1320,7 @@ function dockView(root, selector) {
         `<div class="wb-card wb-result-card" data-result-card>` +
         `<div class="wb-card-head"><div><div class="wb-card-title">本次结果</div>` +
         `<div class="wb-card-sub">这次执行没有产出可展示的内容</div></div>${phaseBadge()}</div>` +
-        `<div class="wb-card-foot"><button type="button" class="btn btn-sm" data-open-drawer>查看执行过程</button></div>` +
+        `<div class="wb-card-foot">${processButton("btn btn-sm", "查看执行过程", "收起过程")}</div>` +
         `</div>`
       );
     }
@@ -1322,15 +1351,22 @@ function dockView(root, selector) {
         : "") +
       `</div>` +
       (state.listing
-        ? `<div class="wb-listing-preview"><span class="wb-listing-preview-label">标题</span>` +
-          `<span>${U.esc(state.listing.title || "—")}</span></div>`
+        ? (function () {
+            const product = state.listingProduct || matchedProduct();
+            const thumb = product && product.image
+              ? `<img class="wb-listing-thumb" src="${U.esc(product.image)}" alt="${U.esc(product.name)}" ` +
+                `loading="lazy" data-zoom data-zoom-title="${U.esc(product.name)}" />`
+              : "";
+            return `<div class="wb-listing-preview">${thumb}<div class="wb-listing-preview-body">` +
+              `<span class="wb-listing-preview-label">标题</span>` +
+              `<span>${U.esc(state.listing.title || "—")}</span></div></div>`;
+          })()
         : "") +
       `</div>` +
       `<div class="wb-card-foot">` +
-      `<button type="button" class="btn btn-primary btn-sm" data-open-drawer>查看完整结果</button>` +
+      processButton("btn btn-primary btn-sm", "查看完整结果", "收起结果") +
       (state.listing ? `<button type="button" class="btn btn-sm" id="wb-ls-edit">编辑草稿</button>` : "") +
       `<button type="button" class="btn btn-quiet btn-sm" data-act="continue">基于此继续</button>` +
-      (state.taskId ? `<a class="btn btn-quiet btn-sm" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
       `</div>` +
       `</div>`
     );
@@ -1339,15 +1375,38 @@ function dockView(root, selector) {
   function drawerSection(title, body, open) {
     return (
       `<details class="wb-drawer-sec"${open ? " open" : ""}>` +
-      `<summary>${U.esc(title)}</summary>` +
+      `<summary><span>${U.esc(title)}</span>` +
+      `<span class="wb-drawer-toggle"><span class="when-open">收起</span><span class="when-closed">展开</span></span>` +
+      `</summary>` +
       `<div class="wb-drawer-sec-body">${body}</div>` +
       `</details>`
+    );
+  }
+
+  function taskInfoHtml() {
+    const task = state.taskRaw || {};
+    const updated = task.updated_at || task.finished_at || "";
+    const rows = [
+      ["任务", task.title || state.productName || "—"],
+      ["状态", (PHASES[taskPhase()] || {}).label || "—"],
+      ["执行引擎", state.engine ? state.engine.label : "—"],
+      ["创建时间", task.created_at ? U.fmtTime(task.created_at) : "—"],
+      ["更新时间", updated ? U.fmtTime(updated) : "—"],
+      ["步骤", `${(state.steps || []).length} 步`],
+    ];
+    return (
+      `<div class="wb-task-info">` +
+      rows.map(function (row) {
+        return `<div><span>${U.esc(row[0])}</span><strong>${U.esc(row[1])}</strong></div>`;
+      }).join("") +
+      `</div>`
     );
   }
 
   function drawerBody() {
     const phase = taskPhase();
     const blocks = [];
+    blocks.push(drawerSection("任务信息", taskInfoHtml(), true));
     if (phase === "missing" || phase === "waiting") {
       blocks.push(
         `<div class="callout callout-warn">${U.icon("alert")}<div><strong>任务尚未结束</strong><br>` +
@@ -1366,17 +1425,34 @@ function dockView(root, selector) {
     return blocks.join("");
   }
 
-  function drawerHtml() {
+  function processHeadButton() {
+    if (!state.taskId) return "";
     return (
-      `<div class="wb-drawer-scrim" id="wb-drawer" data-drawer-scrim${state.drawerOpen ? "" : " hidden"}>` +
-      `<aside class="wb-drawer" role="dialog" aria-modal="true" aria-labelledby="wb-drawer-title">` +
-      `<div class="wb-drawer-head">` +
-      `<div><div class="wb-card-title" id="wb-drawer-title">过程与产物</div>` +
+      `<button type="button" class="btn btn-sm btn-quiet" id="wb-process-toggle" ` +
+      `${state.inlineOpen ? "data-close-process" : "data-open-process"}>` +
+      `${state.inlineOpen ? "收起过程" : "过程与产物"}</button>`
+    );
+  }
+
+  function processButton(className, closedLabel, openLabel) {
+    return (
+      `<button type="button" class="${className}" ` +
+      `${state.inlineOpen ? "data-close-process" : "data-open-process"}>` +
+      `${state.inlineOpen ? openLabel : closedLabel}</button>`
+    );
+  }
+
+  function inlineProcess() {
+    if (!state.inlineOpen) return "";
+    return (
+      `<div class="wb-card wb-inline-process">` +
+      `<div class="wb-card-head">` +
+      `<div><div class="wb-card-title">过程与产物</div>` +
       `<div class="wb-card-sub">步骤、证据与调用明细</div></div>` +
-      `<button type="button" class="btn-icon" data-drawer-close aria-label="关闭">${U.icon("close")}</button>` +
+      `<button type="button" class="btn btn-sm btn-quiet" data-close-process>收起</button>` +
       `</div>` +
-      `<div class="wb-drawer-body" data-drawer-body>${state.drawerOpen ? drawerBody() : ""}</div>` +
-      `</aside></div>`
+      `<div class="wb-card-body wb-inline-process-body" data-inline-body>${drawerBody()}</div>` +
+      `</div>`
     );
   }
 
@@ -1398,7 +1474,7 @@ function dockView(root, selector) {
   }
 
   function chatShell(inner, opts) {
-    const title = state.productName || state.conversationTitle || (state.continuing ? "继续任务" : "新任务");
+    const title = "AI 助手";
     return wbShell(
       `<div class="wb-chat" id="wb-chat">` +
       `<header class="wb-chat-head">` +
@@ -1408,12 +1484,14 @@ function dockView(root, selector) {
         : "") +
       `</div>` +
       `<div class="wb-chat-actions">` +
-      (state.taskId ? `<button type="button" class="btn btn-sm btn-quiet" data-open-drawer>过程与产物</button>` : "") +
+      processHeadButton() +
       `<button type="button" class="btn btn-sm btn-quiet wb-chat-new" data-act="new">${U.icon("plus")}新会话</button>` +
       `</div></header>` +
-      `<div class="chat-scroll" id="wb-chat-scroll"><div class="chat-inner">${inner}</div></div>` +
+      `<div class="chat-scroll" id="wb-chat-scroll"><div class="chat-inner">` +
+      inner +
+      `<div data-inline-process>${inlineProcess()}</div>` +
+      `</div></div>` +
       (opts && opts.composer ? composerFollowup() : "") +
-      drawerHtml() +
       `</div>`,
     );
   }
@@ -1464,25 +1542,60 @@ function dockView(root, selector) {
       badge.outerHTML = phaseBadge();
       changed = true;
     }
-    if (state.drawerOpen) {
-      const body = root.querySelector("[data-drawer-body]");
-      const html = drawerBody();
-      if (body && body.innerHTML !== html) {
-        /* 轮询每秒都会重绘抽屉：保留用户展开的分区和滚动位置 */
-        const openSections = Array.prototype.map.call(
-          body.querySelectorAll(".wb-drawer-sec"),
-          function (el) { return el.open; },
-        );
-        const top = body.scrollTop;
-        body.innerHTML = html;
-        body.querySelectorAll(".wb-drawer-sec").forEach(function (el, i) {
-          if (openSections[i] !== undefined) el.open = openSections[i];
-        });
-        body.scrollTop = top;
+    const headBtn = root.querySelector("#wb-process-toggle");
+    if (headBtn) {
+      const next = processHeadButton();
+      if (next && headBtn.outerHTML !== next) {
+        headBtn.outerHTML = next;
         changed = true;
       }
     }
+    if (refreshInline(root)) changed = true;
     if (changed) window.CPIcon.hydrate(root);
+  }
+
+  /* 过程与产物在会话内展开：轮询时保留用户展开的分区与滚动位置 */
+  function inlineSig() {
+    return [
+      taskPhase(),
+      (state.steps || []).map(function (step) { return `${step.seq}:${step.status}`; }).join(","),
+      state.report ? "r" : "",
+      state.listing ? "l" : "",
+      state.summary ? "s" : "",
+      state.quality ? "q" : "",
+      state.logCache ? (state.logCache.loading ? "L" : state.logCache.error ? "E" : String((state.logCache.chain || []).length)) : "0",
+      state.engine ? state.engine.label : "",
+    ].join("|");
+  }
+
+  function refreshInline(root) {
+    const host = root.querySelector("[data-inline-process]");
+    if (!host) return false;
+    if (!state.inlineOpen) {
+      host._wbInlineSig = "";
+      if (!host.innerHTML) return false;
+      host.innerHTML = "";
+      return true;
+    }
+    const sig = inlineSig();
+    if (host._wbInlineSig === sig) return false;
+    host._wbInlineSig = sig;
+    const oldBody = host.querySelector("[data-inline-body]");
+    const opens = oldBody
+      ? Array.prototype.map.call(oldBody.querySelectorAll(".wb-drawer-sec"), function (el) { return el.open; })
+      : null;
+    const top = oldBody ? oldBody.scrollTop : 0;
+    host.innerHTML = inlineProcess();
+    if (opens) {
+      const body = host.querySelector("[data-inline-body]");
+      if (body) {
+        body.querySelectorAll(".wb-drawer-sec").forEach(function (el, i) {
+          if (opens[i] !== undefined) el.open = opens[i];
+        });
+        body.scrollTop = top;
+      }
+    }
+    return true;
   }
 
   /* ================= 渲染与事件 ================= */
@@ -1528,28 +1641,19 @@ function dockView(root, selector) {
     }).catch(function () { /* 会话列表失败不影响主流程 */ });
   }
 
-  function openDrawer(root, restoreSelector) {
-    const scrim = root.querySelector("#wb-drawer");
-    if (!scrim) return;
-    state.drawerOpen = true;
-    scrim.hidden = false;
-    const body = scrim.querySelector("[data-drawer-body]");
-    if (body) body.innerHTML = drawerBody();
-    window.CPIcon.hydrate(scrim);
+  function openProcess(root) {
+    state.inlineOpen = true;
+    refreshRunPanels(root);
+    const host = root.querySelector("[data-inline-process]");
+    if (host) host.scrollIntoView({ behavior: "smooth", block: "start" });
     ensureLog(root);
-    const close = scrim.querySelector("[data-drawer-close]");
-    if (close) close.focus();
-    scrim.setAttribute("data-return-focus", restoreSelector || "");
   }
 
-  function closeDrawer(root) {
-    const scrim = root.querySelector("#wb-drawer");
-    if (!scrim || scrim.hidden) return;
-    state.drawerOpen = false;
-    scrim.hidden = true;
-    const sel = scrim.getAttribute("data-return-focus");
-    const back = sel ? root.querySelector(sel) : null;
-    if (back) back.focus();
+  function closeProcess(root) {
+    state.inlineOpen = false;
+    refreshRunPanels(root);
+    const btn = root.querySelector("[data-open-process]");
+    if (btn) btn.focus();
   }
 
   function ensureLog(root) {
@@ -1628,12 +1732,9 @@ function dockView(root, selector) {
         return;
       }
 
-      /* 过程与产物抽屉：开、关、点遮罩关 */
-      const drawerClose = event.target.closest("[data-drawer-close]");
-      if (drawerClose) { closeDrawer(root); return; }
-      if (event.target.matches("[data-drawer-scrim]")) { closeDrawer(root); return; }
-      const drawerOpen = event.target.closest("[data-open-drawer]");
-      if (drawerOpen) { openDrawer(root, "[data-open-drawer]"); return; }
+      /* 过程与产物：直接在会话里展开/收起 */
+      if (event.target.closest("[data-close-process]")) { closeProcess(root); return; }
+      if (event.target.closest("[data-open-process]")) { openProcess(root); return; }
 
       const agent = event.target.closest("[data-agent]");
       if (agent) {
@@ -1787,6 +1888,7 @@ function dockView(root, selector) {
         const input = root.querySelector("#wb-product");
         if (input) input.value = productPick.value;
         state.productName = productPick.value;
+        paintProductPreview(root);
       });
     }
 
@@ -1854,9 +1956,9 @@ function dockView(root, selector) {
         }
       }
       if (event.key !== "Escape") return;
-      if (state.drawerOpen) {
+      if (state.inlineOpen) {
         event.stopPropagation();
-        closeDrawer(root);
+        closeProcess(root);
         return;
       }
       if (state.assistantOpen) {
@@ -1941,7 +2043,7 @@ function dockView(root, selector) {
     state.degraded = false;
     state.degradedReason = "";
     state.taskRaw = null;
-    state.drawerOpen = false;
+    state.inlineOpen = false;
     state.continuing = false;
     state.missingFocus = false;
     state.assistantOpen = false;
@@ -1982,6 +2084,7 @@ function dockView(root, selector) {
     state.composerDraft = "";
     state.needKey = false;
     state.missingFocus = false;
+    state.inlineOpen = false;
     state.resolveInfo = null;
     if (!state.continuing) {
       state.messages = [];
@@ -2370,6 +2473,7 @@ function dockView(root, selector) {
     state.mode = "run";
     state.busy = true;
     state.taskStatus = "queued";
+    state.inlineOpen = false;
     state.conversationId = conversationId;
     state.error = "";
     state.report = null;

@@ -1,14 +1,13 @@
 /**
- * 任务中心：任务列表、待审批与详情抽屉。
+ * 任务中心：任务列表、待审批与行内任务详情。
  *
  * 两条必须保住的行为：
- *  1. **抽屉改地址不重绘**：点行打开详情时只 `history.replaceState` 到 /tasks/{id}，
- *     不经过路由，所以列表不会重挂、滚动位置不丢；刷新该地址才是「列表 + 抽屉」。
- *  2. **运行中任务自动刷新**：抽屉打开时按 1s 轮询任务详情，终态后刷新列表。
+ *  1. **展开改地址不重绘**：点行展开详情时只 `history.replaceState` 到 /tasks/{id}，
+ *     不经过路由，所以列表不会重挂、滚动位置不丢；刷新该地址才是「列表 + 展开」。
+ *  2. **运行中任务自动刷新**：展开时按 1s 轮询任务详情，终态后刷新列表。
  *     轮询用 `lib/async-run/poller`，连续失败 5 次才放弃，抖动一次不停。
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import { copy, fmtTime, toast } from '@/lib/ui'
 import { taskType } from '@/lib/labels'
@@ -17,7 +16,6 @@ import { PageFrame, PageShell } from '@/components/shared/PageShell'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { useTaskPolling } from '@/lib/async-run/useTaskPolling'
 import { isRunning } from '@/lib/async-run/poller'
-import { usePresence } from '@/hooks/usePresence'
 import { useFlipList } from '@/hooks/useFlipList'
 
 type Dict = Record<string, any>
@@ -121,26 +119,22 @@ function ListingResult({ listing }: { listing: Dict }) {
   )
 }
 
-function TaskDrawer({
-  open,
+function TaskDetailPanel({
   taskId,
   onClose,
   onListRefresh,
 }: {
-  open: boolean
-  taskId: string | null
+  taskId: string
   onClose: () => void
   onListRefresh: () => void
 }) {
-  const { mounted, state } = usePresence(open)
   const [detail, setDetail] = useState<Dict | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [stepsOpen, setStepsOpen] = useState(true)
   const stepsRef = useRef<HTMLDivElement>(null)
-  // 退场期间 taskId 已置空，记住最后一个任务让内容不空白
-  const lastIdRef = useRef<string | null>(taskId)
-  if (taskId) lastIdRef.current = taskId
-  const currentId = taskId ?? lastIdRef.current
+  const reportRef = useRef<HTMLDivElement>(null)
+  const currentId = taskId
 
   const loadDetail = useCallback(async () => {
     if (!currentId) return
@@ -154,10 +148,10 @@ function TaskDrawer({
   }, [currentId])
 
   useEffect(() => {
-    if (!taskId) return
     setDetail(null)
     setLoadError(null)
     setBusy(false)
+    setStepsOpen(true)
     void loadDetail()
   }, [taskId, loadDetail])
 
@@ -166,7 +160,7 @@ function TaskDrawer({
 
   useTaskPolling({
     taskId: currentId,
-    enabled: open && running,
+    enabled: running,
     onUpdate: (data) => setDetail(data as Dict),
     onDone: (data) => {
       setDetail(data as Dict)
@@ -177,23 +171,25 @@ function TaskDrawer({
     },
   })
 
-  /* Esc 关闭（原实现是 document 级监听，关闭时移除） */
+  /* Esc 收起当前任务 */
   useEffect(() => {
-    if (!open) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [onClose])
 
-  /* 执行步骤由旧 CPAsyncRun.stepList 产出 HTML 字符串，补一次图标 hydrate */
+  /* 执行步骤与竞品报告是 HTML 字符串，补一次图标 hydrate */
   useEffect(() => {
     if (stepsRef.current) window.CPIcon?.hydrate(stepsRef.current)
-  }, [detail])
+    if (reportRef.current) window.CPIcon?.hydrate(reportRef.current)
+  }, [detail, stepsOpen])
 
   const task: Dict = detail?.task || {}
   const result: Dict = detail?.result || {}
+  const steps: Dict[] = Array.isArray(detail?.steps) ? detail!.steps : []
+  const doneSteps = steps.filter((step) => step.status === 'succeeded' || step.status === 'skipped').length
   const pendingInfo: Dict | null =
     detail?.pending || result.pending || (task.output || {}).pending || null
   const canCancel = ['queued', 'running', 'cancelling'].includes(task.status)
@@ -245,30 +241,18 @@ function TaskDrawer({
     }
   }
 
-  if (!mounted) return null
-
-  return createPortal(
-    <>
-      <div className="drawer-scrim" id="task-drawer-scrim" data-state={state} onClick={onClose} />
-      <aside
-        className="drawer is-wide"
-        data-state={state}
-        role="dialog"
-        aria-modal="true"
-        aria-label="任务详情"
-        aria-hidden={state === 'closed'}
-        inert={state === 'closed'}
-      >
-        <div className="drawer-head">
+  return (
+    <section className="task-inline-detail" aria-label="任务详情">
+        <div className="task-inline-head">
           <div className="task-detail-head">
             <span className="t-section">任务详情</span>
           </div>
-          <button type="button" className="btn-icon" id="task-drawer-close" aria-label="关闭" onClick={onClose}>
+          <button type="button" className="btn-icon" id="task-detail-close" aria-label="收起任务详情" onClick={onClose}>
             <Icon name="close" />
           </button>
         </div>
 
-        <div className="drawer-body" id="task-drawer-body">
+        <div className="task-inline-body" id="task-detail-body">
           {loadError ? (
             <div className="callout callout-danger">
               <Icon name="alert" />
@@ -389,17 +373,50 @@ function TaskDrawer({
               ) : null}
 
               <hr className="divider mt-4 mb-4" />
-              <div className="t-section mb-3">执行步骤</div>
-              <div
-                ref={stepsRef}
-                dangerouslySetInnerHTML={{
-                  __html:
-                    window.CPAsyncRun?.stepList?.(
-                      detail.steps || [],
-                      (result && result.plan) || (task.output || {}).plan || [],
-                    ) ?? '',
-                }}
-              />
+              <div className="task-steps-head">
+                <div className="t-section">执行步骤</div>
+                <div className="task-steps-meta">
+                  <span className="t-xs t-muted">
+                    共 {steps.length} 步 · 已完成 {doneSteps} 步
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-quiet task-steps-toggle"
+                    aria-expanded={stepsOpen}
+                    aria-controls="task-steps-body"
+                    onClick={() => setStepsOpen((value) => !value)}
+                  >
+                    <Icon name={stepsOpen ? 'chevronDown' : 'chevronRight'} />
+                    {stepsOpen ? '收起步骤' : '展开步骤'}
+                  </button>
+                </div>
+              </div>
+              {stepsOpen ? (
+                <div
+                  id="task-steps-body"
+                  ref={stepsRef}
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      window.CPAsyncRun?.stepList?.(
+                        steps,
+                        (result && result.plan) || (task.output || {}).plan || [],
+                      ) ?? '',
+                  }}
+                />
+              ) : null}
+
+              {result.report ? (
+                <>
+                  <hr className="divider mt-4 mb-4" />
+                  <div className="t-section mb-3">竞品报告</div>
+                  <div
+                    ref={reportRef}
+                    dangerouslySetInnerHTML={{
+                      __html: window.CPRender?.renderReport?.(result.report) ?? '',
+                    }}
+                  />
+                </>
+              ) : null}
 
               {result.listing ? (
                 <>
@@ -410,9 +427,7 @@ function TaskDrawer({
             </>
           )}
         </div>
-      </aside>
-    </>,
-    document.body,
+      </section>
   )
 }
 
@@ -494,6 +509,10 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
   }, [status, query, version])
 
   const openDrawer = (taskId: string) => {
+    if (activeTaskId === taskId) {
+      closeDrawer()
+      return
+    }
     setActiveTaskId(taskId)
     // 让 URL 可分享；不触发路由重绘（router 只在 popstate / go() 时通知）
     if (location.pathname !== `/tasks/${taskId}`) {
@@ -711,36 +730,49 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
                       </thead>
                       <tbody ref={bodyRef}>
                         {rows.map((t) => (
-                          <tr
-                            data-task-row={t.task_id}
-                            data-status={t.status}
-                            tabIndex={0}
-                            style={{ cursor: 'pointer' }}
-                            key={t.task_id}
-                            onClick={() => openDrawer(t.task_id)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                openDrawer(t.task_id)
-                              }
-                            }}
-                          >
-                            <td>
-                              <strong>{t.title}</strong>
-                            </td>
-                            <td className="t-muted col-optional">{taskType(t.type)}</td>
-                            <td className="t-muted col-optional">{originLabel(t.origin)}</td>
-                            <td>
-                              <StatusBadge status={t.status} />
-                            </td>
-                            <td className="t-muted num">{fmtTime(t.created_at)}</td>
-                            <td className="t-muted num col-optional">
-                              {fmtTime(t.finished_at || t.started_at || t.created_at)}
-                            </td>
-                            <td className="num t-muted">
-                              {t.result_ref ? RESULT_LABEL[t.type] || '记录' : '—'}
-                            </td>
-                          </tr>
+                          <Fragment key={t.task_id}>
+                            <tr
+                              data-task-row={t.task_id}
+                              data-status={t.status}
+                              tabIndex={0}
+                              style={{ cursor: 'pointer' }}
+                              aria-expanded={activeTaskId === t.task_id}
+                              onClick={() => openDrawer(t.task_id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  openDrawer(t.task_id)
+                                }
+                              }}
+                            >
+                              <td>
+                                <strong>{t.title}</strong>
+                              </td>
+                              <td className="t-muted col-optional">{taskType(t.type)}</td>
+                              <td className="t-muted col-optional">{originLabel(t.origin)}</td>
+                              <td>
+                                <StatusBadge status={t.status} />
+                              </td>
+                              <td className="t-muted num">{fmtTime(t.created_at)}</td>
+                              <td className="t-muted num col-optional">
+                                {fmtTime(t.finished_at || t.started_at || t.created_at)}
+                              </td>
+                              <td className="num t-muted">
+                                {t.result_ref ? RESULT_LABEL[t.type] || '记录' : '—'}
+                              </td>
+                            </tr>
+                            {activeTaskId === t.task_id ? (
+                              <tr className="task-inline-row">
+                                <td colSpan={7}>
+                                  <TaskDetailPanel
+                                    taskId={t.task_id}
+                                    onClose={closeDrawer}
+                                    onListRefresh={reloadList}
+                                  />
+                                </td>
+                              </tr>
+                            ) : null}
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -759,13 +791,6 @@ export function TasksPage({ initialTaskId }: { initialTaskId?: string }) {
         ) : null}
         </div>
       </PageShell>
-
-      <TaskDrawer
-        open={activeTaskId !== null}
-        taskId={activeTaskId}
-        onClose={closeDrawer}
-        onListRefresh={reloadList}
-      />
     </PageFrame>
   )
 }

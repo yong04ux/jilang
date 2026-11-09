@@ -173,7 +173,16 @@ function ProofRow({
     <>
       <span className="proof-ix">{String(index + 1).padStart(2, '0')}</span>
       {image ? (
-        <img className="proof-thumb" src={image} alt="" loading="lazy" width={40} height={40} />
+        <img
+          className="proof-thumb"
+          src={image}
+          alt={name}
+          loading="lazy"
+          width={40}
+          height={40}
+          data-zoom
+          data-zoom-title={name}
+        />
       ) : (
         <span className={cn('proof-dot', demo && 'is-demo')} aria-hidden="true" />
       )}
@@ -432,6 +441,8 @@ export function DashboardPage() {
                     }
                     fill
                     label={`近 ${(data.daily_tasks || []).length} 天任务数量趋势`}
+                    xLabel="日期"
+                    yLabel="任务数（个）"
                     emptyText="这 14 天还没有新建任务"
                   />
                 </Suspense>

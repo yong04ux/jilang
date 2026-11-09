@@ -213,6 +213,8 @@ export function paintChart(host: HTMLElement, skillKey: string, payload: Dict): 
     label: '成本构成',
     format: 'number',
     height: 168,
+    xLabel: '成本项',
+    yLabel: '金额',
     emptyText: '这次测算没有分项成本',
   })
 }

@@ -630,20 +630,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 58px;
-  width: 58px;
-  height: 58px;
+  flex: 0 0 96px;
+  width: 96px;
+  height: 96px;
   border: var(--bd);
   border-radius: 0;
-  background: var(--ink);
-  color: var(--acid-lime);
+  background: #fff;
+  color: var(--ink);
   font-family: var(--font-display);
   font-size: var(--fs-lg);
   letter-spacing: .02em;
   box-shadow: var(--shadow-xs);
   overflow: hidden;
 }
-.st-product-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.st-product-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 /* 表格里的商品主图：有图才出列，缺图留同尺寸虚线空框 */
 .st-col-thumb { width: 56px; padding-right: 0; }
@@ -886,4 +886,11 @@
   .st-toolbar > * { border-right: 0; }
   .st-toolbar .st-select { flex: 1 1 auto; }
   .st-toolbar .st-select select { min-width: 0; width: 100%; }
+}
+
+/* 单品分析返回列表：详情页没有路由，用按钮清空 ASIN 回到列表 */
+.st-product-back {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 10px;
 }

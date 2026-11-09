@@ -35,6 +35,10 @@ export interface BarChartProps {
   /** Y 轴与 tooltip 的数值格式；金钱类传 currency 走货币符号 */
   format?: 'number' | 'money'
   currency?: string
+  /** 纵轴说明，例如「订单量（单）」 */
+  yLabel?: string
+  /** 横轴说明，例如「时段」 */
+  xLabel?: string
   label?: string
   emptyText?: string
   /** 柱宽上限，24 根柱子时不要铺满 */
@@ -51,6 +55,8 @@ export function BarChart({
   height = 168,
   format = 'number',
   currency = 'USD',
+  yLabel,
+  xLabel,
   label,
   emptyText = '这段时间没有数据',
   maxBarSize = 28,
@@ -65,11 +71,17 @@ export function BarChart({
   }
 
   const fmt = (v: number) => (format === 'money' ? money(v, currency) : num(v))
+  const resolvedYLabel = yLabel || (format === 'money' ? `金额（${currency}）` : '数值')
+  const resolvedXLabel = xLabel || '分类'
 
   return (
-    <div style={{ height }} role="img" aria-label={label || '柱状图'}>
+    <div
+      style={{ height }}
+      role="img"
+      aria-label={`${label || '柱状图'}，横轴：${resolvedXLabel}，纵轴：${resolvedYLabel}`}
+    >
       <ResponsiveContainer width="100%" height="100%">
-        <RBarChart data={rows} margin={{ top: 6, right: 6, bottom: 0, left: 0 }} barCategoryGap="18%">
+        <RBarChart data={rows} margin={{ top: 6, right: 6, bottom: 18, left: 4 }} barCategoryGap="18%">
           <CartesianGrid
             vertical={false}
             stroke="var(--border)"
@@ -83,14 +95,26 @@ export function BarChart({
             axisLine={false}
             tick={{ fill: 'var(--faint)', fontSize: 10 }}
             dy={4}
+            label={{
+              value: resolvedXLabel,
+              position: 'insideBottom',
+              offset: -2,
+              style: { fill: 'var(--faint)', fontSize: 10 },
+            }}
           />
           <YAxis
-            width={34}
+            width={52}
             tickLine={false}
             axisLine={false}
             allowDecimals={false}
             tick={{ fill: 'var(--faint)', fontSize: 10 }}
             tickFormatter={(v: number) => fmt(v)}
+            label={{
+              value: resolvedYLabel,
+              angle: -90,
+              position: 'insideLeft',
+              style: { textAnchor: 'middle', fill: 'var(--faint)', fontSize: 10 },
+            }}
           />
           <Tooltip
             cursor={{ fill: 'var(--accent)' }}

@@ -1479,3 +1479,73 @@ a[data-slot="button"][data-variant="destructive"] { color: var(--primary-foregro
 
 [data-slot="accordion-item"] { border-width: 2px; }
 [data-slot="accordion-trigger"] { font-weight: 900; letter-spacing: -.015em; }
+
+/* ------------------------------------------------------------------ 图片放大 */
+img[data-zoom] { cursor: zoom-in; }
+
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  background: rgba(17, 16, 20, .86);
+}
+
+.img-lightbox-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 10px var(--sp-4);
+  border-bottom: 2px solid #000;
+  background: var(--ink);
+  color: var(--paper-2);
+}
+.img-lightbox-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 900;
+  color: var(--acid-lime);
+}
+.img-lightbox-tools { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.img-lightbox-scale {
+  min-width: 46px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--paper-2);
+}
+.img-lightbox-btn {
+  height: 30px;
+  min-width: 30px;
+  padding: 0 8px;
+  border: 2px solid var(--paper-2);
+  border-radius: 0;
+  background: transparent;
+  color: var(--paper-2);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.img-lightbox-btn:hover { background: var(--acid-lime); border-color: var(--ink); color: var(--ink); }
+.img-lightbox-btn:disabled { opacity: .35; cursor: not-allowed; }
+.img-lightbox-btn.is-close { width: 32px; padding: 0; font-size: 20px; line-height: 1; }
+
+.img-lightbox-stage {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 24px;
+  text-align: center;
+}
+.img-lightbox-stage img {
+  display: block;
+  margin: 0 auto;
+  max-width: none;
+  max-height: none;
+  background: #fff;
+  border: 3px solid var(--ink);
+  box-shadow: 8px 8px 0 var(--acid-lime);
+  cursor: zoom-in;
+}
