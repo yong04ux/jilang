@@ -38,6 +38,13 @@ const SLOW: Record<string, boolean> = { competitor_analysis: true, listing_gener
 /** 精选位：放最常用的三项，不按接口顺序。全量列表里它们仍然会出现 */
 const FEATURED = ['competitor_analysis', 'listing_generation', 'profit_calc']
 
+/** AI 助手能直接接管的技能；其余需要专属参数，仍在详情页填写。 */
+const AGENT_RUNNABLE = new Set(['competitor_analysis', 'listing_generation'])
+
+function workbenchHref(skill: Skill): string {
+  return `/workbench?skill=${encodeURIComponent(skill.key)}`
+}
+
 interface GridFilter {
   source: string
   cat: string
@@ -110,7 +117,10 @@ function SkillCard({ skill }: { skill: Skill }) {
           data-open={skill.key}
           onClick={(e) => {
             e.stopPropagation()
-            go(`/skills?skill=${encodeURIComponent(skill.key)}`)
+            /* AI 助手能直接执行的技能，点运行就带过去；其余仍需专属参数 */
+            go(AGENT_RUNNABLE.has(skill.key)
+              ? workbenchHref(skill)
+              : `/skills?skill=${encodeURIComponent(skill.key)}`)
           }}
         >
           {skill.runnable ? '运行' : '查看'}

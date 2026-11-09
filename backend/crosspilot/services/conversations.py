@@ -87,6 +87,23 @@ def list_conversations(
     return db.list_conversations(ctx.user_id, ctx.tenant_id, limit=limit)
 
 
+RENAME_MAX = 60
+
+
+def rename_conversation(
+    db: Database, ctx: TenantContext, conversation_id: str, title: str
+) -> dict[str, Any] | None:
+    """会话属于个人资产：先确认归属，再改标题。标题为空视为无效。"""
+    if get_conversation(db, ctx, conversation_id) is None:
+        return None
+    clean = " ".join(str(title or "").split())
+    if not clean:
+        raise ConversationError("会话名称不能为空")
+    clean = clean[:RENAME_MAX].rstrip()
+    db.update_conversation(conversation_id, title=clean)
+    return get_conversation(db, ctx, conversation_id)
+
+
 def append_message(
     db: Database,
     ctx: TenantContext,

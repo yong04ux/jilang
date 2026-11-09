@@ -95,6 +95,28 @@ async def get_conversation(
     return detail
 
 
+@router.put("/api/conversations/{conversation_id}")
+async def rename_conversation(
+    conversation_id: str,
+    payload: dict[str, Any] | None = None,
+    tenant: TenantContext = Depends(require_tenant),
+    api: ApiContext = Depends(get_ctx),
+) -> dict[str, Any]:
+    require_role(tenant, ROLE_WRITE)
+    title = (payload or {}).get("title")
+    if not isinstance(title, str) or not title.strip():
+        raise HTTPException(status_code=422, detail="会话名称不能为空")
+    try:
+        conversation = conversation_service.rename_conversation(
+            api.db, tenant, conversation_id, title
+        )
+    except conversation_service.ConversationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="会话不存在")
+    return {"conversation": conversation}
+
+
 @router.delete("/api/conversations/{conversation_id}")
 async def archive_conversation(
     conversation_id: str,

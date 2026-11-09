@@ -1,9 +1,10 @@
 /* 激浪 · AI 助手（真实会话 + Agent Runtime + 异步执行）
  *
- * 版式：左对话 + 右结果（步骤 / 概要 / 竞品对比 / 评论洞察 / Listing 草稿 / 待确认项 / 日志）。
- * - 自然语言目标先经 `/api/agent/resolve` 解析（模型不可用时明确标注降级）；
- * - 执行走 `/api/agent/runs` 的异步模式，轮询真实 task_steps，可取消；
- * - 结果面板不伪造进度：进度条只在「未完成」时以不确定态出现。
+ * 版式：对话即执行台。澄清卡、执行卡、中断卡、结果卡都长在对话流里；
+ * 完整的步骤、证据、日志收进可开合的「过程与产物」抽屉。
+ * - 自然语言目标先经 `/api/agent/resolve` 解析；
+ * - 执行走 `/api/agent/runs` 的异步模式，轮询真实 task_steps，可停止；
+ * - 状态只有一个真源：等待补充/等待确认绝不再显示「已完成」。
  *
  * 内部用 HTML 字符串渲染，因此本文件带 @ts-nocheck；页面由 routes.tsx 经 LegacyPage 挂载。
  * 全局 `U / A / C / R / AR` 由 `ensureDeps()` 懒取：模块在 bundle 初始化时就被 import，
@@ -11,8 +12,6 @@
  */
 // @ts-nocheck
 /* eslint-disable */
-
-import { inkBar } from '@/lib/tabs'
 
 let U
 let A
@@ -36,69 +35,32 @@ function ensureDeps() {
   AR = window.CPAsyncRun
 }
 
-/* 墨条与一次性监听都挂在「会被整块重绘销毁」的节点上：重绘前先解绑旧的，
-   避免 MutationObserver / ResizeObserver 累积。 */
-let resInkCleanup = null
-let mobileInkCleanup = null
-function teardownInk() {
-  if (resInkCleanup) { resInkCleanup(); resInkCleanup = null }
-  if (mobileInkCleanup) { mobileInkCleanup(); mobileInkCleanup = null }
-}
-
-/* 输入框是 sticky 常驻视口底部的，滚动内容必须让出它的高度，否则最后一行卡片会被压住。
-   高度会随「代入技能」的 echo 行和多行输入变化，用 ResizeObserver 跟；
-   只在内容本身已经超出视口时才补，短页面不会凭空多出一段可滚动的空白。 */
-let composerDockRo = null
-let composerDockResize = null
-function teardownComposerDock() {
-  if (composerDockRo) { composerDockRo.disconnect(); composerDockRo = null }
-  if (composerDockResize) { window.removeEventListener("resize", composerDockResize); composerDockResize = null }
-}
-function dockComposer(root) {
-  teardownComposerDock()
-  const scroll = root.querySelector(".wb-scroll");
-  const composer = root.querySelector(".composer");
-  if (!scroll) return;
+/* 对话页与空态都用实测可用高度：顶栏上方的示例横幅在窄屏会换行，
+   写死 calc(100vh - 顶栏) 会把输入框挤出视口。 */
+let viewDockResize = null
+function dockView(root, selector) {
   const apply = function () {
-    if (!composer) { scroll.style.paddingBottom = ""; return }
-    scroll.style.paddingBottom = "";
-    /* 判据：内容比「视口去掉输入框后剩下的高度」还高，就说明末尾会被框压住。
-       用文档坐标算，滚动不影响判断；也不能用 scrollHeight（overflow:visible 不统计溢出内容），
-       更不能用「文档能不能滚」—— .wb-empty 的 min-height 与顶栏高度差不一致，文档恒比视口高 44px。 */
-    const content = (scroll.querySelector(".wb-home") || scroll) as HTMLElement;
-    const topDoc = scroll.getBoundingClientRect().top + window.scrollY;
-    const available = window.innerHeight - topDoc - composer.offsetHeight;
-    scroll.style.paddingBottom = content.getBoundingClientRect().height > available
-      ? composer.offsetHeight + 24 + "px"
-      : "";
-  };
-  apply();
-  /* 首帧内容还没完全落定（字体、最近会话等），再复测一次，别给短页面凭空留白 */
-  window.requestAnimationFrame(function () { window.requestAnimationFrame(apply) });
-  if (composer && typeof ResizeObserver === "function") {
-    composerDockRo = new ResizeObserver(apply);
-    composerDockRo.observe(composer);
+    const el = root.querySelector(selector)
+    if (!el) return
+    const top = el.getBoundingClientRect().top
+    el.style.height = Math.max(320, window.innerHeight - top) + "px"
   }
-  if (composer) {
-    composerDockResize = apply;
-    window.addEventListener("resize", composerDockResize);
+  apply()
+  window.requestAnimationFrame(function () { window.requestAnimationFrame(apply) })
+  if (!viewDockResize) {
+    viewDockResize = function () {
+      const el = document.querySelector(".wb-shell")
+      if (!el) return
+      const top = el.getBoundingClientRect().top
+      el.style.height = Math.max(320, window.innerHeight - top) + "px"
+    }
+    window.addEventListener("resize", viewDockResize)
   }
-}
-
-/* 结果面板改成局部重绘后，页签等节点会跨多次 renderInPlace 存活；
-   同一节点只绑一次，防止轮询把 click 监听叠起来。 */
-const boundOnce = new WeakSet()
-function bindOnce(el, fn) {
-  if (!el || boundOnce.has(el)) return
-  boundOnce.add(el)
-  el.addEventListener("click", fn)
 }
 
   const state = {
     mode: "empty",            // empty | params | run
-    seg: "agent",             // agent | expert | skill（顶部三档切换）
-    category: "推荐",
-    composerDraft: "",        // 分段切换会重绘首页，输入到一半的话要留住
+    composerDraft: "",        // 首页重绘时把输入到一半的话留住
     goal: "",
     productName: "",
     competitorsText: "",
@@ -119,18 +81,22 @@ function bindOnce(el, fn) {
     degraded: false,
     degradedReason: "",
     agentKey: "main",
-    picked: null,             // 当前带进输入框的技能（点卡片选中，不跳页）
+    picked: null,             // 当前带进输入框的技能（从执行方式菜单选中，不跳页）
     selectedSkills: [],       // 本次执行实际选中的技能（显式选择或 Agent 自动路由）
     routing: null,            // 后端返回的路由说明（模式 / 降级原因 / 未执行说明）
-    assistantOpen: false,     // 输入框右下角的助手选择器
+    assistantOpen: false,     // 输入框右下角的执行方式选择器
+    skillsOpen: false,        // 输入框左下角的技能选择器（与专家菜单分开）
     conversationId: null,
+    conversationTitle: "",
     conversations: [],
+    renamingId: null,         // 正在行内重命名的会话
     messages: [],
     taskId: null,
     taskRaw: null,
     poller: null,
-    resTab: "steps",
-    mobilePane: "chat",      // 窄屏一次只显示一栏：对话 / 结果
+    drawerOpen: false,       // 过程与产物抽屉
+    continuing: false,        // 本次目标是在当前会话里继续，而不是新建
+    missingFocus: false,      // 从「缺资料」进入澄清卡时自动展开缺失项
     needKey: false,           // 上一步因为没配 Key 被 428 拦下 → 给一个可点的入口
     // ---- Listing 生成（对话内配置卡）----
     products: [],             // 店铺商品，供商品选择器用
@@ -143,12 +109,12 @@ function bindOnce(el, fn) {
     listingMarketplace: "US",
     listingSpecsText: "",
     listingFeaturesText: "",
+    listingOnly: false,       // 这次任务只生成 Listing，不需要竞品数据
     listingDetailing: false,  // 「补充商品资料」是否展开
     moreParamsOpen: false,    // 竞品分析的「更多参数」是否展开
     productCategory: "",      // 商品类目（随请求发给后端）
-    ownSpecs: { size: "", material: "", capacity: "" }, // 商品事实，进 own_specs
-    planOpen: false,          // 对话里的执行计划是否展开
-    logCache: null,           // 日志 Tab 的 trace 结果
+    ownSpecs: { size: "", material: "", capacity: "", color: "", weight: "", quantity: "" }, // 商品事实，进 own_specs
+    logCache: null,           // 抽屉里的调用明细
     pending: null,            // 服务端返回的待确认信息
     engine: null,             // 本次执行用的是规则引擎还是大模型
   };
@@ -164,93 +130,15 @@ function bindOnce(el, fn) {
     return window.CPSchemaForm.competitorsToText(list);
   }
 
-  /* 缺 Key 时给一个能点的入口：光有一段文字，访客还得自己去找「设置」在哪 */
-  function keyHint() {
-    if (!state.needKey) return "";
-    return (
-      `<div class="row gap-2 mt-2">` +
-      `<a class="btn btn-primary btn-sm" href="/settings" data-link>${U.icon("settings")}去配置 API Key</a>` +
-      `<span class="t-xs t-muted">本站不提供模型额度，用你自己的 Key 才能生成真实文案</span>` +
-      `</div>`
-    );
-  }
-
-  /* ================= 空态：三段入口（业务 Agent / 专家 / 技能） =================
-   * 版式对标 os.linkfox.com 的新任务页：标题 → 分段控件 → 卡片区 → 底部输入框。
-   * 分段切换的是「从哪儿开始」，输入框始终在底部——任何一段最终都落到同一句目标上。
+  /* ================= 空态：一句话开始 =================
+   * 「自动 / 专家 / 技能」不再是首屏三段入口，而是输入框里的执行方式选择器。
+   * 首屏只留标题、提示语、最近会话和输入框，减少「先选类型」这一步。
    */
-
-  const SEGMENTS = [
-    { key: "agent", label: "业务 Agent", icon: "chat" },
-    { key: "expert", label: "专家", icon: "user" },
-    { key: "skill", label: "技能", icon: "skills" },
-  ];
 
   /* 「试试这样说」用既有技能提示语，不另写一套文案 */
   const QUICK_GOALS = ["competitor_analysis", "market_summary", "listing_generation"];
 
-  function segControl() {
-    return (
-      `<div class="wb-seg" role="tablist" aria-label="入口">` +
-      SEGMENTS.map(function (seg) {
-        const on = state.seg === seg.key ? " is-active" : "";
-        return (
-          `<button type="button" class="wb-seg-item${on}" data-seg="${seg.key}" role="tab" ` +
-          `aria-selected="${state.seg === seg.key}">${U.icon(seg.icon)}<span>${seg.label}</span></button>`
-        );
-      }).join("") +
-      `</div>`
-    );
-  }
-
-  function skillCard(skill) {
-    const tone = skill.tone === "info" ? "is-info" : skill.tone === "neutral" ? "is-neutral" : "";
-    const on = state.picked && state.picked.key === skill.key;
-    return (
-      `<button type="button" class="skill-card${on ? " is-selected" : ""}" data-skill="${U.esc(skill.key)}" ` +
-      `aria-pressed="${!!on}">` +
-      `<span class="skill-card-head">` +
-      `<span class="skill-icon ${tone}">${U.esc(skill.icon)}</span>` +
-      `<span class="skill-title-wrap"><span class="skill-name">${U.esc(skill.name)}</span></span>` +
-      `<span class="skill-go">${on ? "已带入" : "带入"}${on ? "" : U.icon("arrowRight")}</span>` +
-      `</span>` +
-      `<span class="skill-desc">${U.esc(skill.desc)}</span>` +
-      `<span class="skill-tags">` +
-      skill.tags.map(function (t) { return `<span class="tag">${U.esc(t)}</span>`; }).join("") +
-      (skill.requires.indexOf("llm") !== -1 ? `<span class="tag tag-warn">需要密钥</span>` : "") +
-      `</span></button>`
-    );
-  }
-
-  function expertCard(agent) {
-    const names = agent.skills.map(function (k) { return C.SKILL_NAME[k]; }).filter(Boolean);
-    const on = state.agentKey === agent.key;
-    return (
-      `<button type="button" class="skill-card${on ? " is-selected" : ""}" data-agent="${U.esc(agent.key)}" ` +
-      `aria-pressed="${on}">` +
-      `<span class="skill-card-head">` +
-      `<span class="skill-icon">${U.esc(agent.name.slice(0, 1))}</span>` +
-      `<span class="skill-title-wrap"><span class="skill-name">${U.esc(agent.name)}</span>` +
-      `<span class="skill-cat">${names.length} 项能力</span></span>` +
-      `<span class="skill-go">${on ? "已选" : "选它"}</span>` +
-      `</span>` +
-      `<span class="skill-desc">${U.esc(agent.summary)}</span>` +
-      `<span class="skill-tags">` +
-      names.slice(0, 3).map(function (n) { return `<span class="tag">${U.esc(n)}</span>`; }).join("") +
-      `</span></button>`
-    );
-  }
-
-  function visibleSkills() {
-    return C.skills.filter(function (s) {
-      return s.status === "available";
-    }).filter(function (s) {
-      return state.category === "推荐" || s.cat === state.category;
-    });
-  }
-
-  function agentPanel() {
-    /* 提示语和技能卡走同一条路：点一下把这句话带进输入框，不直接跳页 */
+  function promptPanel() {
     const goals = QUICK_GOALS.map(function (key) {
       const skill = C.skillByKey(key);
       return skill
@@ -266,67 +154,180 @@ function bindOnce(el, fn) {
     );
   }
 
-  function expertPanel() {
+  /* ================= 左侧会话栏 =================
+   * 新会话、历史会话都收在左栏；当前会话高亮，标题可行内重命名。
+   */
+
+  function conversationRailItem(c) {
+    const id = c.conversation_id;
+    const active = id === state.conversationId;
+    if (state.renamingId === id) {
+      return (
+        `<div class="wb-conv-row is-editing">` +
+        `<input class="wb-conv-input" data-rename-input="${U.esc(id)}" value="${U.esc(c.title)}" ` +
+        `maxlength="60" aria-label="会话名称" />` +
+        `</div>`
+      );
+    }
     return (
-      `<div class="wb-start">` +
-      `<div class="skill-grid">${C.AGENTS.map(expertCard).join("")}</div>` +
+      `<div class="wb-conv-row${active ? " is-active" : ""}">` +
+      `<button type="button" class="wb-conv-open" data-conversation="${U.esc(id)}" title="${U.esc(c.title)}">` +
+      `<span class="wb-conv-title">${U.esc(c.title)}</span>` +
+      `<span class="wb-conv-meta">${c.message_count || 0} 条 · ${U.esc(U.fmtTime(c.updated_at))}</span>` +
+      `</button>` +
+      `<button type="button" class="wb-conv-rename" data-rename="${U.esc(id)}" ` +
+      `aria-label="重命名会话" title="重命名">${U.icon("pencil")}</button>` +
       `</div>`
     );
   }
 
-  function skillPanel() {
-    const chips = C.skillCategories().map(function (c) {
-      return `<button type="button" class="chip${c === state.category ? " is-active" : ""}" ` +
-        `data-cat="${U.esc(c)}">${U.esc(c)}</button>`;
-    }).join("");
-    const list = visibleSkills();
-    const total = C.skills.length;
+  function conversationRail() {
+    const list = (state.conversations || []).slice();
+    if (state.conversationId && !list.some(function (c) {
+      return c.conversation_id === state.conversationId;
+    })) {
+      /* 会话刚创建、列表还没刷新时，先把当前会话占一个位置 */
+      list.unshift({
+        conversation_id: state.conversationId,
+        title: state.conversationTitle || state.productName || state.goal || "当前会话",
+        message_count: (state.messages || []).length,
+        updated_at: new Date().toISOString(),
+      });
+    }
     return (
-      `<div class="wb-skills">` +
-      `<div class="chips wb-chips" role="group" aria-label="技能分类">${chips}</div>` +
+      `<aside class="wb-conv-rail" aria-label="历史会话">` +
+      `<div class="wb-rail-head">` +
+      `<button type="button" class="wb-new-conv" data-act="new">${U.icon("plus")}<span>新会话</span></button>` +
+      `<div class="wb-rail-label">历史会话<span>${list.length}</span></div>` +
+      `</div>` +
+      `<div class="wb-rail-list">` +
       (list.length
-        ? `<div class="skill-grid">${list.map(skillCard).join("")}</div>`
-        : `<p class="wb-hint">这个分类下还没有能跑的能力。</p>`) +
-      `<div class="wb-skills-more"><a class="btn btn-quiet btn-sm" href="/skills" data-link>` +
-      `在技能广场查看全部 ${total} 项 ${U.icon("arrowRight")}</a></div>` +
-      `</div>`
+        ? list.map(conversationRailItem).join("")
+        : `<p class="wb-rail-empty">还没有会话。说一句话就开始。</p>`) +
+      `</div>` +
+      `</aside>`
     );
   }
 
-  function recentBlock() {
-    const list = state.conversations.slice(0, 4);
-    if (!list.length) return "";
-    return (
-      `<div class="wb-recent">` +
-      `<div class="wb-recent-head"><span class="t-section">最近的会话</span>` +
-      `<button type="button" class="btn btn-quiet btn-sm" data-act="new">${U.icon("plus")}新会话</button></div>` +
-      `<div class="conv-list">` + list.map(function (c) {
-        return `<button type="button" class="conv-item" data-conversation="${U.esc(c.conversation_id)}">` +
-          `<span class="conv-title">${U.esc(c.title)}</span>` +
-          `<span class="conv-meta"><span>${c.message_count || 0} 条消息</span>` +
-          `<span>${U.esc(U.fmtTime(c.updated_at))}</span></span></button>`;
-      }).join("") + `</div></div>`
-    );
+  function wbShell(main) {
+    return `<div class="wb-shell">${conversationRail()}<div class="wb-main">${main}</div></div>`;
+  }
+
+  function refreshRail(root) {
+    const rail = root.querySelector(".wb-conv-rail");
+    if (!rail) return;
+    const list = rail.querySelector(".wb-rail-list");
+    const top = list ? list.scrollTop : 0;
+    rail.outerHTML = conversationRail();
+    const next = root.querySelector(".wb-rail-list");
+    if (next) next.scrollTop = top;
+    window.CPIcon.hydrate(root);
+    if (state.renamingId) {
+      const input = root.querySelector("[data-rename-input]");
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }
+  }
+
+  async function saveRename(root, conversationId, raw) {
+    const title = String(raw || "").trim();
+    if (!title) {
+      U.toast("会话名称不能为空", "danger");
+      refreshRail(root);
+      return;
+    }
+    state.renamingId = null;
+    try {
+      const data = await A.put(`/api/conversations/${encodeURIComponent(conversationId)}`, { title });
+      const next = (data && data.conversation) || {};
+      state.conversations = state.conversations.map(function (item) {
+        return item.conversation_id === conversationId
+          ? { ...item, title: next.title || title }
+          : item;
+      });
+      if (state.conversationId === conversationId) {
+        state.conversationTitle = next.title || title;
+        const titleEl = root.querySelector(".wb-chat-title .t-section");
+        if (titleEl) titleEl.textContent = state.conversationTitle;
+      }
+      U.toast("会话已重命名", "ok");
+    } catch (err) {
+      U.toast(err.message || "重命名失败，请重试", "danger");
+    }
+    refreshRail(root);
   }
 
   function assistantLabel() {
-    const agent = C.AGENTS.filter(function (a) { return a.key === state.agentKey; })[0];
-    return agent ? agent.name : "激浪主控 Agent";
+    if (state.picked) return state.picked.name;
+    if (state.agentKey !== "main") {
+      const agent = C.AGENTS.filter(function (a) { return a.key === state.agentKey; })[0];
+      if (agent) return agent.name;
+    }
+    return "自动执行";
   }
 
   function assistantMenu() {
     if (!state.assistantOpen) return "";
+    const autoOn = !state.picked && state.agentKey === "main";
+    const agents = C.AGENTS.filter(function (a) { return a.key !== "main"; }).map(function (agent) {
+      const on = !state.picked && state.agentKey === agent.key;
+      return `<button type="button" class="wb-menu-item${on ? " is-active" : ""}" ` +
+        `data-agent="${U.esc(agent.key)}" role="menuitem">` +
+        `<span class="wb-menu-name">${U.esc(agent.name)}</span>` +
+        `<span class="wb-menu-desc">${U.esc(agent.summary)}</span></button>`;
+    }).join("");
     return (
-      `<div class="wb-menu" role="menu">` +
-      C.AGENTS.map(function (agent) {
-        const on = state.agentKey === agent.key;
-        return `<button type="button" class="wb-menu-item${on ? " is-active" : ""}" ` +
-          `data-agent="${U.esc(agent.key)}" role="menuitem">` +
-          `<span class="wb-menu-name">${U.esc(agent.name)}</span>` +
-          `<span class="wb-menu-desc">${U.esc(agent.summary)}</span></button>`;
-      }).join("") +
+      `<div class="wb-menu" role="menu" aria-label="选择执行方式">` +
+      `<div class="wb-menu-sec">自动</div>` +
+      `<button type="button" class="wb-menu-item${autoOn ? " is-active" : ""}" ` +
+      `data-agent="main" role="menuitem">` +
+      `<span class="wb-menu-name">自动执行（推荐）</span>` +
+      `<span class="wb-menu-desc">按目标自动选择专家与技能</span></button>` +
+      (agents ? `<div class="wb-menu-sec">指定专家</div>` + agents : "") +
+      `<div class="wb-menu-note">要指定具体技能，用输入框左下角的「技能」。</div>` +
       `</div>`
     );
+  }
+
+  /* 技能列表单独一栏：和专家菜单分开，避免一个下拉越滚越长 */
+  function skillsMenu() {
+    if (!state.skillsOpen) return "";
+    const skills = C.skills
+      .filter(function (s) { return s.status === "available"; })
+      .map(function (skill) {
+        const on = state.picked && state.picked.key === skill.key;
+        return `<button type="button" class="wb-menu-item${on ? " is-active" : ""}" ` +
+          `data-pick-skill="${U.esc(skill.key)}" role="menuitem">` +
+          `<span class="wb-menu-name">${U.esc(skill.name)}</span>` +
+          `<span class="wb-menu-desc">${U.esc(skill.desc)}</span></button>`;
+      }).join("");
+    return (
+      `<div class="wb-menu wb-skill-menu" role="menu" aria-label="选择技能">` +
+      `<div class="wb-menu-sec">指定技能</div>` +
+      (skills
+        ? `<div class="wb-skill-grid">${skills}</div>`
+        : `<div class="wb-menu-note">还没有能用的技能。</div>`) +
+      `<a class="wb-menu-more" href="/skills" data-link>查看全部技能 ${U.icon("arrowRight")}</a>` +
+      `</div>`
+    );
+  }
+
+  function skillsButton() {
+    return (
+      `<button type="button" class="composer-tool${state.picked ? " is-active" : ""}" id="wb-skills-toggle" ` +
+      `aria-expanded="${state.skillsOpen}" aria-haspopup="menu">` +
+      `${U.icon("skills")}<span>技能</span></button>` +
+      skillsMenu()
+    );
+  }
+
+  function refreshSkills(root) {
+    const wrap = root.querySelector(".wb-skills-wrap");
+    if (!wrap) return;
+    wrap.innerHTML = skillsButton();
+    window.CPIcon.hydrate(wrap);
   }
 
   /* 输入框右下角的助手选择器。开关只重绘这一小块，避免整页重建时把输入框草稿冲掉 */
@@ -371,9 +372,10 @@ function bindOnce(el, fn) {
     window.CPIcon.hydrate(host);
   }
 
-  /** 点技能卡 / 试一句：留在首页，只把目标放进输入框并把焦点交过去 */
+  /** 选技能（菜单或提示语）：只把目标放进输入框并把焦点交过去，不直接执行 */
   function pickSkill(root, skill) {
     state.picked = skill;
+    state.agentKey = "main";
 
     const input = root.querySelector("#composer-input");
     if (input) {
@@ -381,17 +383,9 @@ function bindOnce(el, fn) {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     }
 
-    /* 卡片选中态就地更新：整页重绘会把滚动位置和焦点一起丢掉 */
-    root.querySelectorAll(".skill-card[data-skill]").forEach(function (btn) {
-      const on = btn.getAttribute("data-skill") === skill.key;
-      btn.classList.toggle("is-selected", on);
-      btn.setAttribute("aria-pressed", String(on));
-      const go = btn.querySelector(".skill-go");
-      if (go) go.innerHTML = on ? "已带入" : "带入" + U.icon("arrowRight");
-    });
-    window.CPIcon.hydrate(root);
     paintEcho(root);
-
+    refreshAssistant(root);
+    refreshSkills(root);
     if (input) {
       input.focus();
       input.setSelectionRange(input.value.length, input.value.length);
@@ -408,7 +402,7 @@ function bindOnce(el, fn) {
       `<div class="composer-bar">` +
       `<div class="composer-tools">` +
       `<button type="button" class="composer-tool" data-act="data" title="数据资产">${U.icon("plus")}</button>` +
-      `<button type="button" class="composer-tool" data-act="skills">${U.icon("skills")}<span>技能</span></button>` +
+      `<div class="wb-skills-wrap">` + skillsButton() + `</div>` +
       `<button type="button" class="composer-tool" data-act="demo">${U.icon("sparkles")}<span>示例数据</span></button>` +
       `</div>` +
       `<div class="composer-right">` +
@@ -423,27 +417,16 @@ function bindOnce(el, fn) {
   }
 
   function renderEmpty() {
-    /* 参数确认是独立的一屏「新建任务」，不再挤在首页内容下面 */
-    if (state.mode === "params") {
-      return `<div class="wb-empty"><div class="wb-scroll wb-scroll-task">${paramsCard()}</div></div>`;
-    }
-
-    const panel = state.seg === "agent" ? agentPanel()
-      : state.seg === "expert" ? expertPanel()
-      : skillPanel();
-
-    return (
+    return wbShell(
       `<div class="wb-empty"><div class="wb-scroll">` +
       `<div class="narrow-note">当前界面为桌面优先设计，建议在 1024px 以上宽度使用。</div>` +
       `<div class="wb-home">` +
       `<h1 class="wb-hero-title">跨境电商 AI 运营助手</h1>` +
-      segControl() +
-      panel +
-      recentBlock() +
+      promptPanel() +
       `</div>` +
       `</div>` +
       composer() +
-      `</div>`
+      `</div>`,
     );
   }
 
@@ -468,16 +451,6 @@ function bindOnce(el, fn) {
 
   /* 参数确认卡：**不占满整页**。它就长在首页内容的下方、输入框的上方，
      像助手顺着对话把「接下来要跑什么」摊开给你看，页面本身不换。 */
-  /* 计划节点的预计耗时：只做量级提示，界面上统一写「预计」 */
-  function planEta(label) {
-    if (label.indexOf("竞品") >= 0) return "约 1 分钟";
-    if (label.indexOf("Listing") >= 0) return "约 30 秒";
-    if (label.indexOf("质检") >= 0) return "约 20 秒";
-    if (label.indexOf("总结") >= 0) return "约 20 秒";
-    if (label.indexOf("保存") >= 0) return "约 5 秒";
-    return "约 10 秒";
-  }
-
   /* 工作流顺序是确定性的，这里只列阶段，不冒充执行记录 */
   function plannedStages() {
     if (isListingMode()) {
@@ -497,65 +470,91 @@ function bindOnce(el, fn) {
     return stages;
   }
 
-  function currentSkill() {
-    if (isListingMode()) {
-      return {
-        name: "Listing 生成",
-        desc: "按商品事实生成标题、五点、描述与搜索词，并做事实对齐质检。",
-        tags: ["Listing 生成", "事实对齐"],
-      };
+  /* ================= 参数澄清：对话内的一张卡 =================
+   * 目标解析完就在对话里把「我理解成什么 + 还差什么」摊开，
+   * 不再把用户甩到另一张四段式表单页。控件 id 与旧表单一致，执行逻辑不用重写。
+   */
+
+  function resolveSummary() {
+    const info = state.resolveInfo;
+    if (!info) {
+      return `<div class="wb-clarify-hint">${U.icon("clock")}正在读取你的目标…</div>`;
     }
-    if (state.picked) {
-      return {
-        name: state.picked.name,
-        desc: state.picked.desc,
-        tags: (state.picked.tags || []).slice(0, 4),
-      };
-    }
-    return {
-      name: "由 Agent 自动编排",
-      desc: "没有指定技能时，按任务目标选择要执行的能力与步骤。",
-      tags: ["竞品分析", "市场机会"],
-    };
+    const spec = info.spec || {};
+    const tags = [];
+    if (state.productName) tags.push(`商品 ${state.productName}`);
+    tags.push(`站点 ${window.CPLabel.site(spec.marketplace || state.marketplace)}`);
+    tags.push(`语言 ${window.CPLabel.language(spec.listing_language || state.listingLanguage)}`);
+    tags.push(spec.with_listing === false ? "不生成 Listing" : "生成 Listing");
+    if (spec.category) tags.push(`品类 ${spec.category}`);
+    return (
+      `<div class="wb-clarify-summary">` +
+      `<span class="wb-clarify-sum-label">我理解成</span>` +
+      `<div class="row gap-2 wrap">` +
+      tags.map(function (t) { return `<span class="tag">${U.esc(t)}</span>`; }).join("") +
+      `</div>` +
+      (info.degraded
+        ? `<div class="wb-clarify-note">${U.icon("alert")}参数来自文本识别，请核对下面的必填项。</div>`
+        : "") +
+      `</div>`
+    );
   }
 
-  function pickedSkillBlock(skill) {
+  function missingCallout() {
+    if (!state.missingFocus) return "";
+    const missing = waitingMissing();
+    if (!missing.length) return "";
     return (
-      `<div class="wb-picked">` +
-      `<span class="wb-picked-icon">${U.icon("skills")}</span>` +
-      `<div class="wb-picked-text">` +
-      `<div class="wb-picked-name">${U.esc(skill.name)}</div>` +
-      `<div class="wb-picked-desc">${U.esc(skill.desc)}</div>` +
-      (skill.tags && skill.tags.length
-        ? `<div class="wb-picked-tags">` +
-          skill.tags.map(function (t) { return `<span class="tag">${U.esc(t)}</span>`; }).join("") +
-          `</div>`
-        : "") +
+      `<div class="callout callout-warn">${U.icon("alert")}` +
+      `<div><strong>补上这几项后重试</strong><br>` +
+      `${missing.map(function (f) { return `<span class="tag tag-warn">${U.esc(readableText(f))}</span>`; }).join(" ")}` +
+      `<div class="t-xs t-muted mt-2">这些是生成 Listing 需要的事实；补全后重新执行，已选商品和竞品会保留。</div>` +
       `</div></div>`
     );
   }
 
-  function taskSection(no, title, extra, body) {
+  function goalEditor() {
     return (
-      `<section class="wb-sec">` +
-      `<div class="wb-sec-no" aria-hidden="true">${no}</div>` +
-      `<div class="wb-sec-main">` +
-      `<div class="wb-sec-head"><span class="wb-sec-title">${U.esc(title)}</span>${extra || ""}</div>` +
-      body +
-      `</div></section>`
+      `<details class="wb-more"${state.goal ? "" : " open"}>` +
+      `<summary>修改任务目标</summary>` +
+      `<div class="wb-goal-field mt-2">` +
+      `<textarea id="wb-goal" rows="3" maxlength="1000" aria-label="任务目标" ` +
+      `placeholder="例如：分析这款宠物饮水机在美国站的竞品价格、核心卖点与差评点，并生成一份英文 Listing 草稿。">` +
+      `${U.esc(state.goal || "")}</textarea>` +
+      `<span class="wb-goal-count"><span id="wb-goal-count">${(state.goal || "").length}</span>/1000</span>` +
+      `</div>` +
+      `<div class="wb-examples">` +
+      ["分析竞品价格与核心卖点并生成 Listing", "分析差评，优化产品卖点", "生成多版本标题和五点描述"]
+        .map(function (text) {
+          return `<button type="button" class="chip" data-goal="${U.esc(text)}">${U.esc(text)}</button>`;
+        }).join("") +
+      `</div></details>`
     );
   }
 
-  /* 新建任务：左侧四段表单。控件 id 与旧参数卡一致，脚本填表不受影响 */
-  function taskForm() {
-    const skill = currentSkill();
+  function specFields() {
+    const specs = state.ownSpecs || {};
+    const field = function (key, label, placeholder) {
+      return `<label class="field"><span class="field-label">${label}</span>` +
+        `<input id="wb-spec-${key}" value="${U.esc(specs[key] || "")}" placeholder="${placeholder}" /></label>`;
+    };
+    return (
+      `<div class="wb-grid-3 mt-3">` +
+      field("size", "尺寸", "例如 20 × 15 × 15 cm") +
+      field("material", "材质", "例如 ABS、304 不锈钢") +
+      field("capacity", "容量", "例如 2L") +
+      field("color", "颜色", "例如 哑光黑") +
+      field("weight", "重量", "例如 480g") +
+      field("quantity", "数量", "例如 1 件装") +
+      `</div>`
+    );
+  }
+
+  function competitorFields() {
     const products = state.products || [];
     const parsedCount = parseCompetitors(state.competitorsText).length;
-    const specs = state.ownSpecs || {};
-    const specsMissing = !specs.size && !specs.material && !specs.capacity;
-
     const productPicker = products.length
-      ? `<label class="field mt-3"><span class="field-label">从店铺商品里挑</span>` +
+      ? `<label class="field"><span class="field-label">从店铺商品里挑</span>` +
         `<select id="wb-product-pick">` +
         `<option value="">手动填写商品名称</option>` +
         products.map(function (p) {
@@ -563,131 +562,122 @@ function bindOnce(el, fn) {
         }).join("") +
         `</select></label>`
       : "";
-
     return (
-      taskSection("1", "选择技能",
-        `<button type="button" class="btn btn-sm" data-act="back">更换技能</button>`,
-        pickedSkillBlock(skill)) +
-
-      taskSection("2", "描述你的任务目标", "",
-        `<div class="wb-goal-field">` +
-        `<textarea id="wb-goal" rows="4" maxlength="1000" aria-label="任务目标" ` +
-        `placeholder="例如：分析这款宠物饮水机在美国站的竞品价格、核心卖点与差评点，并基于分析结果生成一份高转化率的 Amazon Listing 草稿。">` +
-        `${U.esc(state.goal || "")}</textarea>` +
-        `<span class="wb-goal-count"><span id="wb-goal-count">${(state.goal || "").length}</span>/1000</span>` +
-        `</div>` +
-        `<div class="wb-examples">` +
-        ["分析竞品价格与核心卖点并生成 Listing", "分析差评，优化产品卖点", "生成多版本标题和五点描述"]
-          .map(function (text) {
-            return `<button type="button" class="chip" data-goal="${U.esc(text)}">${U.esc(text)}</button>`;
-          }).join("") +
-        `</div>`) +
-
-      taskSection("3", "商品资料", "",
-        `<div class="wb-grid-3">` +
-        `<label class="field"><span class="field-label">商品名称 <span class="t-danger">*</span></span>` +
-        `<input id="wb-product" value="${U.esc(state.productName)}" placeholder="例如 EcoSip 保温杯 750ml" /></label>` +
-        `<label class="field"><span class="field-label">类目</span>` +
-        `<input id="wb-category" value="${U.esc(state.productCategory || "")}" placeholder="例如 Pet Supplies > Pet Fountains" /></label>` +
-        `<label class="field"><span class="field-label">站点 <span class="t-danger">*</span></span>` +
-        `<select id="wb-marketplace">` +
-        ["US", "DE", "JP", "UK"].map(function (m) {
-          return `<option value="${m}"${m === state.marketplace ? " selected" : ""}>${window.CPLabel.site(m)}</option>`;
-        }).join("") +
-        `</select></label>` +
-        `</div>` +
-        productPicker +
-        `<label class="field mt-3"><span class="field-label">竞品数据 <span class="t-danger">*</span>` +
-        `<span class="t-xs t-muted" id="wb-competitor-count">${parsedCount ? `· 已识别 ${parsedCount} 个` : ""}</span></span>` +
-        `<textarea id="wb-competitors" rows="5" spellcheck="false" placeholder="竞品 A | 25.99 | 4.2 | 380 | 盖子漏水&#10;竞品 B | 19.99">${U.esc(state.competitorsText)}</textarea>` +
-        `<span class="field-help">每行「名称 | 价格 | 评分 | 评论数 | 一条评论」，只有名称必填；整块从表格粘贴也行。` +
-        `要导入 Excel/CSV，请先到 <a href="/data" data-link>数据资产</a> 导入。</span></label>`) +
-
-      taskSection("4", "补充参数（可选）", "",
-        (specsMissing
-          ? `<div class="callout callout-warn">${U.icon("alert")}` +
-            `<div><strong>检测到以下商品事实可能未提供完整</strong><br>` +
-            `补上后质检里的「待确认项」会更少，Listing 也更准确。</div></div>`
-          : "") +
-        `<div class="wb-grid-3 mt-3">` +
-        `<label class="field"><span class="field-label">尺寸</span>` +
-        `<input id="wb-spec-size" value="${U.esc(specs.size || "")}" placeholder="例如 20 × 15 × 15 cm" /></label>` +
-        `<label class="field"><span class="field-label">材质</span>` +
-        `<input id="wb-spec-material" value="${U.esc(specs.material || "")}" placeholder="例如 ABS、304 不锈钢" /></label>` +
-        `<label class="field"><span class="field-label">容量</span>` +
-        `<input id="wb-spec-capacity" value="${U.esc(specs.capacity || "")}" placeholder="例如 2L" /></label>` +
-        `</div>` +
-        `<div class="wb-extra-row">` +
-        (isCompetitorOnly()
-          ? `<span class="t-xs t-muted">已显式选择「竞品分析」：本次只做分析，不生成 Listing。</span>`
-          : !state.picked
-            ? `<span class="t-xs t-muted">未指定技能：由 Agent 根据目标决定是否生成 Listing。</span>`
-            : `<label class="row gap-2" style="cursor:pointer">` +
-              `<input type="checkbox" id="wb-with-listing" ${state.withListing ? "checked" : ""} />` +
-              `<span class="t-sm">同时生成 Listing 草稿</span></label>`) +
-        `<label class="field wb-extra-lang"><span class="field-label">Listing 语言</span>` +
-        `<select id="wb-language">` +
-        ["en-US", "de-DE", "ja-JP"].map(function (code) {
-          return `<option value="${code}"${code === state.listingLanguage ? " selected" : ""}>${window.CPLabel.language(code)}</option>`;
-        }).join("") +
-        `</select></label>` +
-        `</div>`)
-    );
-  }
-
-  function taskAside(listing) {
-    const stages = plannedStages();
-    const skill = currentSkill();
-    return (
-      `<div class="wb-aside-card">` +
-      `<div class="wb-aside-title">本次任务将会执行</div>` +
-      `<ol class="wb-plan-list">` +
-      stages.map(function (name, index) {
-        return `<li class="wb-plan-item">` +
-          `<span class="wb-plan-no">${index + 1}</span>` +
-          `<span class="wb-plan-body"><span class="wb-plan-name">${U.esc(name)}</span>` +
-          `<span class="wb-plan-eta">预计 ${U.esc(planEta(name))}</span></span></li>`;
+      `<div class="wb-grid-3">` +
+      `<label class="field"><span class="field-label">商品名称 <span class="t-danger">*</span></span>` +
+      `<input id="wb-product" value="${U.esc(state.productName)}" placeholder="例如 EcoSip 保温杯 750ml" /></label>` +
+      `<label class="field"><span class="field-label">站点 <span class="t-danger">*</span></span>` +
+      `<select id="wb-marketplace">` +
+      ["US", "DE", "JP", "UK"].map(function (m) {
+        return `<option value="${m}"${m === state.marketplace ? " selected" : ""}>${window.CPLabel.site(m)}</option>`;
       }).join("") +
-      `</ol></div>` +
-
-      `<div class="wb-aside-card">` +
-      `<div class="wb-aside-title">已选择的技能</div>` +
-      pickedSkillBlock(skill) +
+      `</select></label>` +
+      `<label class="field"><span class="field-label">类目</span>` +
+      `<input id="wb-category" value="${U.esc(state.productCategory || "")}" placeholder="例如 Pet Supplies > Pet Fountains" /></label>` +
       `</div>` +
-
-      `<div class="wb-aside-card wb-aside-tip">${U.icon("info")}` +
-      `<div><strong>提示</strong><br>` +
-      `Listing 生成有可用模型时用模型，没有配置时用规则引擎生成；界面会如实标注这次用的引擎。` +
-      `<div class="mt-2"><a class="btn btn-sm" href="/settings" data-link>去配置模型密钥</a></div>` +
-      `</div></div>` +
-
-      (state.error ? `<div class="callout callout-danger">${U.esc(state.error)}</div>` : "") +
-      keyHint() +
-
-      (listing
-        ? ""
-        : `<div class="wb-aside-actions">` +
-          `<button type="button" class="btn btn-primary" id="wb-run-task" ${state.busy ? "disabled" : ""}>` +
-          `${state.busy ? "执行中…" : "开始执行"}</button>` +
-          `<button type="button" class="btn btn-quiet" id="wb-demo">载入示例数据</button>` +
-          `<button type="button" class="btn btn-quiet" data-act="back">返回</button>` +
-          `</div>`)
+      productPicker +
+      `<label class="field"><span class="field-label">竞品数据 <span class="t-danger">*</span>` +
+      `<span class="t-xs t-muted" id="wb-competitor-count">${parsedCount ? `· 已识别 ${parsedCount} 个` : ""}</span></span>` +
+      `<textarea id="wb-competitors" rows="4" spellcheck="false" placeholder="竞品 A | 25.99 | 4.2 | 380 | 盖子漏水&#10;竞品 B | 19.99">${U.esc(state.competitorsText)}</textarea>` +
+      `<span class="field-help">每行「名称 | 价格 | 评分 | 评论数 | 一条评论」，只有名称必填；整块从表格粘贴也行。` +
+      `要导入 Excel/CSV，请先到 <a href="/data" data-link>数据资产</a> 导入。</span></label>`
     );
   }
 
-  /* 新建任务页：整页双栏，右侧信息栏吸顶，主按钮固定在右栏底部 */
-  function paramsCard() {
+  function listingFields() {
+    const products = state.products || [];
+    const picked = state.listingProduct;
+    const productOptions = products.length
+      ? products.map(function (p) {
+          const on = picked && picked.product_id === p.product_id ? " selected" : "";
+          return `<option value="${U.esc(p.product_id)}"${on}>` +
+            `${U.esc(p.name)}${p.asin ? " · " + U.esc(p.asin) : ""}</option>`;
+        }).join("")
+      : "";
+    const productField = products.length
+      ? `<label class="field"><span class="field-label">商品 <span class="t-danger">*</span></span>` +
+        `<select id="wb-ls-product">` +
+        `<option value="">选择要生成 Listing 的商品</option>` + productOptions +
+        `</select></label>`
+      : `<label class="field"><span class="field-label">商品名称 <span class="t-danger">*</span></span>` +
+        `<input id="wb-ls-name" value="${U.esc(state.listingName || state.productName || "")}" placeholder="还没有店铺商品，先写商品名称" />` +
+        `<span class="field-help">${U.esc(state.productsError || "接到店铺后这里会变成商品选择器。")}</span></label>`;
+    return (
+      `<div class="wb-grid-3">` + productField +
+      `<label class="field"><span class="field-label">站点</span>` +
+      `<select id="wb-ls-marketplace">` +
+      LISTING_SITES.map(function (m) {
+        return `<option value="${m}"${(state.listingMarketplace || "US") === m ? " selected" : ""}>` +
+          `${U.esc(window.CPLabel.site(m))}</option>`;
+      }).join("") + `</select></label>` +
+      `<label class="field"><span class="field-label">文案语言</span>` +
+      `<select id="wb-ls-language">` +
+      ["en-US", "de-DE", "ja-JP"].map(function (code) {
+        return `<option value="${code}"${(state.listingLanguage || "en-US") === code ? " selected" : ""}>` +
+          `${U.esc(window.CPLabel.language(code))}</option>`;
+      }).join("") + `</select></label>` +
+      `</div>` +
+      `<label class="field"><span class="field-label">平台</span>` +
+      `<select id="wb-ls-platform">` +
+      ["amazon", "ebay"].map(function (p) {
+        return `<option value="${p}"${(state.listingPlatform || "amazon") === p ? " selected" : ""}>` +
+          `${U.esc(window.CPLabel.platform(p))}</option>`;
+      }).join("") + `</select></label>`
+    );
+  }
+
+  function clarifyCard() {
     const listing = isListingMode();
     return (
-      `<div class="wb-task" id="wb-params">` +
-      `<div class="wb-task-head">` +
-      `<button type="button" class="btn-icon" data-act="back" aria-label="返回">${U.icon("arrowLeft")}</button>` +
-      `<div><h1 class="wb-task-title">新建任务</h1></div>` +
+      `<div class="wb-card wb-clarify" id="wb-clarify">` +
+      `<div class="wb-card-head">` +
+      `<div><div class="wb-card-title">${state.continuing ? "继续当前任务" : "确认执行参数"}</div>` +
+      `<div class="wb-card-sub">${listing ? "选一个商品就能生成，竞品数据不是必需" : "只差商品和竞品，其余参数可选"}</div></div>` +
+      `<button type="button" class="btn-icon" data-act="back" aria-label="取消并返回">${U.icon("x")}</button>` +
       `</div>` +
-      `<div class="wb-task-grid">` +
-      `<div class="wb-task-main">` + (listing ? listingConfigCard() : taskForm()) + `</div>` +
-      `<aside class="wb-task-aside">` + taskAside(listing) + `</aside>` +
-      `</div></div>`
+      `<div class="wb-card-body">` +
+      resolveSummary() +
+      missingCallout() +
+      (state.needKey
+        ? `<div class="callout callout-warn">${U.icon("alert")}<div><strong>这一步需要模型</strong><br>` +
+          `到「设置 → 模型与密钥」填入你自己的 API Key 后就能继续。` +
+          `<div class="mt-2"><a class="btn btn-sm" href="/settings" data-link>去配置 API Key</a></div></div></div>`
+        : "") +
+      (listing ? listingFields() : competitorFields()) +
+      `<details class="wb-more"${state.moreParamsOpen || state.missingFocus ? " open" : ""}>` +
+      `<summary>更多参数（可选，填了结果更准）</summary>` +
+      (listing
+        ? `<label class="field mt-3"><span class="field-label">规格（每行「键: 值」）</span>` +
+          `<textarea id="wb-ls-specs" rows="3" spellcheck="false" placeholder="容量: 750ml&#10;材质: 304 不锈钢">${U.esc(state.listingSpecsText || "")}</textarea></label>` +
+          `<label class="field mt-3"><span class="field-label">卖点（每行一条）</span>` +
+          `<textarea id="wb-ls-features" rows="3" placeholder="双层真空保温 24 小时">${U.esc(state.listingFeaturesText || "")}</textarea></label>`
+        : specFields()) +
+      (isCompetitorOnly()
+        ? `<span class="t-xs t-muted mt-3">已显式选择「竞品分析」：本次只做分析，不生成 Listing。</span>`
+        : listing
+          ? ""
+          : `<label class="row gap-2 mt-3" style="cursor:pointer">` +
+            `<input type="checkbox" id="wb-with-listing" ${state.withListing ? "checked" : ""} />` +
+            `<span class="t-sm">同时生成 Listing 草稿</span></label>` +
+            `<label class="field mt-3"><span class="field-label">Listing 语言</span>` +
+            `<select id="wb-language">` +
+            ["en-US", "de-DE", "ja-JP"].map(function (code) {
+              return `<option value="${code}"${code === state.listingLanguage ? " selected" : ""}>${window.CPLabel.language(code)}</option>`;
+            }).join("") + `</select></label>`) +
+      `</details>` +
+      goalEditor() +
+      (state.error ? `<p class="callout callout-danger">${U.esc(state.error)}</p>` : "") +
+      `</div>` +
+      `<div class="wb-card-foot">` +
+      (listing
+        ? `<button type="button" class="btn btn-primary" id="wb-ls-run" ${state.busy ? "disabled" : ""}>` +
+          `${state.busy ? "生成中…" : "开始生成"}</button>`
+        : `<button type="button" class="btn btn-primary" id="wb-run-task" ${state.busy ? "disabled" : ""}>` +
+          `${state.busy ? "执行中…" : "开始执行"}</button>`) +
+      `<button type="button" class="btn btn-quiet" id="wb-demo">载入示例数据</button>` +
+      `<button type="button" class="btn btn-quiet" data-act="back">取消</button>` +
+      `</div>` +
+      `</div>`
     );
   }
 
@@ -819,78 +809,12 @@ function bindOnce(el, fn) {
   const LISTING_LANGUAGES = { US: "en-US", UK: "en-US", DE: "de-DE", JP: "ja-JP" };
 
   function isListingMode() {
-    return Boolean(state.picked && state.picked.key === "listing_generation");
+    return Boolean((state.picked && state.picked.key === "listing_generation") || state.listingOnly);
   }
 
   /** 显式选了「竞品分析」就只做分析：不再顺手生成 Listing。 */
   function isCompetitorOnly() {
     return Boolean(state.picked && state.picked.key === "competitor_analysis");
-  }
-
-  function listingConfigCard() {
-    const products = state.products || [];
-    const picked = state.listingProduct;
-    const productOptions = products.length
-      ? products.map(function (p) {
-          const on = picked && picked.product_id === p.product_id ? " selected" : "";
-          return `<option value="${U.esc(p.product_id)}"${on}>` +
-            `${U.esc(p.name)}${p.asin ? " · " + U.esc(p.asin) : ""}</option>`;
-        }).join("")
-      : "";
-
-    const productField = products.length
-      ? `<label class="field field-span-2"><span class="field-label">商品</span>` +
-        `<select id="wb-ls-product">` +
-        `<option value="">选择要生成 Listing 的商品</option>` + productOptions +
-        `</select></label>`
-      : `<label class="field field-span-2"><span class="field-label">商品名称 <span class="t-danger">*</span></span>` +
-        `<input id="wb-ls-name" value="${U.esc(state.listingName || "")}" placeholder="还没有店铺商品，先写商品名称" />` +
-        `<span class="field-help">${U.esc(state.productsError || "接到店铺后这里会变成商品选择器。")}</span></label>`;
-
-    return (
-      `<div class="wb-inline">` +
-      `<div class="card card-pad">` +
-      `<div class="row between"><div><div class="card-title">生成 Listing</div></div>` +
-      `<button type="button" class="btn-icon" data-act="back" aria-label="取消">${U.icon("close")}</button></div>` +
-
-      `<div class="grid-2 mt-4">` + productField +
-      `<label class="field"><span class="field-label">平台</span>` +
-      `<select id="wb-ls-platform">` +
-      ["amazon", "ebay"].map(function (p) {
-        return `<option value="${p}"${(state.listingPlatform || "amazon") === p ? " selected" : ""}>` +
-          `${U.esc(window.CPLabel.platform(p))}</option>`;
-      }).join("") + `</select></label>` +
-
-      `<label class="field"><span class="field-label">站点</span>` +
-      `<select id="wb-ls-marketplace">` +
-      LISTING_SITES.map(function (m) {
-        return `<option value="${m}"${(state.listingMarketplace || "US") === m ? " selected" : ""}>` +
-          `${U.esc(window.CPLabel.site(m))}</option>`;
-      }).join("") + `</select></label>` +
-
-      `<label class="field"><span class="field-label">文案语言</span>` +
-      `<select id="wb-ls-language">` +
-      ["en-US", "de-DE", "ja-JP"].map(function (code) {
-        return `<option value="${code}"${(state.listingLanguage || "en-US") === code ? " selected" : ""}>` +
-          `${U.esc(window.CPLabel.language(code))}</option>`;
-      }).join("") + `</select></label>` +
-      `</div>` +
-
-      `<details class="mt-4"${state.listingDetailing ? " open" : ""}>` +
-      `<summary class="t-sm t-bold" style="cursor:pointer">补充商品资料（可选，填了文案更准）</summary>` +
-      `<label class="field mt-3"><span class="field-label">规格（每行「键: 值」）</span>` +
-      `<textarea id="wb-ls-specs" rows="3" spellcheck="false" placeholder="容量: 750ml&#10;材质: 304 不锈钢">${U.esc(state.listingSpecsText || "")}</textarea></label>` +
-      `<label class="field mt-3"><span class="field-label">卖点（每行一条）</span>` +
-      `<textarea id="wb-ls-features" rows="3" placeholder="双层真空保温 24 小时">${U.esc(state.listingFeaturesText || "")}</textarea></label>` +
-      `</details>` +
-
-      (state.error ? `<p class="callout callout-danger mt-3">${U.esc(state.error)}</p>` : "") +
-      `<div class="row gap-2 mt-4">` +
-      `<button type="button" class="btn btn-primary" id="wb-ls-run" ${state.busy ? "disabled" : ""}>` +
-      `${state.busy ? "生成中…" : "生成 Listing"}</button>` +
-      `<button type="button" class="btn btn-quiet" data-act="back">取消</button>` +
-      `</div></div></div>`
-    );
   }
 
   /* 选商品 → 名称/价格/站点自动带入，不再要求手写 */
@@ -929,7 +853,6 @@ function bindOnce(el, fn) {
   }
 
   function readListingCard(root) {
-    state.listingDetailing = Boolean(root.querySelector("details[open]"));
     const specs = root.querySelector("#wb-ls-specs");
     const features = root.querySelector("#wb-ls-features");
     const name = root.querySelector("#wb-ls-name");
@@ -965,15 +888,42 @@ function bindOnce(el, fn) {
   }
 
   /* ================= 结果面板 ================= */
+  function currentUser() {
+    try {
+      return (window.CPAuth && window.CPAuth.user) || null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function agentAvatar() {
+    return (
+      `<span class="msg-avatar msg-avatar-agent" aria-hidden="true">` +
+      `<img src="/media/logo-mark.svg?v=3" alt="" width="22" height="22" />` +
+      `</span>`
+    );
+  }
+
+  function userAvatar() {
+    const user = currentUser() || {};
+    const name = String(user.display_name || user.username || "我");
+    const initial = name.slice(0, 1).toUpperCase() || "我";
+    const avatar = user.avatar
+      ? `<img src="${U.esc(user.avatar)}" alt="" width="30" height="30" />`
+      : U.esc(initial);
+    return `<span class="msg-avatar msg-avatar-user" aria-hidden="true">${avatar}</span>`;
+  }
+
   function messageBubble(message) {
     if (message.role === "user") {
       return `<div class="msg msg-user"><div class="msg-body"><div class="msg-bubble">${U.esc(message.content)}</div>` +
-        `<div class="msg-time">${U.esc(U.fmtTime(message.created_at))}</div></div></div>`;
+        `<div class="msg-time">${U.esc(U.fmtTime(message.created_at))}</div></div>` +
+        userAvatar() + `</div>`;
     }
     const meta = message.meta || {};
     const tone = message.content_type === "error" ? "t-danger" : "";
-    return `<div class="msg msg-agent"><span class="msg-avatar">激</span><div class="msg-body grow">` +
-      `<div class="msg-bubble ${tone}">${U.esc(message.content)}` +
+    return `<div class="msg msg-agent">${agentAvatar()}<div class="msg-body grow">` +
+      `<div class="msg-bubble ${tone}">${U.esc(readableText(message.content))}` +
       (meta.degraded ? `<div class="t-xs t-muted mt-2">这次没能完全读懂你的描述，参数是按文本推断的，开始前请核对一下。</div>` : "") +
       `</div>` +
       `<div class="msg-time">${message.task_id
@@ -1005,8 +955,8 @@ function bindOnce(el, fn) {
     const s = state.summary;
     if (!s) return "";
     const points = (s.points || []).map(function (p) {
-      return `<div class="pain-item"><div class="t-sm">${U.esc(p.text)}</div>` +
-        `<div class="t-xs t-muted">${U.esc(p.evidence_kind)}</div></div>`;
+      return `<div class="pain-item"><div class="t-sm">${U.esc(readableText(p.text))}</div>` +
+        `<div class="t-xs t-muted">${U.esc(evidenceLabel(p.evidence_kind))}</div></div>`;
     }).join("");
     return (
       `<div class="result-block"><div class="result-head">` +
@@ -1049,30 +999,7 @@ function bindOnce(el, fn) {
     );
   }
 
-  function resultDataPane() {
-    const blocks = [
-      summaryBlock(),
-      checksBlock(),
-      state.report
-        ? `<div class="result-block"><div class="result-head">` +
-          `<span class="result-title">竞品分析结果</span>` +
-          `</div><div class="result-body">${R.renderReport(state.report)}</div></div>`
-        : "",
-      state.listing
-        ? `<div class="result-block"><div class="result-head">` +
-          `<span class="result-title">Listing 草稿</span>` +
-          `<button type="button" class="btn btn-sm" id="wb-ls-edit">编辑</button>` +
-          `</div><div class="result-body">${R.renderListing(state.listing)}</div></div>`
-        : "",
-      qualityBlock(),
-    ].filter(Boolean);
-    if (!blocks.length) {
-      return `<p class="t-sm t-muted" style="padding:var(--sp-4)">任务完成后，结果会显示在这里。</p>`;
-    }
-    return blocks.join("");
-  }
-
-  /* ---------------- 结果分区：只列这次任务真有产出的栏 ---------------- */
+  /* ---------------- 状态真源：一个任务只能有一个阶段 ---------------- */
 
   /* 后端会在提示里带字段键名（brand / key_features），翻成人话再显示 */
   function readableText(text) {
@@ -1084,20 +1011,63 @@ function bindOnce(el, fn) {
     });
   }
 
+  const EVIDENCE_LABELS = {
+    statistic: "统计",
+    inference: "推断",
+    review: "评论",
+    review_text: "评论",
+    price: "价格",
+    computed: "计算",
+    manual: "人工",
+  };
+
+  function evidenceLabel(kind) {
+    return EVIDENCE_LABELS[kind] || readableText(kind);
+  }
+
   function pendingData() {
     const task = state.taskRaw || {};
     return state.pending || (task.output || {}).pending || null;
   }
 
-  function availableTabs() {
-    const tabs = ["steps", "overview"];
-    if (state.report) {
-      tabs.push("competitors", "reviews");
-    }
-    if (state.listing) tabs.push("listing");
-    if (pendingData()) tabs.push("pending");
-    tabs.push("log");
-    return tabs;
+  function waitingMissing() {
+    const task = state.taskRaw || {};
+    const missing = (task.output || {}).missing || [];
+    return Array.isArray(missing) ? missing : [];
+  }
+
+  /* 阶段按优先级判定：跑起来 > 缺资料 > 等确认 > 终态。
+     暂停/等待不允许再落到「已完成」。 */
+  function taskPhase() {
+    if (state.mode === "params") return "clarifying";
+    if (state.busy || AR.isRunning(state.taskStatus)) return "running";
+    if (state.taskStatus === "waiting_for_input") return "missing";
+    if (state.taskStatus === "waiting_for_review" || state.taskStatus === "awaiting_approval" || pendingData()) return "waiting";
+    if (state.taskStatus === "failed") return "failed";
+    if (state.taskStatus === "cancelled") return "cancelled";
+    if (state.taskStatus === "partial") return "partial";
+    if (state.taskStatus === "succeeded") return "done";
+    return state.taskId ? "done" : "idle";
+  }
+
+  const PHASES = {
+    idle: { label: "待开始", cls: "badge" },
+    clarifying: { label: "待补充", cls: "badge badge-warn" },
+    running: { label: "运行中", cls: "badge badge-running" },
+    missing: { label: "等待补充资料", cls: "badge badge-warn" },
+    waiting: { label: "等待确认", cls: "badge badge-warn" },
+    done: { label: "已完成", cls: "badge badge-ok" },
+    partial: { label: "待复核", cls: "badge badge-warn" },
+    failed: { label: "失败", cls: "badge badge-danger" },
+    cancelled: { label: "已取消", cls: "badge" },
+  };
+
+  function phaseBadge() {
+    const meta = PHASES[taskPhase()] || PHASES.idle;
+    const label = taskPhase() === "running"
+      ? (state.taskStatus === "queued" ? "排队中" : "运行中")
+      : meta.label;
+    return `<span class="${meta.cls}" data-phase-badge>${U.esc(label)}</span>`;
   }
 
   function emptyHint(text) {
@@ -1123,7 +1093,7 @@ function bindOnce(el, fn) {
       `<span class="badge">第 ${U.esc(String(listing.version || 1))} 版</span>` +
       (listing.is_demo ? U.mockFlag() : "") +
       `</div>` +
-      `<button type="button" class="btn btn-sm" id="wb-ls-edit">编辑</button></div>` +
+      `<button type="button" class="btn btn-sm" data-ls-edit>编辑</button></div>` +
       block("标题（Title）", `<p class="wb-ls-text">${U.esc(listing.title || "—")}</p>`, listing.title || "") +
       block("五点描述（Bullet Points）",
         bullets.length
@@ -1139,35 +1109,51 @@ function bindOnce(el, fn) {
     );
   }
 
-  function pendingPanel() {
-    const pending = pendingData();
-    if (!pending) return emptyHint("这条任务没有待确认项。");
+  /* 中断卡：缺资料（可补后重跑）与等确认（可原地恢复）分开说 */
+  function decisionCard() {
+    const phase = taskPhase();
+    if (phase !== "missing" && phase !== "waiting") return "";
+    const pending = pendingData() || {};
+    const missing = phase === "missing" ? waitingMissing() : (pending.missing_fields || pending.fields || []);
     const reasons = pending.reasons || [];
     const affected = pending.affected_conclusions || [];
-    const missing = pending.missing_fields || pending.fields || [];
+    const title = phase === "missing"
+      ? (missing.length ? `还差 ${missing.length} 项资料` : "还差一些商品资料")
+      : (pending.question || "需要你确认是否继续");
     return (
-      `<div class="wb-pending">` +
-      `<div class="callout callout-warn">${U.icon("alert")}` +
-      `<div><strong>${U.esc(pending.question || "需要你确认是否继续")}</strong>` +
+      `<div class="wb-card wb-decision" data-decision-card>` +
+      `<div class="wb-card-head">` +
+      `<div><div class="wb-card-title">${U.esc(title)}</div>` +
+      `<div class="wb-card-sub">${phase === "missing"
+        ? "补上后重新执行，已选商品和竞品会保留"
+        : "任务停在这里，等你决定要不要继续"}</div></div>` +
+      phaseBadge() +
+      `</div>` +
+      `<div class="wb-card-body">` +
       (reasons.length
-        ? `<ul class="mt-2 mb-0 t-sm">` + reasons.map(function (r) { return `<li>${U.esc(r)}</li>`; }).join("") + `</ul>`
+        ? `<ul class="wb-reason-list">` + reasons.map(function (r) { return `<li>${U.esc(r)}</li>`; }).join("") + `</ul>`
         : "") +
-      `</div></div>` +
       (missing.length
-        ? `<div class="wb-pending-sec"><div class="t-sm t-bold">缺的资料</div>` +
-          `<div class="wb-pending-tags">` +
-          missing.map(function (f) { return `<span class="tag tag-warn">${U.esc(typeof f === "string" ? f : f.label || f.field || "")}</span>`; }).join("") +
-          `</div></div>`
+        ? `<div class="row gap-2 wrap">` +
+          missing.map(function (f) {
+            const text = typeof f === "string" ? f : (f.label || f.field || "");
+            return `<span class="tag tag-warn">${U.esc(readableText(text))}</span>`;
+          }).join("") + `</div>`
         : "") +
       (affected.length
-        ? `<div class="wb-pending-sec"><div class="t-sm t-bold">受影响的结论</div>` +
-          `<ul class="t-sm mb-0">` + affected.map(function (a) { return `<li>${U.esc(a)}</li>`; }).join("") + `</ul></div>`
+        ? `<div><div class="t-sm t-bold">受影响的结论</div>` +
+          `<ul class="wb-reason-list">` + affected.map(function (a) { return `<li>${U.esc(a)}</li>`; }).join("") + `</ul></div>`
         : "") +
-      `<div class="wb-pending-actions">` +
-      `<button type="button" class="btn btn-primary btn-sm" id="wb-confirm-continue">确认并继续</button>` +
-      `<button type="button" class="btn btn-sm" id="wb-confirm-cancel">取消任务</button>` +
-      (state.taskId ? `<a class="btn btn-sm btn-quiet" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
-      `</div></div>`
+      `</div>` +
+      `<div class="wb-card-foot">` +
+      (phase === "missing"
+        ? `<button type="button" class="btn btn-primary" id="wb-retry-input">补充资料并重试</button>`
+        : `<button type="button" class="btn btn-primary" id="wb-confirm-continue">确认并继续</button>` +
+          `<button type="button" class="btn btn-quiet" id="wb-confirm-cancel">取消任务</button>`) +
+      `<button type="button" class="btn btn-quiet" data-open-drawer>查看已有结果</button>` +
+      (state.taskId ? `<a class="btn btn-quiet" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
+      `</div>` +
+      `</div>`
     );
   }
 
@@ -1222,205 +1208,281 @@ function bindOnce(el, fn) {
     }
   }
 
-  function resultBody(tab) {
-    if (tab === "overview") {
-      const blocks = [summaryBlock(), checksBlock(), qualityBlock()].filter(Boolean);
-      return blocks.length ? blocks.join("") : emptyHint("任务完成后，结论与质检会显示在这里。");
-    }
-    if (tab === "competitors") {
-      return state.report
-        ? `<div class="report-block">${R.renderReportPart(state.report, "competitors")}</div>`
-        : emptyHint("这次任务没有竞品分析结果。");
-    }
-    if (tab === "reviews") {
-      return state.report
-        ? `<div class="report-block">${R.renderReportPart(state.report, "reviews")}</div>`
-        : emptyHint("这次任务没有评论洞察。");
-    }
-    if (tab === "listing") return listingResultCard();
-    if (tab === "pending") return pendingPanel();
-    if (tab === "log") return logPanel();
-    return AR.stepList(state.steps, state.plan);
-  }
+  /* ================= 执行卡 / 结果卡 / 过程抽屉 ================= */
 
-  /* 结果面板拆成 head / tabs / body 三段：轮询时逐段比对签名，只写真的变了的段。
-     .res-tabs 节点必须身份稳定——页签墨条（inkBar）挂在它上面，整块冲掉会让墨条
-     每秒重建生长；所以页签只在原地 toggle is-active，可用栏变化时才换按钮。 */
-  function resultHeadHtml() {
-    const running = AR.isRunning(state.taskStatus) || state.busy;
-    /* 失败只认服务端的任务状态。state.error 是「表单/请求层面」的错误，
-       任务已经建出来之后，它的成败以 task.status 为准——否则一次编辑保存、
-       一次轮询抖动都会把结果徽章翻成「失败」。 */
-    const failed = state.taskStatus === "failed" || (!state.taskId && Boolean(state.error) && !running);
-    const cancelled = state.taskStatus === "cancelled";
-    /* 暂停等确认**不是**完成：少了这一档，停在 waiting_for_review 的任务会被
-       显示成绿色「已完成」，用户以为跑完了，其实它还在等一个决定。 */
-    const waiting = state.taskStatus === "waiting_for_review";
-
-    return (
-      `<div class="wb-pane-head">` +
-      `<div class="wb-pane-title"><span class="t-section">结果</span>` +
-      (running ? `<span class="badge badge-running">${state.taskStatus === "queued" ? "排队中" : "运行中"}</span>`
-        : cancelled ? `<span class="badge">已取消</span>`
-        : failed ? `<span class="badge badge-danger">失败</span>`
-        : waiting ? `<span class="badge badge-warn">等待确认</span>`
-        : state.taskId ? `<span class="badge badge-ok">已完成</span>` : "") +
-      (state.engine
-        ? `<span class="badge ${state.engine.kind === "rule" ? "badge-warn" : "badge-ok"}">` +
-          `${U.esc(state.engine.label)}</span>`
-        : "") +
-      (state.degraded ? `<span class="badge badge-warn">参数已推断</span>` : "") +
-      `</div>` +
-      `<div class="wb-run-actions">` +
-      (running && state.taskId ? `<button type="button" class="btn btn-sm" id="wb-cancel">取消</button>` : "") +
-      (state.taskId ? `<a class="btn btn-sm" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
-      `</div></div>`
-    );
-  }
-
-  function resBodyInner() {
-    const running = AR.isRunning(state.taskStatus) || state.busy;
-    const failed = state.taskStatus === "failed" || (!state.taskId && Boolean(state.error) && !running);
-    const waiting = state.taskStatus === "waiting_for_review";
-    const tab = state.resTab;
-
-    return (
-      (running ? `<div class="progress is-indeterminate"><div class="progress-bar"></div></div>` : "") +
-      (state.degraded
-        ? `<div class="callout callout-warn">${U.icon("alert")}<div><strong>执行参数是按文字推断的</strong><br>` +
-          `${U.esc(state.degradedReason || "结果仍然完整，但文案可能需要你再润色一遍。")}</div></div>`
-        : "") +
-      (waiting
-        ? `<div class="callout callout-warn">${U.icon("info")}<div><strong>任务暂停，等你决定</strong><br>` +
-          `竞品数据不足以支撑完整结论。在「待确认项」里可以继续生成或取消，也可以打开任务详情看依据。</div></div>`
-        : "") +
-      resultBody(tab) +
-      (failed && state.error
-        ? `<div class="callout callout-danger">${U.icon("alert")}<div>执行失败：${U.esc(state.error)}</div></div>`
-        : "") +
-      keyHint() +
-      (!running && !state.taskId
-        ? `<p class="t-sm t-muted">还没有执行任何任务。</p>`
-        : "")
-    );
-  }
-
-  function resultParts() {
-    return {
-      head: resultHeadHtml(),
-      tabs: AR.resultTabs({ active: state.resTab, available: availableTabs() }),
-      body: resBodyInner(),
-    };
-  }
-
-  function resultPane() {
-    const parts = resultParts();
-    return (
-      parts.head +
-      parts.tabs +
-      `<div class="res-body"><div class="res-inner">` + parts.body + `</div></div>`
-    );
-  }
-
-  /* 对话里的执行摘要：只报当前阶段和已完成步数，完整时间线在右侧结果面板 */
-  function planFacts() {
+  function runCard() {
+    const phase = taskPhase();
+    if (phase === "idle" || phase === "clarifying") return "";
     const steps = state.steps || [];
-    const total = steps.length || (state.plan || []).length;
+    const planned = plannedStages();
+    const total = steps.length || planned.length;
     const done = steps.filter(function (s) {
       return s.status === "succeeded" || s.status === "skipped";
     }).length;
     const active = steps.filter(function (s) { return s.status === "running" })[0];
-    const failed = steps.filter(function (s) { return s.status === "failed" })[0];
-    const stage = active ? active.name
-      : failed ? failed.name
-        : steps.length ? steps[steps.length - 1].name
-          : (state.plan && state.plan.length ? AR.planLabel(state.plan[0]) : "");
-
-    return {
-      meta: steps.length ? `已完成 ${done} / ${total} 步` : "任务开始后在这里显示进度",
-      stage: stage || "尚未开始",
-    };
-  }
-
-  function planCard() {
-    const facts = planFacts();
-    const open = Boolean(state.planOpen);
+    const last = steps[steps.length - 1];
+    const current = active ? active.name
+      : phase === "missing" ? "等待补充资料"
+        : phase === "waiting" ? "等待确认"
+          : last ? last.name
+            : (planned[0] || "");
+    const title = phase === "running" ? "执行中"
+      : phase === "missing" ? "执行暂停"
+        : phase === "waiting" ? "等待确认"
+          : phase === "failed" ? "执行失败"
+            : phase === "cancelled" ? "已取消"
+              : "执行完成";
+    const paused = phase === "missing" || phase === "waiting";
+    const track = (steps.length
+      ? steps.map(function (s, index) {
+          const isPausePoint = paused && index === steps.length - 1;
+          const cls = isPausePoint ? "is-paused"
+            : s.status === "running" ? "is-running"
+              : s.status === "failed" ? "is-failed"
+                : (s.status === "succeeded" || s.status === "skipped") ? "is-done"
+                  : "";
+          return `<span class="wb-stage-seg ${cls}" title="${U.esc(readableText(s.name))}"></span>`;
+        }).join("")
+      : planned.map(function () { return `<span class="wb-stage-seg"></span>`; }).join(""));
+    const sub = paused
+      ? `流程暂停 · ${done} / ${total} 步已有结果`
+      : steps.length ? `已完成 ${done} / ${total} 步` : "任务已提交，等待执行器";
     return (
-      `<div class="plan-card" data-plan-summary>` +
-      `<div class="plan-head">` +
-      `<span class="plan-title">${U.icon("tasks")}执行计划</span>` +
-      `<span class="t-xs t-muted" data-plan-meta>${facts.meta}</span></div>` +
+      `<div class="wb-card wb-run-card" data-run-card>` +
+      `<div class="wb-card-head">` +
+      `<div><div class="wb-card-title">${U.icon("tasks")}${U.esc(title)}</div>` +
+      `<div class="wb-card-sub">${U.esc(sub)}</div></div>` +
+      `</div>` +
+      `<div class="wb-card-body">` +
+      (phase === "running" && !steps.length
+        ? `<div class="progress is-indeterminate"><div class="progress-bar"></div></div>`
+        : `<div class="wb-stage-track">${track}</div>`) +
+      `<div class="wb-stage-line"><span class="t-xs t-muted">当前阶段</span>` +
+      `<span class="wb-stage-name">${U.esc(current || "尚未开始")}</span></div>` +
       (state.selectedSkills.length
-        ? `<div class="t-xs t-muted" data-plan-route style="margin:0 0 var(--sp-2)">` +
-          `本次能力：${U.esc(state.selectedSkills.map(function (s) {
-            return s.name || s.skill_key;
-          }).join("、"))}` +
+        ? `<div class="t-xs t-muted">本次能力：${U.esc(state.selectedSkills.map(function (s) {
+          return s.name || s.skill_key;
+        }).join("、"))}` +
           (state.routing && state.routing.note ? ` · ${U.esc(state.routing.note)}` : "") +
           `</div>`
         : "") +
-      `<div class="plan-body">` +
-      `<div class="plan-stage">` +
-      `<span class="t-xs t-muted">当前阶段</span>` +
-      `<span class="plan-stage-name" data-plan-stage>${U.esc(facts.stage)}</span>` +
+      (phase === "failed" && state.error
+        ? `<div class="callout callout-danger">${U.icon("alert")}<div>${U.esc(state.error)}</div></div>`
+        : "") +
       `</div>` +
-      `<button type="button" class="btn btn-sm" data-plan-toggle>` +
-      `${open ? "收起步骤" : "查看完整步骤"}</button>` +
+      `<div class="wb-card-foot">` +
+      `<button type="button" class="btn btn-quiet btn-sm" data-open-drawer>查看过程</button>` +
+      (phase === "running" && state.taskId
+        ? `<button type="button" class="btn btn-sm" id="wb-cancel">停止</button>`
+        : "") +
+      (state.taskId ? `<a class="btn btn-quiet btn-sm" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
       `</div>` +
-      (open ? `<div class="plan-steps" data-plan-steps>${AR.stepList(state.steps, state.plan)}</div>` : "") +
       `</div>`
     );
   }
 
-  /* 轮询到新步骤时，只换摘要里的两处文字 */
-  function refreshPlanCard(root) {
-    if (state.mode !== "run") return;
-    const facts = planFacts();
-    const meta = root.querySelector("[data-plan-meta]");
-    const stage = root.querySelector("[data-plan-stage]");
-    if (meta) meta.textContent = facts.meta;
-    if (stage) stage.textContent = facts.stage;
+  function resultCard() {
+    const phase = taskPhase();
+    if (phase !== "done" && phase !== "partial") return "";
+    const points = ((state.summary || {}).points || []).slice(0, 3);
+    const hasOutput = points.length || state.report || state.listing || state.quality || state.checks;
+    if (!hasOutput) {
+      return (
+        `<div class="wb-card wb-result-card" data-result-card>` +
+        `<div class="wb-card-head"><div><div class="wb-card-title">本次结果</div>` +
+        `<div class="wb-card-sub">这次执行没有产出可展示的内容</div></div>${phaseBadge()}</div>` +
+        `<div class="wb-card-foot"><button type="button" class="btn btn-sm" data-open-drawer>查看执行过程</button></div>` +
+        `</div>`
+      );
+    }
+    const quality = state.quality;
+    return (
+      `<div class="wb-card wb-result-card" data-result-card>` +
+      `<div class="wb-card-head">` +
+      `<div><div class="wb-card-title">本次结果</div>` +
+      `<div class="wb-card-sub">${state.engine ? U.esc(state.engine.label) : "结果已生成"}` +
+      `${state.degraded ? " · 参数来自文本识别" : ""}` +
+      `${quality && !quality.passed ? " · 质检未通过" : ""}</div></div>` +
+      `</div>` +
+      `<div class="wb-card-body">` +
+      (points.length
+        ? `<ul class="wb-result-points">` + points.map(function (p) {
+            return `<li><span class="wb-result-point-text">${U.esc(readableText(p.text))}</span>` +
+              (p.evidence_kind ? `<span class="wb-evidence">${U.esc(evidenceLabel(p.evidence_kind))}</span>` : "") +
+              `</li>`;
+          }).join("") + `</ul>`
+        : "") +
+      `<div class="wb-artifact-row">` +
+      (state.report ? `<span class="tag">竞品与评论洞察</span>` : "") +
+      (state.listing
+        ? `<span class="tag">Listing 草稿 · 第 ${U.esc(String(state.listing.version || 1))} 版</span>`
+        : "") +
+      (quality
+        ? `<span class="badge ${quality.passed ? "badge-ok" : "badge-warn"}">质检${quality.passed ? "通过" : "存在问题"}</span>`
+        : "") +
+      `</div>` +
+      (state.listing
+        ? `<div class="wb-listing-preview"><span class="wb-listing-preview-label">标题</span>` +
+          `<span>${U.esc(state.listing.title || "—")}</span></div>`
+        : "") +
+      `</div>` +
+      `<div class="wb-card-foot">` +
+      `<button type="button" class="btn btn-primary btn-sm" data-open-drawer>查看完整结果</button>` +
+      (state.listing ? `<button type="button" class="btn btn-sm" id="wb-ls-edit">编辑草稿</button>` : "") +
+      `<button type="button" class="btn btn-quiet btn-sm" data-act="continue">基于此继续</button>` +
+      (state.taskId ? `<a class="btn btn-quiet btn-sm" href="/tasks/${U.esc(state.taskId)}" data-link>任务详情</a>` : "") +
+      `</div>` +
+      `</div>`
+    );
+  }
+
+  function drawerSection(title, body, open) {
+    return (
+      `<details class="wb-drawer-sec"${open ? " open" : ""}>` +
+      `<summary>${U.esc(title)}</summary>` +
+      `<div class="wb-drawer-sec-body">${body}</div>` +
+      `</details>`
+    );
+  }
+
+  function drawerBody() {
+    const phase = taskPhase();
+    const blocks = [];
+    if (phase === "missing" || phase === "waiting") {
+      blocks.push(
+        `<div class="callout callout-warn">${U.icon("alert")}<div><strong>任务尚未结束</strong><br>` +
+        `${phase === "missing" ? "补充资料后重试，已有结果仍保留在这里。" : "确认或取消后，任务才会继续。"}</div></div>`,
+      );
+    }
+    blocks.push(drawerSection("执行过程", AR.stepList(state.steps, state.plan), true));
+    const conclusion = [summaryBlock(), checksBlock(), qualityBlock()].filter(Boolean).join("");
+    if (conclusion) blocks.push(drawerSection("结论与质检", conclusion, true));
+    if (state.report) {
+      blocks.push(drawerSection("竞品对比", `<div class="report-block">${R.renderReportPart(state.report, "competitors")}</div>`, false));
+      blocks.push(drawerSection("评论洞察", `<div class="report-block">${R.renderReportPart(state.report, "reviews")}</div>`, false));
+    }
+    if (state.listing) blocks.push(drawerSection("Listing 草稿", listingResultCard(), false));
+    blocks.push(drawerSection("调用明细", logPanel(), false));
+    return blocks.join("");
+  }
+
+  function drawerHtml() {
+    return (
+      `<div class="wb-drawer-scrim" id="wb-drawer" data-drawer-scrim${state.drawerOpen ? "" : " hidden"}>` +
+      `<aside class="wb-drawer" role="dialog" aria-modal="true" aria-labelledby="wb-drawer-title">` +
+      `<div class="wb-drawer-head">` +
+      `<div><div class="wb-card-title" id="wb-drawer-title">过程与产物</div>` +
+      `<div class="wb-card-sub">步骤、证据与调用明细</div></div>` +
+      `<button type="button" class="btn-icon" data-drawer-close aria-label="关闭">${U.icon("close")}</button>` +
+      `</div>` +
+      `<div class="wb-drawer-body" data-drawer-body>${state.drawerOpen ? drawerBody() : ""}</div>` +
+      `</aside></div>`
+    );
+  }
+
+  function composerFollowup() {
+    return (
+      `<div class="chat-composer"><div class="chat-composer-inner">` +
+      `<div class="wb-context-row">` +
+      (taskPhase() === "running"
+        ? `<span class="wb-context-chip">当前任务运行中，继续追问会新建一次执行</span>`
+        : `<span class="wb-context-chip">继续当前任务</span>`) +
+      `<span class="wb-context-hint">Enter 发送 · Shift + Enter 换行</span>` +
+      `</div>` +
+      `<form class="wb-followup" id="wb-followup">` +
+      `<input class="wb-followup-input" id="wb-followup-input" placeholder="继续追问，例如：把标题改得更简短" aria-label="继续追问" />` +
+      `<button class="wb-followup-send" type="submit">继续</button>` +
+      `</form>` +
+      `</div></div>`
+    );
+  }
+
+  function chatShell(inner, opts) {
+    const title = state.productName || state.conversationTitle || (state.continuing ? "继续任务" : "新任务");
+    return wbShell(
+      `<div class="wb-chat" id="wb-chat">` +
+      `<header class="wb-chat-head">` +
+      `<div class="wb-chat-title" role="status" aria-live="polite"><span class="t-section">${U.esc(title)}</span>${phaseBadge()}` +
+      (state.engine
+        ? `<span class="badge ${state.engine.kind === "rule" ? "badge-warn" : "badge-ok"}">${U.esc(state.engine.label)}</span>`
+        : "") +
+      `</div>` +
+      `<div class="wb-chat-actions">` +
+      (state.taskId ? `<button type="button" class="btn btn-sm btn-quiet" data-open-drawer>过程与产物</button>` : "") +
+      `<button type="button" class="btn btn-sm btn-quiet wb-chat-new" data-act="new">${U.icon("plus")}新会话</button>` +
+      `</div></header>` +
+      `<div class="chat-scroll" id="wb-chat-scroll"><div class="chat-inner">${inner}</div></div>` +
+      (opts && opts.composer ? composerFollowup() : "") +
+      drawerHtml() +
+      `</div>`,
+    );
+  }
+
+  function renderClarify() {
+    const messages = state.messages.length
+      ? state.messages.map(messageBubble).join("")
+      : `<div class="msg msg-user"><div class="msg-body"><div class="msg-bubble">${U.esc(state.goal || "（未填写目标）")}</div></div>${userAvatar()}</div>`;
+    const inner = messages +
+      `<div class="msg msg-agent">${agentAvatar()}<div class="msg-body grow">` +
+      clarifyCard() +
+      `</div></div>`;
+    return chatShell(inner, { composer: false });
   }
 
   function renderRun() {
     const messages = state.messages.length
       ? state.messages.map(messageBubble).join("")
-      : `<div class="msg msg-user"><div class="msg-body"><div class="msg-bubble">${U.esc(state.goal || "（未填写目标）")}</div></div></div>` +
-        `<div class="msg msg-agent"><span class="msg-avatar">激</span><div class="msg-body grow">` +
-        `<div class="msg-bubble">正在创建任务…</div></div></div>`;
+      : state.taskId
+        ? `<div class="msg msg-user"><div class="msg-body"><div class="msg-bubble">${U.esc(state.goal || "（未填写目标）")}</div></div>${userAvatar()}</div>` +
+          `<div class="msg msg-agent">${agentAvatar()}<div class="msg-body grow">` +
+          `<div class="msg-bubble">正在创建任务…</div></div></div>`
+        : `<div class="wb-chat-empty">${U.icon("chat")}<p>这个会话还没有消息，在下面输入一句话开始。</p></div>`;
+    const inner = messages +
+      `<div data-run-card>${runCard()}</div>` +
+      `<div data-decision-card>${decisionCard()}</div>` +
+      `<div data-result-card>${resultCard()}</div>`;
+    return chatShell(inner, { composer: true });
+  }
 
-    return (
-      `<div class="wb-run split is-mobile-` + state.mobilePane + `" id="wb-run">` +
-      `<div class="wb-mobile-tabs" role="tablist" aria-label="对话与结果">` +
-      `<button type="button" class="wb-mobile-tab${state.mobilePane === "chat" ? " is-active" : ""}" ` +
-      `data-wb-pane="chat" role="tab" aria-selected="${state.mobilePane === "chat"}">对话</button>` +
-      `<button type="button" class="wb-mobile-tab${state.mobilePane === "result" ? " is-active" : ""}" ` +
-      `data-wb-pane="result" role="tab" aria-selected="${state.mobilePane === "result"}">结果</button>` +
-      `</div>` +
-      `<section class="wb-pane wb-pane-chat">` +
-      `<div class="wb-pane-head">` +
-      `<div class="wb-pane-title"><span class="t-section">${U.esc(state.productName || "对话")}</span></div>` +
-      `<div class="wb-run-actions">` +
-      `<button type="button" class="btn btn-quiet btn-sm" data-act="new">${U.icon("plus")}新会话</button>` +
-      `</div></div>` +
-      `<div class="chat-scroll"><div class="chat-inner">` +
-      messages +
-      `<div class="msg msg-agent"><span class="msg-avatar">激</span><div class="msg-body grow">` +
-      planCard() +
-      `</div></div>` +
-      `</div></div>` +
-      `<div class="chat-composer"><div class="chat-composer-inner">` +
-      `<form class="row gap-2" id="wb-followup">` +
-      `<input class="grow" id="wb-followup-input" placeholder="继续说明目标，例如：改成日本站并生成日文 Listing" />` +
-      `<button class="btn btn-primary btn-sm" type="submit">继续</button>` +
-      `</form>` +
-      `</div></div>` +
-      `</section>` +
-
-      `<aside class="wb-pane wb-pane-res" id="wb-res-pane" tabindex="-1">` +
-      resultPane() +
-      `</aside>` +
-      `</div>`
-    );
+  /* 轮询只替换三块状态卡与抽屉内容，不碰对话流和正在输入的追问 */
+  function refreshRunPanels(root) {
+    if (state.mode !== "run") return;
+    let changed = false;
+    const paint = function (selector, html) {
+      const host = root.querySelector(selector);
+      if (!host) return;
+      if (host.innerHTML !== html) {
+        host.innerHTML = html;
+        changed = true;
+      }
+    };
+    paint("[data-run-card]", runCard());
+    paint("[data-decision-card]", decisionCard());
+    paint("[data-result-card]", resultCard());
+    const badge = root.querySelector(".wb-chat-head [data-phase-badge]");
+    if (badge && badge.outerHTML !== phaseBadge()) {
+      badge.outerHTML = phaseBadge();
+      changed = true;
+    }
+    if (state.drawerOpen) {
+      const body = root.querySelector("[data-drawer-body]");
+      const html = drawerBody();
+      if (body && body.innerHTML !== html) {
+        /* 轮询每秒都会重绘抽屉：保留用户展开的分区和滚动位置 */
+        const openSections = Array.prototype.map.call(
+          body.querySelectorAll(".wb-drawer-sec"),
+          function (el) { return el.open; },
+        );
+        const top = body.scrollTop;
+        body.innerHTML = html;
+        body.querySelectorAll(".wb-drawer-sec").forEach(function (el, i) {
+          if (openSections[i] !== undefined) el.open = openSections[i];
+        });
+        body.scrollTop = top;
+        changed = true;
+      }
+    }
+    if (changed) window.CPIcon.hydrate(root);
   }
 
   /* ================= 渲染与事件 ================= */
@@ -1430,24 +1492,15 @@ function bindOnce(el, fn) {
     if (live) state.composerDraft = live.value;
 
     /* 旧节点即将被 innerHTML 销毁：先解绑挂在上面的墨条 */
-    teardownInk();
 
-    /* params 也走首页骨架：参数卡是本页输出的一段内容，不是另一张页面 */
-    const body = state.mode === "run" ? renderRun() : renderEmpty();
+
+    const body = state.mode === "run" ? renderRun()
+      : state.mode === "params" ? renderClarify()
+        : renderEmpty();
     root.innerHTML = `<div class="view">${body}</div>`;
     window.CPIcon.hydrate(root);
     bind(root);
-    dockComposer(root);
-
-    /* 首绘即记下签名：第一次轮询若内容没变就一个 DOM 都不碰 */
-    const pane = root.querySelector("#wb-res-pane");
-    if (pane) {
-      pane._wbPaneSig = resultParts();
-      const tabs = pane.querySelector(".res-tabs");
-      if (tabs) resInkCleanup = inkBar(tabs, { item: ":scope > .res-tab" });
-    }
-    const mobileTabs = root.querySelector(".wb-mobile-tabs");
-    if (mobileTabs) mobileInkCleanup = inkBar(mobileTabs, { item: ":scope > .wb-mobile-tab" });
+    dockView(root, ".wb-shell");
 
     const input = root.querySelector("#composer-input");
     if (input && state.composerDraft) {
@@ -1456,108 +1509,47 @@ function bindOnce(el, fn) {
       const send = root.querySelector("#composer-send");
       if (send) send.disabled = false;
     }
+    const scroller = root.querySelector("#wb-chat-scroll");
+    if (scroller && state.mode === "run") scroller.scrollTop = scroller.scrollHeight;
     loadConversations(root);
   }
 
-  function refreshRecent(root) {
-    const home = root.querySelector(".wb-home");
-    if (!home) return;
-    const cur = home.querySelector(".wb-recent");
-    const html = recentBlock();
-    if (cur) {
-      if (html) cur.outerHTML = html;
-      else cur.remove();
-    } else if (html) {
-      home.insertAdjacentHTML("beforeend", html);
-    }
-    window.CPIcon.hydrate(home);
-  }
-
-  /* 页签条原地同步：同一组栏只 toggle is-active / aria-selected（墨条靠
-     MutationObserver 感知 class 变化滑动）；可用栏增减时才重建按钮，
-     且保留 .res-tabs 节点与已挂上的墨条。 */
-  function syncResTabs(bar, tabsHtml) {
-    if (!bar) return;
-    const holder = document.createElement("div");
-    holder.innerHTML = tabsHtml;
-    const next = holder.firstElementChild;
-    if (!next) return;
-    const oldBtns = Array.prototype.slice.call(bar.querySelectorAll(":scope > .res-tab"));
-    const newBtns = Array.prototype.slice.call(next.querySelectorAll(":scope > .res-tab"));
-    const sameSet = oldBtns.length === newBtns.length && oldBtns.every(function (btn, i) {
-      return btn.getAttribute("data-res-tab") === newBtns[i].getAttribute("data-res-tab");
-    });
-    if (sameSet) {
-      oldBtns.forEach(function (btn, i) {
-        const on = newBtns[i].classList.contains("is-active");
-        btn.classList.toggle("is-active", on);
-        const selected = on ? "true" : "false";
-        if (btn.getAttribute("aria-selected") !== selected) btn.setAttribute("aria-selected", selected);
-      });
-      return;
-    }
-    const ink = bar.querySelector(":scope > .tab-ink");
-    while (bar.firstChild) bar.removeChild(bar.firstChild);
-    newBtns.forEach(function (btn) { bar.appendChild(btn); });
-    if (ink) bar.appendChild(ink);
-  }
-
   function renderInPlace(root) {
-    /* 轮询期间只更新结果面板里真的变了的段，对话区（含正在输入的 followup）不碰 */
+    /* 轮询只替换状态卡与抽屉，对话流和正在输入的追问保持不动 */
     if (state.mode !== "run") { render(root); return; }
-    const pane = root.querySelector("#wb-res-pane");
-    if (pane) {
-      const parts = resultParts();
-      const sig = pane._wbPaneSig;
-      if (!sig || sig.head !== parts.head || sig.tabs !== parts.tabs || sig.body !== parts.body) {
-        if (!sig || sig.head !== parts.head) {
-          const head = pane.querySelector(".wb-pane-head");
-          if (head) head.outerHTML = parts.head;
-          else pane.insertAdjacentHTML("afterbegin", parts.head);
-        }
-        if (!sig || sig.tabs !== parts.tabs) {
-          syncResTabs(pane.querySelector(".res-tabs"), parts.tabs);
-        }
-        if (!sig || sig.body !== parts.body) {
-          const body = pane.querySelector(".res-body");
-          const inner = body && body.querySelector(".res-inner");
-          if (inner) {
-            /* .res-body 是滚动容器：内容替换会把 scrollTop 归零，先记后还 */
-            const top = body.scrollTop;
-            inner.innerHTML = parts.body;
-            body.scrollTop = top;
-          }
-        }
-        pane._wbPaneSig = parts;
-        window.CPIcon.hydrate(pane);
-        bindResultPane(root);
-      }
-    }
-    /* 对话里的执行概况跟结果面板同源，轮询到新步骤时一起换 */
-    refreshPlanCard(root);
+    refreshRunPanels(root);
   }
 
   function loadConversations(root) {
     A.get("/api/conversations?limit=30").then(function (data) {
-      const next = data.items || [];
-      const changed = next.length !== state.conversations.length;
-      state.conversations = next;
-      /* 首页的「最近的会话」是异步补上的，只在条数变化时局部刷新，不整页重绘 */
-      if (changed && state.mode === "empty") refreshRecent(root);
+      state.conversations = data.items || [];
+      /* 左栏是异步补上的；正在重命名时不打断输入 */
+      if (!state.renamingId) refreshRail(root);
     }).catch(function () { /* 会话列表失败不影响主流程 */ });
   }
 
-  /* 左右分栏可拖拽：比例持久化，双击复位 */
-  function mountSplit(root) {
-    const run = root.querySelector("#wb-run.split");
-    if (!run || !window.CPPanels) return;
-    window.CPPanels.split(run, {
-      storageKey: "cp.split:workbench",
-      defaultSize: 0.58,
-      min: 0.3,
-      max: 0.76,
-      label: "调整对话与结果宽度",
-    });
+  function openDrawer(root, restoreSelector) {
+    const scrim = root.querySelector("#wb-drawer");
+    if (!scrim) return;
+    state.drawerOpen = true;
+    scrim.hidden = false;
+    const body = scrim.querySelector("[data-drawer-body]");
+    if (body) body.innerHTML = drawerBody();
+    window.CPIcon.hydrate(scrim);
+    ensureLog(root);
+    const close = scrim.querySelector("[data-drawer-close]");
+    if (close) close.focus();
+    scrim.setAttribute("data-return-focus", restoreSelector || "");
+  }
+
+  function closeDrawer(root) {
+    const scrim = root.querySelector("#wb-drawer");
+    if (!scrim || scrim.hidden) return;
+    state.drawerOpen = false;
+    scrim.hidden = true;
+    const sel = scrim.getAttribute("data-return-focus");
+    const back = sel ? root.querySelector(sel) : null;
+    if (back) back.focus();
   }
 
   function ensureLog(root) {
@@ -1594,31 +1586,7 @@ function bindOnce(el, fn) {
     }
   }
 
-  function bindResultPane(root) {
-    root.querySelectorAll("[data-res-tab]").forEach(function (btn) {
-      bindOnce(btn, function () {
-        state.resTab = btn.getAttribute("data-res-tab");
-        renderInPlace(root);
-        if (state.resTab === "log") ensureLog(root);
-      });
-    });
-    /* 直接在面板里绑：结果面板是独立重绘的，走 root 的事件委托在重绘后不够可靠 */
-    bindOnce(root.querySelector("#wb-ls-edit"), function () { openListingEditor(root); });
-
-    root.querySelectorAll("[data-copy]").forEach(function (btn) {
-      bindOnce(btn, function () {
-        U.copy(btn.getAttribute("data-copy"), "内容");
-      });
-    });
-    bindOnce(root.querySelector("#wb-cancel"), function () { cancelRun(root); });
-    bindOnce(root.querySelector("#wb-confirm-continue"), function () { void confirmPending(root, "continue"); });
-    bindOnce(root.querySelector("#wb-confirm-cancel"), function () { void confirmPending(root, "cancel"); });
-  }
-
   function bind(root) {
-    bindResultPane(root);
-    mountSplit(root);
-
     root.oninput = function (event) {
       const target = event.target as HTMLElement | null;
       if (target && target.id === "wb-goal") {
@@ -1630,76 +1598,85 @@ function bindOnce(el, fn) {
     };
 
     root.onclick = function (event) {
-      /* 助手菜单：点自己只开关，点菜单项交给下面的 [data-agent]，点别处先收起 */
+      /* 两个下拉各自开关：专家在右下角，技能在左下角，互斥展开 */
       const onToggle = !!event.target.closest("#wb-assistant");
-      const inMenu = !!event.target.closest(".wb-menu");
-      if (state.assistantOpen && !onToggle && !inMenu) {
+      const onSkills = !!event.target.closest("#wb-skills-toggle");
+      const inAssistant = !!event.target.closest(".wb-assistant-wrap");
+      const inSkills = !!event.target.closest(".wb-skills-wrap");
+      if (state.assistantOpen && !inAssistant) {
         state.assistantOpen = false;
         refreshAssistant(root);
+      }
+      if (state.skillsOpen && !inSkills) {
+        state.skillsOpen = false;
+        refreshSkills(root);
       }
 
       if (onToggle) {
         state.assistantOpen = !state.assistantOpen;
+        state.skillsOpen = false;
+        refreshAssistant(root);
+        refreshSkills(root);
+        return;
+      }
+
+      if (onSkills) {
+        state.skillsOpen = !state.skillsOpen;
+        state.assistantOpen = false;
+        refreshSkills(root);
         refreshAssistant(root);
         return;
       }
 
-      const seg = event.target.closest("[data-seg]");
-      if (seg) {
-        const next = seg.getAttribute("data-seg");
-        if (next === state.seg) return;
-        state.seg = next;
-        render(root);
-        /* 换入口等于换一屏内容，滚到顶再显示 */
-        window.scrollTo({ top: 0 });
-        return;
-      }
+      /* 过程与产物抽屉：开、关、点遮罩关 */
+      const drawerClose = event.target.closest("[data-drawer-close]");
+      if (drawerClose) { closeDrawer(root); return; }
+      if (event.target.matches("[data-drawer-scrim]")) { closeDrawer(root); return; }
+      const drawerOpen = event.target.closest("[data-open-drawer]");
+      if (drawerOpen) { openDrawer(root, "[data-open-drawer]"); return; }
 
       const agent = event.target.closest("[data-agent]");
       if (agent) {
         state.agentKey = agent.getAttribute("data-agent");
+        state.picked = null;
         state.assistantOpen = false;
-        render(root);
+        state.skillsOpen = false;
+        refreshAssistant(root);
+        refreshSkills(root);
+        paintEcho(root);
         const input = root.querySelector("#composer-input");
         if (input) input.focus();
         return;
       }
 
-      const paneTab = event.target.closest("[data-wb-pane]");
-      if (paneTab) {
-        const next = paneTab.getAttribute("data-wb-pane");
-        state.mobilePane = next === "result" ? "result" : "chat";
-        const run = root.querySelector("#wb-run");
-        if (run) {
-          run.classList.toggle("is-mobile-chat", state.mobilePane === "chat");
-          run.classList.toggle("is-mobile-result", state.mobilePane === "result");
-        }
-        root.querySelectorAll("[data-wb-pane]").forEach(function (btn) {
-          const on = btn.getAttribute("data-wb-pane") === state.mobilePane;
-          btn.classList.toggle("is-active", on);
-          btn.setAttribute("aria-selected", on ? "true" : "false");
-        });
+      /* 会话标题行内重命名：优先于打开会话 */
+      const rename = event.target.closest("[data-rename]");
+      if (rename) {
+        state.renamingId = rename.getAttribute("data-rename");
+        refreshRail(root);
         return;
       }
 
-      const planToggle = event.target.closest("[data-plan-toggle]");
-      if (planToggle) {
-        state.planOpen = !state.planOpen;
-        const card = root.querySelector("[data-plan-summary]");
-        if (card) {
-          const holder = document.createElement("div");
-          holder.innerHTML = planCard();
-          const next = holder.firstElementChild;
-          if (next) {
-            card.replaceWith(next);
-            window.CPIcon.hydrate(root);
-          }
+      const pick = event.target.closest("[data-pick-skill]");
+      if (pick) {
+        const skill = C.skillByKey(pick.getAttribute("data-pick-skill"));
+        state.assistantOpen = false;
+        state.skillsOpen = false;
+        refreshAssistant(root);
+        refreshSkills(root);
+        if (!skill) return;
+        if (skill.status !== "available") {
+          U.toast("这个技能暂时用不了，换一个试试", "danger");
+          return;
         }
+        if (!WORKBENCH_SKILLS[skill.key]) {
+          U.toast(`「${skill.name}」需要专属参数，已打开技能详情`, "ok");
+          window.location.assign(`/skills?skill=${encodeURIComponent(skill.key)}`);
+          return;
+        }
+        pickSkill(root, skill);
         return;
       }
-
-      const chip = event.target.closest("[data-cat]");
-      if (chip) { state.category = chip.getAttribute("data-cat"); render(root); return; }
 
       const conversation = event.target.closest("[data-conversation]");
       if (conversation) {
@@ -1709,26 +1686,25 @@ function bindOnce(el, fn) {
 
       const card = event.target.closest("[data-skill]");
       if (card) {
-        const key = card.getAttribute("data-skill");
-        const skill = C.skillByKey(key);
+        const skill = C.skillByKey(card.getAttribute("data-skill"));
         if (!skill) return;
         if (skill.status !== "available") {
           U.toast("这个技能暂时用不了，换一个试试", "danger");
           return;
         }
-        /* 只有能由工作台表单完整表达的技能才留在本页；其余技能
-           需要报告/文件等专属参数，直接去技能详情，避免"选了却跑的
-           是另一条流程"。提示语 chip 不受影响（它们只是例句）。 */
-        if (
-          card.classList.contains("skill-card") &&
-          !WORKBENCH_SKILLS[skill.key]
-        ) {
-          U.toast(`「${skill.name}」需要专属参数，已打开技能详情`, "ok");
-          window.location.assign(`/skills?skill=${encodeURIComponent(skill.key)}`);
+        /* 提示语只是例句：不能由工作台完整表达的技能，只把话填进输入框 */
+        if (!WORKBENCH_SKILLS[skill.key]) {
+          state.picked = null;
+          refreshAssistant(root);
+          refreshSkills(root);
+          const input = root.querySelector("#composer-input");
+          if (input) {
+            input.value = skill.prompt || "";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+            input.focus();
+          }
           return;
         }
-        /* 不跳页：把技能的目标带进输入框，助手先说明这一步要补什么，
-           用户按发送才开始。整页跳到参数表单在这个位置太突然。 */
         pickSkill(root, skill);
         return;
       }
@@ -1747,22 +1723,39 @@ function bindOnce(el, fn) {
         return;
       }
 
+      const copyBtn = event.target.closest("[data-copy]");
+      if (copyBtn) { U.copy(copyBtn.getAttribute("data-copy"), "内容"); return; }
+
       const act = event.target.closest("[data-act]");
       if (act) {
         const name = act.getAttribute("data-act");
-        if (name === "back" || name === "new") {
+        if (name === "back") {
+          if (state.continuing && state.taskId) {
+            state.continuing = false;
+            state.mode = "run";
+            render(root);
+          } else {
+            newSession(root);
+          }
+        } else if (name === "new") {
           newSession(root);
         } else if (name === "data") {
           U.toast("数据资产在左侧「数据资产」页面管理，导入后这里可以直接引用");
         } else if (name === "skills") {
-          state.seg = "skill";
-          render(root);
-          window.scrollTo({ top: 0 });
+          state.skillsOpen = true;
+          state.assistantOpen = false;
+          refreshSkills(root);
+          refreshAssistant(root);
         } else if (name === "drop-skill") {
           state.picked = null;
           paintEcho(root);
+          refreshAssistant(root);
+          refreshSkills(root);
         } else if (name === "demo") {
           fillDemo(root);
+        } else if (name === "continue") {
+          const input = root.querySelector("#wb-followup-input");
+          if (input) input.focus();
         }
         return;
       }
@@ -1770,8 +1763,11 @@ function bindOnce(el, fn) {
       if (event.target.closest("#wb-demo")) { fillDemo(root); return; }
       if (event.target.closest("#wb-run-task")) { runFlow(root); return; }
       if (event.target.closest("#wb-ls-run")) { runListingOnly(root); return; }
-      if (event.target.closest("#wb-ls-edit")) { openListingEditor(root); return; }
+      if (event.target.closest("#wb-ls-edit") || event.target.closest("[data-ls-edit]")) { openListingEditor(root); return; }
       if (event.target.closest("#wb-cancel")) { cancelRun(root); return; }
+      if (event.target.closest("#wb-retry-input")) { retryWithMissing(root); return; }
+      if (event.target.closest("#wb-confirm-continue")) { void confirmPending(root, "continue"); return; }
+      if (event.target.closest("#wb-confirm-cancel")) { void confirmPending(root, "cancel"); return; }
     };
 
     const lsProduct = root.querySelector("#wb-ls-product");
@@ -1805,7 +1801,7 @@ function bindOnce(el, fn) {
       });
     }
 
-    const moreParams = root.querySelector("#wb-params details");
+    const moreParams = root.querySelector(".wb-clarify details.wb-more");
     if (moreParams) {
       moreParams.addEventListener("toggle", function () {
         state.moreParamsOpen = moreParams.open;
@@ -1838,18 +1834,44 @@ function bindOnce(el, fn) {
         const input = root.querySelector("#wb-followup-input");
         const goal = (input && input.value.trim()) || "";
         if (!goal) return;
-        beginGoal(root, goal);
+        continueGoal(root, goal);
       }
     };
 
     root.onkeydown = function (event) {
-      if (event.key === "Escape" && state.assistantOpen) {
+      const renameInput = event.target && event.target.closest ? event.target.closest("[data-rename-input]") : null;
+      if (renameInput) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          void saveRename(root, renameInput.getAttribute("data-rename-input"), renameInput.value);
+          return;
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          state.renamingId = null;
+          refreshRail(root);
+          return;
+        }
+      }
+      if (event.key !== "Escape") return;
+      if (state.drawerOpen) {
+        event.stopPropagation();
+        closeDrawer(root);
+        return;
+      }
+      if (state.assistantOpen) {
         event.stopPropagation();
         state.assistantOpen = false;
         refreshAssistant(root);
         const btn = root.querySelector("#wb-assistant");
         if (btn) btn.focus();
       }
+    };
+
+    root.onfocusout = function (event) {
+      const renameInput = event.target && event.target.closest ? event.target.closest("[data-rename-input]") : null;
+      if (!renameInput || !state.renamingId) return;
+      void saveRename(root, renameInput.getAttribute("data-rename-input"), renameInput.value);
     };
 
     const input = root.querySelector("#composer-input");
@@ -1863,13 +1885,25 @@ function bindOnce(el, fn) {
         if (state.picked && !input.value.trim()) {
           state.picked = null;
           paintEcho(root);
+          refreshAssistant(root);
         }
       });
       input.addEventListener("keydown", function (event) {
-        if (event.key === "Enter" && !event.shiftKey) {
-          event.preventDefault();
-          if (input.value.trim()) beginGoal(root, input.value.trim());
-        }
+        if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+        event.preventDefault();
+        if (event.isComposing || event.keyCode === 229) return;
+        if (input.value.trim()) beginGoal(root, input.value.trim());
+      });
+    }
+
+    const followup = root.querySelector("#wb-followup-input");
+    if (followup) {
+      followup.addEventListener("keydown", function (event) {
+        if (event.key !== "Enter" || event.shiftKey) return;
+        event.preventDefault();
+        if (event.isComposing || event.keyCode === 229) return;
+        const form = root.querySelector("#wb-followup");
+        if (form && form.requestSubmit) form.requestSubmit();
       });
     }
   }
@@ -1885,6 +1919,7 @@ function bindOnce(el, fn) {
     stopPolling();
     state.mode = "empty";
     state.conversationId = null;
+    state.conversationTitle = "";
     state.taskId = null;
     state.taskStatus = "";
     state.busy = false;
@@ -1906,7 +1941,33 @@ function bindOnce(el, fn) {
     state.degraded = false;
     state.degradedReason = "";
     state.taskRaw = null;
-    state.resTab = "steps";
+    state.drawerOpen = false;
+    state.continuing = false;
+    state.missingFocus = false;
+    state.assistantOpen = false;
+    state.skillsOpen = false;
+    state.renamingId = null;
+    state.needKey = false;
+    state.productName = "";
+    state.productCategory = "";
+    state.competitorsText = "";
+    state.withListing = true;
+    state.marketplace = "US";
+    state.listingLanguage = "en-US";
+    state.ownSpecs = { size: "", material: "", capacity: "", color: "", weight: "", quantity: "" };
+    state.listingOnly = false;
+    state.listingProduct = null;
+    state.listingName = "";
+    state.listingPrice = null;
+    state.listingPlatform = "amazon";
+    state.listingMarketplace = "US";
+    state.listingSpecsText = "";
+    state.listingFeaturesText = "";
+    state.listingDetailing = false;
+    state.moreParamsOpen = false;
+    state.logCache = null;
+    state.pending = null;
+    state.engine = null;
   }
 
   function newSession(root) {
@@ -1919,10 +1980,18 @@ function bindOnce(el, fn) {
     state.goal = goal;
     state.error = "";
     state.composerDraft = "";
-    /* 显式选择的技能要带进参数页：它是本次执行的硬约束，不是一次性提示语。 */
+    state.needKey = false;
+    state.missingFocus = false;
+    state.resolveInfo = null;
+    if (!state.continuing) {
+      state.messages = [];
+      state.conversationId = null;
+      state.conversationTitle = "";
+    }
+    /* 用户这句话立刻出现在对话里，后面的澄清卡长在它下面，不跳页 */
+    state.messages.push({ role: "user", content: goal, created_at: new Date().toISOString() });
     state.mode = "params";
     render(root);
-    window.scrollTo({ top: 0 });
     try {
       const info = await A.post("/api/agent/resolve", { goal: goal });
       state.resolveInfo = info;
@@ -1936,14 +2005,15 @@ function bindOnce(el, fn) {
       state.marketplace = spec.marketplace || state.marketplace;
       state.listingLanguage = spec.listing_language || state.listingLanguage;
       if (typeof spec.with_listing === "boolean") state.withListing = spec.with_listing;
+      if (info.listing_only) state.listingOnly = true;
       if (info.degraded) {
         U.toast("模型不可用，目标已按规则解析，请确认参数", "danger");
       }
     } catch (err) {
       if (err.status === 428) {
         state.needKey = true;
-        state.error = "这一步要用模型来读你的目标。到「设置 → 模型与密钥」填入你自己的 API Key 后就能继续。";
-        U.toast(state.error, "danger");
+        state.error = "";
+        U.toast("这一步要用模型来读你的目标，可以先手动补充参数", "danger");
       } else {
         state.resolveInfo = { degraded: true, reason: err.message, spec: {} };
       }
@@ -1955,9 +2025,30 @@ function bindOnce(el, fn) {
     }
   }
 
-  /* 参数卡是本页往下长出来的内容，渲染完把它带进视野，省得用户自己找 */
+  /* 继续追问：沿用当前会话与已填参数，不再从空白表单开始 */
+  function continueGoal(root, goal) {
+    if (state.busy) {
+      U.toast("当前任务还在运行，等它结束再继续", "danger");
+      return;
+    }
+    state.continuing = true;
+    beginGoal(root, goal);
+  }
+
+  /* 缺资料暂停：把用户带回澄清卡，展开可选参数并聚焦第一个缺失项 */
+  function retryWithMissing(root) {
+    state.continuing = true;
+    state.missingFocus = true;
+    state.mode = "params";
+    state.error = "";
+    render(root);
+    revealParams(root);
+    const first = root.querySelector("#wb-spec-size, #wb-ls-specs, #wb-product");
+    if (first) first.focus();
+  }
+
   function revealParams(root) {
-    const card = root.querySelector("#wb-params");
+    const card = root.querySelector("#wb-clarify");
     if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -2005,6 +2096,9 @@ function bindOnce(el, fn) {
     state.plan = [];
     state.messages = [];
     state.taskId = null;
+    state.listingOnly = true;
+    state.missingFocus = false;
+    state.logCache = null;
     state.mode = "run";
     render(root);
 
@@ -2068,9 +2162,7 @@ function bindOnce(el, fn) {
     const langEl = root.querySelector("#wb-language");
     const goalEl = root.querySelector("#wb-goal");
     const catEl = root.querySelector("#wb-category");
-    const sizeEl = root.querySelector("#wb-spec-size");
-    const materialEl = root.querySelector("#wb-spec-material");
-    const capacityEl = root.querySelector("#wb-spec-capacity");
+    const specIds = { size: "#wb-spec-size", material: "#wb-spec-material", capacity: "#wb-spec-capacity", color: "#wb-spec-color", weight: "#wb-spec-weight", quantity: "#wb-spec-quantity" };
     if (productEl) state.productName = productEl.value.trim();
     if (compEl) state.competitorsText = compEl.value;
     if (listingEl) state.withListing = listingEl.checked;
@@ -2078,11 +2170,12 @@ function bindOnce(el, fn) {
     if (langEl) state.listingLanguage = langEl.value;
     if (goalEl) state.goal = goalEl.value.trim();
     if (catEl) state.productCategory = catEl.value.trim();
-    state.ownSpecs = {
-      size: sizeEl ? sizeEl.value.trim() : state.ownSpecs.size,
-      material: materialEl ? materialEl.value.trim() : state.ownSpecs.material,
-      capacity: capacityEl ? capacityEl.value.trim() : state.ownSpecs.capacity,
-    };
+    Object.keys(specIds).forEach(function (key) {
+      const el = root.querySelector(specIds[key]);
+      if (el) state.ownSpecs[key] = el.value.trim();
+    });
+    state.listingOnly = false;
+    state.missingFocus = false;
     state.error = "";
 
     /* 安全网：如果技能是通过提示语 chip 带进来的、又不受工作台支持，
@@ -2114,6 +2207,7 @@ function bindOnce(el, fn) {
     state.messages = [];
     state.error = "";
     state.taskId = null;
+    state.logCache = null;
     state.mode = "run";
     render(root);
 
@@ -2194,6 +2288,35 @@ function bindOnce(el, fn) {
     state.error = task.error_message || "";
     state.busy = AR.isRunning(task.status);
     state.taskRaw = task;
+    const payload = task.payload || {};
+    if (payload.listing_only) state.listingOnly = true;
+    if (payload.product_name) {
+      state.productName = payload.product_name;
+      if (state.listingOnly) state.listingName = payload.product_name;
+    }
+    /* 重新打开会话 / 继续追问时，把上次的参数带回表单，别让用户重填 */
+    if (Array.isArray(payload.competitors) && payload.competitors.length) {
+      state.competitorsText = competitorsToText(payload.competitors);
+    }
+    if (payload.own_specs && typeof payload.own_specs === "object") {
+      Object.keys(state.ownSpecs).forEach(function (key) {
+        if (payload.own_specs[key] !== undefined) state.ownSpecs[key] = String(payload.own_specs[key]);
+      });
+      state.listingSpecsText = Object.keys(payload.own_specs)
+        .map(function (key) { return `${key}: ${payload.own_specs[key]}`; })
+        .join("\n");
+    }
+    if (Array.isArray(payload.own_key_features) && payload.own_key_features.length) {
+      state.listingFeaturesText = payload.own_key_features.join("\n");
+    }
+    if (payload.marketplace) {
+      state.marketplace = payload.marketplace;
+      state.listingMarketplace = payload.marketplace;
+    }
+    if (payload.listing_language) state.listingLanguage = payload.listing_language;
+    if (typeof payload.with_listing === "boolean") state.withListing = payload.with_listing;
+    if (payload.platform) state.listingPlatform = payload.platform;
+    if (state.listingOnly && typeof payload.own_price === "number") state.listingPrice = payload.own_price;
   }
 
   function startPolling(root, taskId) {
@@ -2261,6 +2384,7 @@ function bindOnce(el, fn) {
     try {
       const detail = await A.get(`/api/conversations/${encodeURIComponent(conversationId)}`);
       state.messages = detail.messages || [];
+      state.conversationTitle = (detail.conversation || {}).title || "";
       const lastTask = state.messages.slice().reverse().find(function (m) { return m.task_id; });
       if (lastTask) {
         const taskDetail = await A.get(`/api/tasks/${encodeURIComponent(lastTask.task_id)}`);
@@ -2277,11 +2401,18 @@ function bindOnce(el, fn) {
           return;
         }
       } else {
+        /* 空会话：这是一条还没说过话的会话，不是「正在跑的任务」 */
         state.busy = false;
+        state.taskStatus = "";
+        state.taskId = null;
+        state.goal = "";
+        state.productName = "";
+        state.listingOnly = false;
       }
       render(root);
     } catch (err) {
       state.busy = false;
+      state.taskStatus = "";
       state.error = err.message;
       render(root);
     }
@@ -2289,11 +2420,30 @@ function bindOnce(el, fn) {
 
   async function entryImpl(root, params, query) {
     closeListingEditor();
-    teardownInk();
+
     resetState();
     if (query && query.agent) state.agentKey = query.agent;
     // 技能清单来自接口（唯一真源），拉不到就照常渲染——空态会提示没有可用能力
     await C.ensureSkills();
+
+    // 技能广场点「运行」会带 ?skill= 过来：能由 Agent 接管的直接进入澄清卡
+    const wanted = query && query.skill ? C.skillByKey(query.skill) : null;
+    if (wanted && WORKBENCH_SKILLS[wanted.key]) {
+      state.picked = wanted;
+      state.agentKey = "main";
+      render(root);
+      try {
+        window.history.replaceState({}, "", "/workbench");
+      } catch (err) {
+        /* 地址栏清理失败不影响执行 */
+      }
+      await beginGoal(root, wanted.prompt || wanted.name);
+      return;
+    }
+    if (wanted) {
+      state.composerDraft = wanted.prompt || "";
+      U.toast(`「${wanted.name}」需要专属参数，请在技能页运行`, "danger");
+    }
     render(root);
     if (query && query.conversation) openConversation(root, query.conversation);
   }

@@ -130,6 +130,41 @@ def test_conversation_is_private_even_inside_tenant(client):
     )
 
 
+def test_rename_conversation(client):
+    headers = register(client, "conv_rename")
+    conversation = client.post(
+        "/api/conversations", json={}, headers=headers
+    ).json()["conversation"]
+
+    renamed = client.put(
+        f"/api/conversations/{conversation['conversation_id']}",
+        json={"title": "  改好的会话名  "},
+        headers=headers,
+    )
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.json()["conversation"]["title"] == "改好的会话名"
+
+    items = client.get("/api/conversations", headers=headers).json()["items"]
+    assert items[0]["title"] == "改好的会话名"
+
+    empty = client.put(
+        f"/api/conversations/{conversation['conversation_id']}",
+        json={"title": "   "},
+        headers=headers,
+    )
+    assert empty.status_code == 422
+
+    other = register(client, "conv_rename_other")
+    assert (
+        client.put(
+            f"/api/conversations/{conversation['conversation_id']}",
+            json={"title": "偷改"},
+            headers=other,
+        ).status_code
+        == 404
+    )
+
+
 def test_conversation_cross_tenant_404(client):
     alice = register(client, "conv_alice")
     bob = register(client, "conv_bob")
