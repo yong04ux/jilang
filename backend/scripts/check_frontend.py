@@ -1,11 +1,11 @@
 """前端契约校验（React + Vite 工程，源码目录 frontend/，仓库根与 backend/ 平级）。
 
 检查项：
-1. index.html 的 7 个样式都带 `?v=0`（服务端靠它注入构建戳），且文件真实存在；
-2. 外壳有且只有一个 ESM 入口；引用的 `/js/**` 旧脚本必须存在（迁移期用，删完自动消失）；
+1. index.html 的 8 个样式都带 `?v=0`（服务端靠它注入构建戳），且文件真实存在；
+2. 外壳有且只有一个 ESM 入口；引用的 `/js/**` 路径必须真实存在（防止回退到旧脚本加载方式）；
 3. `frontend/src/app/routes.tsx` 的路由与后端 `SPA_ROUTES` 一致 —— 少登记一条，
    用户刷新深链看到的就是裸 JSON 404；
-4. 源码里没有残留的旧前端引用（/legacy、/static/app.js、web/templates…）；
+4. 源码里没有对已下线路径的引用（/legacy、/static/app.js、web/templates…）；
 5. 存在 `frontend/node_modules` 时顺带跑 `tsc --noEmit`。
 
 用法：`python backend/scripts/check_frontend.py`
@@ -96,13 +96,13 @@ else:
     print(f"ESM 入口: {module_scripts[0]}")
 
 classic_scripts = re.findall(r'<script\s+src="(/js/[^"?]+)', html)
-print(f"旧经典脚本: {len(classic_scripts)} 个" + ("" if classic_scripts else "（已全部移除）"))
+print(f"经典脚本引用: {len(classic_scripts)} 个" + ("" if classic_scripts else "（无）"))
 missing_js = [src for src in classic_scripts if not (WEB / src.lstrip("/")).is_file()]
 if missing_js:
-    failures.append(f"index.html 引用了不存在的旧脚本: {missing_js}")
+    failures.append(f"index.html 引用了不存在的脚本: {missing_js}")
 if classic_scripts:
     notes.append(
-        "仍有经典脚本在加载；它们必须在旧目录 frontend/js/ 删除前清空（见迁移计划 S8）"
+        "仍有经典脚本在加载：入口必须是 type=\"module\" 的构建产物，不能引用经典脚本"
     )
 
 # ------------------------------------------------------- 3) 路由与 SPA_ROUTES
@@ -143,10 +143,10 @@ if META_PY.is_file() and frontend_paths:
         if extra:
             notes.append(f"SPA_ROUTES 里有前端没有对应路由的路径（会落到 404 页）: {extra}")
 
-# -------------------------------------------------------- 4) 旧前端残留引用
+# -------------------------------------------------------- 4) 已下线路径引用
 for legacy in ("/static/app.js", "/legacy", "web/templates", "web/static"):
     if legacy in html:
-        failures.append(f"index.html 仍引用了已下线的旧前端: {legacy}")
+        failures.append(f"index.html 引用了已下线的路径: {legacy}")
 
 # ------------------------------------------------------------ 5) 类型检查
 node = shutil.which("node")

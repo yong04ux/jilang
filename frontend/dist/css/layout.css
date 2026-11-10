@@ -294,7 +294,7 @@
 }
 .ticker-cta:hover { background: var(--primary-hover); color: #fff; text-decoration: none; }
 
-/* 编号条：原来的面包屑降级成「第几号 / 路径」 */
+/* 编号条：面包屑降级成「第几号 / 路径」 */
 .crumb-bar {
   display: flex;
   align-items: center;
@@ -398,7 +398,7 @@
 }
 .page-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 
-/* 视图切换的进场由 js/motion.js 负责，CSS 只做兜底 */
+/* 视图切换的进场由 lib/motion.ts 负责，CSS 只做兜底 */
 .view { animation: view-in var(--dur-2) var(--ease-out); }
 @keyframes view-in {
   from { opacity: 0; transform: translateY(3px); }

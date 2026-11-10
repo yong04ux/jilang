@@ -71,7 +71,6 @@ async def health_deep() -> dict[str, Any]:
         result["database"] = f"error: {type(exc).__name__}: {exc}"
     result["task_queue"] = getattr(app.state.task_queue, "name", "unknown")
     result["provider"] = settings.provider
-    result["require_api_key"] = bool(settings.require_api_key)
     result["storage"] = getattr(app.state.storage, "name", "unknown")
     if result["status"] != "ok":
         logger.warning("深度健康检查异常：%s", result)
@@ -82,11 +81,10 @@ async def health_deep() -> dict[str, Any]:
 async def _log_startup() -> None:
     settings = get_settings()
     logger.info(
-        "激浪启动：queue=%s storage=%s demo_account=%s require_api_key=%s auto_migrate=%s",
+        "激浪启动：queue=%s storage=%s demo_account=%s auto_migrate=%s",
         getattr(app.state.task_queue, "name", "?"),
         getattr(app.state.storage, "name", "?"),
         settings.is_demo_account_enabled,
-        settings.require_api_key,
         settings.auto_migrate,
     )
 

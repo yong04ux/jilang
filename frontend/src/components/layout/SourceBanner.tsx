@@ -1,6 +1,5 @@
 /**
  * 数据来源提示条（可关闭，关闭状态记在 localStorage）。
- * 对应旧 shell.js:181-204。
  */
 import { Icon } from '@/components/shared/Icon'
 import { useUiStore } from '@/stores/uiStore'

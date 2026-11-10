@@ -1,4 +1,4 @@
-"""Listing 版本、差异、复检与导出测试（阶段 E4/E5/E3）。"""
+"""Listing 版本、差异、复检与导出测试。"""
 
 from __future__ import annotations
 

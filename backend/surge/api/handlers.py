@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_guarded(recorder, job: Callable[[], None]) -> None:
-    """执行队列任务；异常一律落库为 failed / cancelled，不再抛给线程池。"""
+    """执行队列任务；异常一律落库为 failed / cancelled，不抛给线程池。"""
     try:
         job()
     except TaskCancelled:

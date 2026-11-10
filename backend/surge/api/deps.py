@@ -3,18 +3,14 @@
 为什么要有这一层
 ================
 
-原来 88 个端点是 ``create_app()`` 里的嵌套函数，共享 15 个闭包变量
-（``db`` / ``require_user`` / ``audit_user`` / ``resolve_llm_provider``…）。
-闭包让「拆分文件」不可能：端点一旦搬出函数体，就再也看不到那些变量。
-
-这里的做法：把闭包变成**一个显式的依赖对象**（``ApiContext``），
+把端点共享的协作者做成**一个显式的依赖对象**（``ApiContext``），
 由 ``create_app()`` 构造一次，通过 ``app.state.ctx`` 交给各 router。
-端点只依赖 ``ApiContext`` 这一个接口，不再依赖外层函数的词法作用域。
+端点只依赖 ``ApiContext`` 这一个接口，不依赖外层函数的词法作用域。
 
 这样做的收益（不是"拆文件好看"）：
 - 端点可以被独立导入、独立测试，不需要先跑 ``create_app()``；
 - 新增端点只需 ``ctx: ApiContext = Depends(get_ctx)``，不用改 ``create_app()``；
-- ``create_app()`` 收敛成"装配 + 挂载"，不再是一千行闭包。
+- ``create_app()`` 只负责"装配 + 挂载"。
 """
 
 from __future__ import annotations
@@ -43,12 +39,6 @@ from ..services import audit
 from ..persistence.storage import ObjectStorage
 from ..tenancy import TenantContext, TenantError, resolve_tenant
 
-#: 需要真实模型调用时缺 Key 的 428 载荷（前端据此跳设置页）
-API_KEY_REQUIRED = {
-    "code": "api_key_required",
-    "action": "open_settings",
-}
-
 
 @dataclass
 class ApiContext:
@@ -58,10 +48,9 @@ class ApiContext:
     认证依赖（``require_user`` / ``require_admin`` / ``require_tenant``）**不在
     这里**——它们是 FastAPI 依赖，由本模块直接提供，端点用 ``Depends(...)`` 取。
 
-    ``settings`` 刻意**不做快照**：原 ``create_app()`` 里的 ``current_settings()``
-    每次都走 ``get_settings()``（lru 缓存，``cache_clear`` 后刷新），运行中改
-    ``.env`` 立即生效，测试也依赖这个语义。因此这里用 property 保持同一行为，
-    避免"装配时拷一份设置"把动态配置能力悄悄改掉。
+    ``settings`` 刻意**不做快照**：每次都走 ``get_settings()``（lru 缓存，
+    ``cache_clear`` 后刷新），运行中改 ``.env`` 立即生效，测试也依赖这个语义。
+    因此这里用 property，避免"装配时拷一份设置"把动态配置能力悄悄改掉。
     """
 
     db: Database
@@ -114,9 +103,9 @@ class ApiContext:
     def resolve_llm_provider(self, user: dict[str, Any]):
         """构造本次执行要用的 Provider。
 
-        **不再因为没有 Key 就拦下请求**：没有 Key 就用规则引擎照常跑完，
-        但调用方必须用 ``engine_label(provider)`` 把「规则 / 大模型」如实标出来，
-        不能让人误以为文案是模型写的。降级理由写进 ``provider.fallback_reason``。
+        没有 Key 就用规则引擎照常跑完，但调用方必须用 ``engine_label(provider)``
+        把「规则 / 大模型」如实标出来，不能让人误以为文案是模型写的。
+        降级理由写进 ``provider.fallback_reason``。
         """
         return self.build_user_provider(user)
 
@@ -271,7 +260,6 @@ def make_secret_box(settings: Settings) -> Callable[[], SecretBox]:
 
 
 __all__ = [
-    "API_KEY_REQUIRED",
     "ApiContext",
     "get_ctx",
     "make_secret_box",

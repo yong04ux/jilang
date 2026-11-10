@@ -1,4 +1,4 @@
-"""报告导出测试（阶段 E3）。"""
+"""报告导出测试。"""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def test_report_is_written_to_v2_table(client):
     db = client.app.state.db
     with db.connect() as connection:
         row = connection.execute(
-            "SELECT payload, product_name FROM competitor_reports WHERE report_id = ?",
+            "SELECT payload, product_name FROM competitor_reports WHERE report_id = %s",
             (report["report_id"],),
         ).fetchone()
     assert row is not None

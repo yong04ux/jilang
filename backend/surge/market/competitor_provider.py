@@ -38,7 +38,6 @@ MODE_LIVE = "live"
 #: 来源标签（进报告 provenance 与前端徽章）
 SOURCE_MANUAL = "manual"
 SOURCE_IMPORT = "import"
-SOURCE_LIVE = "live"
 
 
 class CompetitorProviderError(RuntimeError):
@@ -219,7 +218,6 @@ __all__ = [
     "MODE_IMPORTED",
     "MODE_LIVE",
     "SOURCE_IMPORT",
-    "SOURCE_LIVE",
     "SOURCE_MANUAL",
     "CompetitorData",
     "CompetitorProvider",

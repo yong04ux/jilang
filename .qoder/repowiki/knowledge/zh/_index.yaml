@@ -1,0 +1,22 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: zh-CN
+commit: 606d87c70cd3f8744d4d915c98a9f956a41d5ba3
+branch: feature/saas-ui-refactor
+exported_at: "2026-11-10T14:51:37Z"
+modules:
+    root:
+        dir_name: Surge 项目根配置与部署清单
+        title: Surge 项目根配置与部署清单
+        scope:
+            - README.md
+            - .gitignore
+            - docker-compose.yml
+            - render.yaml
+            - vercel.json
+            - pyproject.toml
+            - requirements.txt
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []

@@ -313,7 +313,7 @@ def test_model_alias_normalization():
     assert normalize_model("deepseek-chat") == "deepseek-flash"
     assert normalize_model("deepseek-flash") == "deepseek-flash"
     assert normalize_model("deepseek-v4-pro") == "deepseek-v4-pro"
-    # 退役旧名要能收敛回来，否则老配置保存后直接报「模型不存在」
+    # 旧模型名要归一化到当前名，否则保存过旧配置的账号会直接报「模型不存在」
     assert normalize_model("deepseek-v4-flash") == "deepseek-flash"
     assert normalize_model("") == "deepseek-flash"
     # 非 DeepSeek 的模型名原样放行，不能被别名表改写

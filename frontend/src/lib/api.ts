@@ -1,5 +1,5 @@
 /**
- * API 客户端 —— 与旧 `frontend/js/api.js`（97 行）语义逐条对齐。
+ * API 客户端。
  *
  * 四条不可改的行为（页面全靠它们分支）：
  *  1. 同源 Cookie 会话：`credentials: "same-origin"`，不加 Authorization、不读 token；
@@ -9,7 +9,7 @@
  *     显示成「登录已过期」；
  *  4. 非 2xx → `detail = data?.detail ?? data`，文案由 `describe()` 拼装。
  *
- * 页面用 `err.status === 428 / 422 / 409` 做分支，所以 status 与 detail 必须原样带出。
+ * 页面用 `err.status === 422 / 409` 等做分支，所以 status 与 detail 必须原样带出。
  */
 
 export class ApiError extends Error {
@@ -35,7 +35,6 @@ export function isAuthEntry(path: string): boolean {
 
 interface DetailLike {
   message?: string
-  code?: string
   errors?: Array<{ field?: string; row?: number; message?: string }>
 }
 
@@ -47,12 +46,7 @@ export function describe(detail: unknown, status: number): string {
     const d = detail as DetailLike
     if (d.message) {
       const errors = Array.isArray(d.errors) ? d.errors : []
-      if (!errors.length) {
-        // 后端的 code 是内部分类，不进界面；只对「缺 Key」这一类做可读补充
-        const hint =
-          d.code === "api_key_required" ? "（需要先在设置里填入 API Key）" : ""
-        return d.message + hint
-      }
+      if (!errors.length) return d.message
       const first = errors.slice(0, 3).map((e) => {
         const field = e.field ? e.field + "：" : e.row ? "第 " + e.row + " 行：" : ""
         return field + (e.message || "")

@@ -1,10 +1,8 @@
-"""演示站机制（M5）：BYOK 428、一键体验、限流、临时账号清理。"""
+"""演示站机制：缺 Key 时如实标注规则引擎、一键体验、限流、临时账号清理。"""
 
 from __future__ import annotations
 
 import time
-
-import pytest
 
 from surge.demo.demo_data import DEMO_LISTING_REQUEST
 
@@ -17,30 +15,16 @@ def register(client, username="alice") -> dict:
     return {"Authorization": f"Bearer {resp.json()['token']}"}
 
 
-@pytest.fixture()
-def byok_client(client, monkeypatch):
-    """打开 BYOK 强制的客户端（conftest 默认把它关掉，便于确定性流程）。"""
-    from surge.config import get_settings
-
-    monkeypatch.setenv("SURGE_REQUIRE_API_KEY", "true")
-    get_settings.cache_clear()
-    try:
-        yield client
-    finally:
-        get_settings.cache_clear()
-        get_settings.cache_clear()
-
-
 # ---------------------------------------------------------------------------
 # 没有 Key 也能跑完，但必须如实标出「这次是规则引擎」
 # ---------------------------------------------------------------------------
 
 
-def test_agent_run_without_key_runs_on_rules_and_says_so(byok_client):
+def test_agent_run_without_key_runs_on_rules_and_says_so(client):
     from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
-    headers = register(byok_client, "byok_agent")
-    resp = byok_client.post(
+    headers = register(client, "byok_agent")
+    resp = client.post(
         "/api/agent/runs",
         json={
             "agent_key": "main",
@@ -56,16 +40,16 @@ def test_agent_run_without_key_runs_on_rules_and_says_so(byok_client):
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    # 没有 Key 不再拦：用规则引擎跑，但引擎必须如实回报
+    # 没有 Key 时用规则引擎跑，引擎必须如实回报
     assert body["engine"]["kind"] == "rule"
     assert body["engine"]["label"] == "规则引擎"
     assert body["degraded"] is True
     assert "大模型" in body["degraded_reason"]
 
 
-def test_listing_async_without_key_runs_on_rules_and_says_so(byok_client):
-    headers = register(byok_client, "byok_listing")
-    resp = byok_client.post(
+def test_listing_async_without_key_runs_on_rules_and_says_so(client):
+    headers = register(client, "byok_listing")
+    resp = client.post(
         "/api/listings/generate?async_run=true",
         json=DEMO_LISTING_REQUEST,
         headers=headers,
@@ -74,21 +58,20 @@ def test_listing_async_without_key_runs_on_rules_and_says_so(byok_client):
     assert resp.json()["engine"]["kind"] == "rule"
 
 
-def test_analyze_still_works_without_key(byok_client):
-    """竞品分析是本地确定性计算，不需要 Key —— 不该被 BYOK 拦掉。"""
+def test_analyze_still_works_without_key(client):
+    """竞品分析是本地确定性计算，不需要 Key，缺 Key 也照常排队执行。"""
     from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
-    headers = register(byok_client, "byok_analyze")
-    resp = byok_client.post(
+    headers = register(client, "byok_analyze")
+    resp = client.post(
         "/api/analyze?async_run=true", json=DEMO_ANALYSIS_REQUEST, headers=headers
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "queued"
 
 
-def test_health_reports_requires_api_key(byok_client):
-    body = byok_client.get("/api/health").json()
-    assert body["requires_api_key"] is True
+def test_health_reports_worker_backend(client):
+    body = client.get("/api/health").json()
     assert body["worker"]["backend"] in {"thread", "arq"}
 
 
@@ -224,7 +207,7 @@ def test_rate_limit_can_be_disabled(client, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# 异步竞品分析（M3）
+# 异步竞品分析
 # ---------------------------------------------------------------------------
 
 

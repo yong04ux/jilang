@@ -6,12 +6,9 @@
  *
  * Toast 仍是命令式的（往 body 里插节点）：它不属于任何页面子树，
  * 做成 React 组件反而要处理跨路由存活的宿主问题。
- *
- * 注意下面两个 import 带了 `.ts` 扩展名：scripts/primitives-parity.mjs 要用
- * Node 直接 import 本文件做语义对照，而 Node 的 ESM 解析要求显式扩展名。
  */
-import { fadeIn, fadeOut } from './motion.ts'
-import { svg } from './icons.ts'
+import { fadeIn, fadeOut } from './motion'
+import { svg } from './icons'
 
 export function esc(value: unknown): string {
   if (value === null || value === undefined) return ''

@@ -1,4 +1,4 @@
-"""演示种子（M5/M8）：幂等、全部带 is_demo/seed_demo 标记。"""
+"""演示种子：幂等、全部带 is_demo/seed_demo 标记。"""
 
 from __future__ import annotations
 

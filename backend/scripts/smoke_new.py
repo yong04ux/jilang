@@ -1,4 +1,4 @@
-"""新接口冒烟：M2 数据源 / M4 多厂商 / M5 演示机制。
+"""新接口冒烟：数据源 / 多厂商 / 演示机制。
 
 用法（从 surge/ 目录）：
     python scripts/smoke_new.py
@@ -40,7 +40,6 @@ def main() -> int:
 
     health = client.get("/api/health").json()
     check("health.worker", "backend" in health.get("worker", {}), str(health.get("worker")))
-    check("health.requires_api_key", "requires_api_key" in health)
 
     resp = client.get("/api/settings/providers", headers=headers)
     check("GET /api/settings/providers", resp.status_code == 200)

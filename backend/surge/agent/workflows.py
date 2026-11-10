@@ -60,7 +60,7 @@ from .steps import StepRunner
 KIND_COMPETITOR = "competitor"
 KIND_COMBINED = "combined"
 #: 只生成 Listing（``listing_only=true``）：不要求竞品，直接跑 Listing 子图。
-#: 这是 main 分支既有的入口语义，合并后必须保留——用户可能只想写文案。
+#: 这是既有的入口语义，必须保留——用户可能只想写文案。
 KIND_LISTING = "listing"
 
 #: 工作流版本。**节点结构或语义变化时必须改**，否则重试会把旧版本的中间结果
@@ -90,9 +90,6 @@ _FINGERPRINT_FIELDS = (
     "listing_language",
     "with_listing",
 )
-
-#: 主图自己的三个阶段（会出现在任务时间线里，与工作流内部步骤区分开）
-MAIN_STEPS = ("validate", "dispatch", "finalize")
 
 MAIN_STEP_LABELS = {
     "validate": "校验任务输入",
@@ -531,7 +528,6 @@ def step_runner(
 __all__ = [
     "KIND_COMBINED",
     "KIND_COMPETITOR",
-    "MAIN_STEPS",
     "MAIN_STEP_LABELS",
     "WORKFLOW_VERSION",
     "WorkflowSpec",

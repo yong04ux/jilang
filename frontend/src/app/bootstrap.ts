@@ -32,10 +32,10 @@ function navLabels(): Record<string, string> {
 }
 
 export function installLegacyGlobals(): void {
-  /* ── 旧全局门面 ────────────────────────────────────────────────
-     workbench 等页面仍按 `window.CPxxx` 取依赖，而这些经典脚本已全部搬进 TS。
-     这里把门面指向 TS 实现：**一处实现、两种消费端**，不再有两套并存。
-     它们必须在首次渲染前装好（LegacyPage 的子 effect 早于 App 的 effect）。 */
+  /* ── 全局门面 ──────────────────────────────────────────────────
+     workbench 等页面按 `window.CPxxx` 取依赖，这里把门面指向 TS 实现：
+     **一处实现、两种消费端**。它们必须在首次渲染前装好
+     （LegacyPage 的子 effect 早于 App 的 effect）。 */
   window.CPChart = chartApi
   window.CPMotion = motionApi as unknown as Window['CPMotion']
   window.CPPanels = panelsApi as unknown as Window['CPPanels']
@@ -66,14 +66,10 @@ export function installLegacyGlobals(): void {
   }
 
   window.CPRouter = {
-    // 路由表已移到 React（app/routes.tsx），旧代码不再自行定义路由
-    define: () => undefined,
-    start: () => undefined,
     go,
     render: (path?: string) => renderPath(path ?? location.pathname + location.search),
     resolve: (path: string) => ({ path: normalize(path) }),
     normalize,
-    setOnChange: () => undefined,
     get current() {
       return { path: normalize(location.pathname) }
     },
@@ -88,11 +84,8 @@ export function installLegacyGlobals(): void {
     loadUser: () => {
       void loadMe()
     },
-    // 面包屑与选中态改由路由表的 navKey 推导，这里保留空实现以免旧调用点报错
-    setNavKey: () => undefined,
     openDrawer: () => useUiStore.getState().setDrawerOpen(true),
     closeDrawer: () => useUiStore.getState().setDrawerOpen(false),
-    mountBanner: () => undefined,
     LABELS: navLabels(),
   }
 }

@@ -36,7 +36,7 @@ body {
   font-size: var(--fs-base);
   line-height: var(--lh-normal);
   color: var(--foreground);
-  /* 暖纸底 + 印刷网点：细到不抢内容，但整站不再是「冷灰白」 */
+  /* 暖纸底 + 印刷网点：细到不抢内容，避免整站发冷 */
   background-color: var(--background);
   background-image: radial-gradient(rgba(17, 16, 20, .13) 1px, transparent 1.2px);
   background-size: 9px 9px;
@@ -286,7 +286,7 @@ img, svg { display: block; max-width: 100%; }
 /* `input:not([type])` 不能省：登录门的输入框历史上没写 type 属性，
    它们在 DOM 上的 type 属性值为空，`input[type="text"]` 匹配不到，
    一直靠浏览器默认样式（padding 1px 2px）。Tailwind 的 preflight 会把
-   默认 padding 归零，这类输入框就会掉字。补上兜底后不再依赖 UA 默认值。 */
+   默认 padding 归零，这类输入框就会掉字，所以这里补兜底，不依赖 UA 默认值。 */
 input:not([type]),
 input[type="text"],
 input[type="search"],

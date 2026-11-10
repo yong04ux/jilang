@@ -89,8 +89,8 @@ class Settings(BaseSettings):
     reload: bool = False
     # 前端静态文件目录（monorepo：与 backend/ 平级的 frontend/）
     #
-    # 自 S8 起前端是 Vite 构建产物：源码在 frontend/src，对外托管的是 frontend/dist。
-    # 默认值改成 dist，这样不设任何环境变量也能起服务（dist 已入库）。
+    # 前端是 Vite 构建产物：源码在 frontend/src，对外托管的是 frontend/dist。
+    # 默认值就是 dist，这样不设任何环境变量也能起服务（dist 已入库）。
     # 三个挂载点仍按 web_dir 派生：/css、/js、/media(→assets)。
     web_dir: Path = FRONTEND_DIR / "dist"
 
@@ -134,8 +134,6 @@ class Settings(BaseSettings):
     db_pool_size: int = 8
 
     # ---- 演示站机制 ------------------------------------------------------
-    # BYOK：没有可用 Key 时，需要模型的任务返回 428（不静默降级）
-    require_api_key: bool = True
     # 固定演示账号：共享、只读示例数据、禁止保存 API Key
     demo_username: str = "demo"
     demo_password: str = ""

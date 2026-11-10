@@ -1,7 +1,7 @@
 /**
  * 应用根：启动编排 + 路由出口 + 外壳 + 登录门。
  *
- * 启动顺序照搬旧 `js/app.js:97-149`：
+ * 启动顺序：
  *   1. 根路径统一落到 /dashboard（登录前后 URL 一致）；
  *   2. 顶栏生成方式标识先取一次（未登录也有意义）；
  *   3. 注册全局 401 处理（先读 wasSignedIn 再亮登录门）；
@@ -75,7 +75,7 @@ export default function App() {
 
   useEffect(() => {
     // 1. 根路径 → /dashboard 的重定向在 app/router.ts 模块求值时已完成，
-    //    首帧拿到的就是规范化后的路由，这里不再重复处理。
+    //    首帧拿到的就是规范化后的路由，这里不重复处理。
 
     // 2. 顶栏标识（与登录态无关，先取一次）
     void useHealthStore.getState().refresh(false)
@@ -86,7 +86,7 @@ export default function App() {
       showGate(wasSignedIn ? '登录已过期，请重新登录' : null)
     }
     api.onUnauthorized(onUnauthorized)
-    // 页面模块走的是 js/api.js 那套客户端，它的 401 也必须能亮登录门，
+    // 页面模块走的是 lib/api.ts 那套客户端，它的 401 也必须能亮登录门，
     // 否则会话过期时会停在「页面加载失败」而不是登录页。
     window.CPApi?.onUnauthorized(onUnauthorized)
 

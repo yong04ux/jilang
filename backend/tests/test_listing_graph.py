@@ -239,7 +239,7 @@ def test_persist_is_idempotent_per_task(temp_settings):
 
     with db.connect() as connection:
         count = connection.execute(
-            "SELECT COUNT(*) AS n FROM listing_drafts WHERE task_id = ?", ("task-1",)
+            "SELECT COUNT(*) AS n FROM listing_drafts WHERE task_id = %s", ("task-1",)
         ).fetchone()["n"]
     assert count == 1
 

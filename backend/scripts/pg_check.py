@@ -1,4 +1,4 @@
-r"""PostgreSQL 验收脚本（阶段 F7）。
+r"""PostgreSQL 验收脚本。
 
 用法：
 

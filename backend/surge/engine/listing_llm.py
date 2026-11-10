@@ -1,4 +1,4 @@
-"""Listing 生成：LLM + 事实接地（替换原来的模板拼装）。
+"""Listing 生成：LLM + 事实接地。
 
 流程
 ----
@@ -832,7 +832,7 @@ def generate_listing(
         )
 
     # 关键规格缺失：必须进入质检问题，否则"没写规格"的草稿会被判为通过。
-    # 规则路径一直有这条，LLM 路径此前漏了（真实模型调用时会静默通过）。
+    # 规则路径与 LLM 路径都要做这项检查，不能只在其中一条上校验。
     if sheet.missing_critical:
         labels = [MISSING_LABELS.get(x, x) for x in sheet.missing_critical]
         issues.append(

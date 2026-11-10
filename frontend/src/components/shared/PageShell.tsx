@@ -15,7 +15,7 @@ export function PageFrame({ children }: { children: ReactNode }) {
   )
 }
 
-/** 对应旧 `CPPages.pageShell(title, desc, actions, body)`（misc.js:13-21） */
+/** 页面外壳：标题 / 操作区 / 正文 */
 export function PageShell({
   title,
   actions,

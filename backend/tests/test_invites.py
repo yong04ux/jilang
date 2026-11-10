@@ -1,4 +1,4 @@
-"""租户邀请与注册开关测试（阶段 C3）。"""
+"""租户邀请与注册开关测试。"""
 
 from __future__ import annotations
 

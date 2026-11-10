@@ -1,0 +1,56 @@
+schema_version: 1
+module_path: root
+title: Surge 项目根配置与部署清单
+scope:
+    - README.md
+    - .gitignore
+    - docker-compose.yml
+    - render.yaml
+    - vercel.json
+    - pyproject.toml
+    - requirements.txt
+source_files: []
+depends_on: []
+related_to: []
+kk_module_id: 37e81da7-3ac6-47c5-bade-72cfc7c259ad
+kk_cards:
+    architecture_design:
+        id: e862b552-e558-41ae-b965-e23d4ffe2694
+        title: Surge 项目根配置与部署清单
+    coding_conventions:
+        id: fdee808e-f06e-4d44-a991-acb2d6f6bfe6
+        title: Surge 项目根配置与部署清单
+    overview:
+        id: 148f7fc7-74ac-48c2-af62-1f9b78bea20f
+        title: Surge 项目根配置与部署清单
+    tech_stack:
+        id: 1426c956-78f7-4c30-936b-14b838300dc4
+        title: Surge 项目根配置与部署清单
+    unique_setup_and_commands:
+        id: 8f38b679-5fb7-4929-b4df-481858da3050
+        title: Surge 项目根配置与部署清单
+    build_system:
+        id: 88a6274c-957f-4a40-b25a-58259249fde3
+        title: Surge 多端构建与部署配置（Vite + FastAPI + Vercel/Render）
+    configuration_system:
+        id: 894ab383-c6cc-43b1-9a0e-766dbebf4c6a
+        title: Surge 应用配置系统：pydantic-settings + .env 文件 + JSON 规则文件
+    dependency_management:
+        id: cb61a5a3-d909-4389-95dd-074083acca06
+        title: Surge 多语言依赖管理（Python setuptools + npm/Vite，无锁定文件）
+    error_handling:
+        id: a06336cf-0d0e-4b95-9613-9456d37e80c7
+        title: 统一错误分类与 FastAPI 异常处理
+    frontend_style:
+        id: 8cee93a4-6c1e-472b-852f-1d6cfcb10f73
+        title: Tailwind v4 + shadcn/ui + 设计令牌（Design Tokens）体系
+    logging_system:
+        id: a00aeca8-b3dd-473f-9634-29ef41b74f90
+        title: Python 后端使用标准库 logging 的进程内日志体系
+kk_repo_cards:
+    - build_system
+    - configuration_system
+    - dependency_management
+    - error_handling
+    - frontend_style
+    - logging_system

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import uuid
 from pathlib import Path
@@ -52,11 +53,12 @@ with httpx.Client(base_url=BASE, timeout=float(os.environ.get("SURGE_LIVE_TIMEOU
     # 2) 单一前端外壳与深链
     page = client.get("/")
     check("index.200", page.status_code == 200)
-    check("index.shell", 'id="view-root"' in page.text and "/js/app.js" in page.text)
+    check("index.shell", 'id="view-root"' in page.text and "/js/" in page.text)
     check("spa.workbench", client.get("/workbench").status_code == 200)
     check("spa.deeplink", client.get("/tasks/tsk_demo").status_code == 200)
     check("assets.css", client.get("/css/tokens.css").status_code == 200)
-    check("assets.js", client.get("/js/app.js").status_code == 200)
+    entry = (re.search(r'/js/[A-Za-z0-9_.-]+\.js', page.text) or [""])[0]
+    check("assets.js", bool(entry) and client.get(entry).status_code == 200)
     check("legacy.removed", client.get("/legacy").status_code == 404)
     check("legacy.static-removed", client.get("/static/app.js").status_code == 404)
 
@@ -242,7 +244,7 @@ with httpx.Client(base_url=BASE, timeout=float(os.environ.get("SURGE_LIVE_TIMEOU
         steps = client.get(f"/api/tasks/{body['task_id']}").json()["steps"]
         check("agent.steps", [s["name"] for s in steps][0] == "生成执行计划")
 
-    # 18) 目标解析、会话、审计、审批（阶段 C/D 新增能力）
+    # 18) 目标解析、会话、审计、审批
     resolved = client.post("/api/agent/resolve", json={"goal": "分析“EcoSip Bottle”在日本站的竞品"})
     check("agent.resolve-200", resolved.status_code == 200, str(resolved.status_code))
     if resolved.status_code == 200:
@@ -284,7 +286,7 @@ with httpx.Client(base_url=BASE, timeout=float(os.environ.get("SURGE_LIVE_TIMEOU
     # 19) 迁移版本表
     check("migrations.applied", client.get("/api/health").status_code == 200)
 
-    # 20) 阶段 E：导出 / 版本 / 复检 / 导入两步
+    # 20) 导出 / 版本 / 复检 / 导入两步
     exported = client.get(f"/api/reports/{report_id}/export?format=md")
     check("export.report-md", exported.status_code == 200 and "## 竞品对比" in exported.text)
     check("export.bad-format", client.get(f"/api/reports/{report_id}/export?format=pdf").status_code == 400)
@@ -320,7 +322,7 @@ with httpx.Client(base_url=BASE, timeout=float(os.environ.get("SURGE_LIVE_TIMEOU
         sources = client.get("/api/data-sources").json()["items"]
         check("import.data-source-listed", any(s["data_source_id"] == preview_body["data_source_id"] for s in sources))
 
-    # 21) 阶段 F：Mock 店铺连接
+    # 21) Mock 店铺连接
     store = client.post(
         "/api/stores",
         json={"platform": "amazon", "marketplace": "US", "shop_name": "Livecheck Mock Shop", "mode": "mock"},

@@ -1,4 +1,4 @@
-"""导入两步流程测试（阶段 E6）。"""
+"""导入两步流程测试。"""
 
 from __future__ import annotations
 

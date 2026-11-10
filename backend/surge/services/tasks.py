@@ -8,7 +8,7 @@
    异常本身继续向上抛，不吞异常。
 3. **取消是异步的**：``running`` 任务收到取消请求后先进入 ``cancelling``，
    执行器在下一个图节点前检查到该状态，把任务置为 ``cancelled``。
-   这样既不会假装"立刻停止"，也不会像旧版那样完全不能取消。
+   这样既不会假装"立刻停止"，也不会让任务永远无法取消。
 4. **排队任务可立即取消**；同步执行（非队列）的任务仍如实返回冲突。
 """
 
@@ -47,9 +47,6 @@ TERMINAL_STATUSES = {
     STATUS_WAITING_INPUT,
     STATUS_PARTIAL,
 }
-CANCELLABLE_STATUSES = {STATUS_QUEUED, STATUS_RUNNING, STATUS_CANCELLING}
-#: 可以原地恢复的状态（有 checkpoint 可续）。
-RESUMABLE_STATUSES = {STATUS_WAITING_REVIEW}
 
 
 class TaskCancelled(Exception):
@@ -455,8 +452,6 @@ def _status_label(status: str) -> str:
 
 
 __all__ = [
-    "CANCELLABLE_STATUSES",
-    "RESUMABLE_STATUSES",
     "STATUS_AWAITING_APPROVAL",
     "STATUS_CANCELLED",
     "STATUS_CANCELLING",

@@ -1,4 +1,4 @@
-"""多厂商 LLM 配置（M4）：白名单、加密、激活、掩码、demo 账号限制。"""
+"""多厂商 LLM 配置：白名单、加密、激活、掩码、demo 账号限制。"""
 # check_secrets: allow-placeholders — 本文件的 API Key 都是构造的假值
 
 from __future__ import annotations
@@ -121,14 +121,14 @@ def test_save_config_masks_key_and_never_leaks_plaintext(client):
     assert config["api_key_masked"] == "sk-****3456"
     assert config["has_api_key"] is True
     assert config["base_url"] == "https://api.deepseek.com"
-    # 账号的第一套配置会被自动激活（否则访客保存完仍是 428，见下方 auto_activate 测试）
+    # 账号的第一套配置会被自动激活，保存完即可直接用（见下方 auto_activate 测试）
     assert config["is_active"] is True
 
 
 def test_first_config_is_activated_automatically(client):
     """演示站动线：保存第一套 Key 之后应当能直接跑，不用再找「设为当前」。
 
-    否则访客看到「保存成功」却仍然 428，第一次使用就卡在这一步。
+    否则访客看到「保存成功」，生成却仍走规则引擎，第一次使用就卡在这一步。
     """
     headers = register(client, "prov_autoact")
     first = client.post(

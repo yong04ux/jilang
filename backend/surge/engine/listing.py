@@ -146,7 +146,7 @@ def build_title(
     """标题 = 品牌 + 商品名 + 核心规格 + 场景/卖点，按优先级裁剪到字符上限。"""
     parts: list[str] = []
     name_lower = product.name.lower()
-    # 商品名已包含品牌时不再重复追加；brand 缺省时用商品名首词判断
+    # 商品名已包含品牌时不重复追加；brand 缺省时用商品名首词判断
     brand = product.brand or (product.name.split()[0] if product.name.split() else None)
     if brand and brand.lower() not in name_lower:
         parts.append(brand)

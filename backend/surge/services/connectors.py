@@ -1,4 +1,4 @@
-"""店铺连接器（阶段 F1–F4）。
+"""店铺连接器。
 
 设计边界：
 
@@ -9,7 +9,7 @@
   ``store_credentials`` 里的密文；明文不写库、不进日志、不进 API 响应。
 
 协议统一为 ``status/test/sync/list_products/list_orders``，
-阶段 G 的真实 SP-API 实现只需实现同一协议。
+真实 SP-API 实现只需实现同一协议。
 """
 
 from __future__ import annotations
@@ -172,7 +172,7 @@ class LiveStoreConnector:
 
     def _fail(self) -> None:
         raise ConnectorError(
-            "真实店铺连接尚未接入：需要 SP-API 应用注册、卖家授权与审核（阶段 G）。"
+            "真实店铺连接尚未接入：需要 SP-API 应用注册、卖家授权与审核。"
             "当前不会用 Mock 数据冒充真实数据。"
         )
 
@@ -262,7 +262,7 @@ def create_mock_connection(
     mode = (mode or "mock").strip().lower()
     if mode != "mock":
         raise ConnectorError(
-            "真实店铺连接尚未接入（阶段 G）；当前只能创建 Mock 连接，不会伪造真实授权"
+            "真实店铺连接尚未接入；当前只能创建 Mock 连接，不会伪造真实授权"
         )
     platform = (platform or "").strip().lower()
     marketplace = (marketplace or "US").strip().upper()

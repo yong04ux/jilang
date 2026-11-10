@@ -1,4 +1,4 @@
-"""两步导入（M6）：preview → remap → commit，以及错误定位。"""
+"""两步导入：preview → remap → commit，以及错误定位。"""
 
 from __future__ import annotations
 

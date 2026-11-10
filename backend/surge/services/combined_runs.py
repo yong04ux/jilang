@@ -10,8 +10,8 @@
 ``Command(resume=...)`` 打在同一份 checkpoint 上，和 ``start`` 的调用形态不同。
 把这个差异收在一个函数里，确认接口就不用了解 LangGraph 的细节。
 
-本模块只做三件事：探测可恢复性、恢复执行、清理。**不再有第二套收尾逻辑**——
-那正是收敛前"两套主图各写一份"的老毛病。
+本模块只做三件事：探测可恢复性、恢复执行、清理。**收尾逻辑只有这一套**，
+避免两套主图各写一份。
 """
 
 from __future__ import annotations
@@ -35,8 +35,7 @@ from ..agent.workflows import (
 )
 from ..persistence.db import Database
 
-#: 兼容旧值：早期组合任务用过这个类型名。现在统一走 ``agent_workflow``，
-#: 但确认接口不再依赖类型名判断（只认状态与待确认载荷），所以保留常量不删。
+#: 组合任务的类型名。确认接口按状态与待确认载荷判断，不依赖这个类型名。
 TASK_TYPE = "combined_workflow"
 
 #: 恢复时给 ``apply_result`` 用的 spec（组合流程的步骤骨架）。

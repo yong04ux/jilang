@@ -1,4 +1,4 @@
-"""导入服务（阶段 E6）：preview → commit 两步流程。
+"""导入服务：preview → commit 两步流程。
 
 为什么拆两步：
 
@@ -29,7 +29,6 @@ from ..persistence.storage import ObjectStorage, StorageError
 from ..tenancy import TenantContext
 
 PREVIEW_ROWS = 10
-ALLOWED_STATUS = {"validated", "rejected", "needs_mapping", "imported"}
 
 
 class ImportError(ValueError):

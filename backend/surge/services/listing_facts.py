@@ -122,8 +122,8 @@ def check_required_facts(facts: dict[str, Any]) -> dict[str, Any]:
     判定刻意**保守**：只有"一条属性事实和一条卖点事实都没有"时才阻塞。
     部分必填属性缺失（例如有容量但没颜色）不阻塞——它会进 ``pending_confirmations``
     与质量警告，让人看到"这里没写"，而不是把整个任务停掉。
-    这条边界很重要：以前的行为对缺失项一律放行并标注，若改成"缺一项就停"，
-    演示流程和既有 458 项测试里的正常路径会全部变成待补充。
+    这条边界很重要：缺失项一律放行并标注，改成"缺一项就停"会让
+    演示流程和测试里的正常路径全部变成待补充。
     """
     missing = list(facts.get("missing_critical") or [])
     has_any = bool(facts.get("has_attribute_facts") or facts.get("has_feature_facts"))

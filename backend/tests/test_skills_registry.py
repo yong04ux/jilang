@@ -1,7 +1,7 @@
-"""技能协议层（F-01 / F-03）：注册表本身的结构与接口契约。
+"""技能协议层：注册表本身的结构与接口契约。
 
-这一组断言的作用是「守住真源」：只要有人再往 ``frontend/js/catalog.js``
-或 ``agent/registry.py`` 里手写第二份技能清单，这里就会先红。
+这一组断言的作用是「守住真源」：只要有人再手写第二份技能清单
+（例如塞进 ``agent/registry.py``），这里就会先红。
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ def test_registry_has_exactly_the_seven_promised_skills():
 
 
 def test_offline_skill_is_not_in_registry():
-    """没有实现的能力不上架——``keyword_layout`` 曾被标成 dev 摆在列表里。"""
+    """没有实现的能力不上架。"""
     assert "keyword_layout" not in SKILL_REGISTRY
 
 
@@ -54,7 +54,7 @@ def test_every_spec_is_complete():
 
 
 def test_listing_generation_is_model_optional():
-    """Listing 不再把模型当硬依赖：没 Key 用规则引擎，界面标明引擎即可。"""
+    """Listing 不把模型当硬依赖：没 Key 用规则引擎，界面标明引擎即可。"""
     spec = SKILL_REGISTRY["listing_generation"]
     assert spec.uses_llm is True
     assert "llm" not in spec.requires

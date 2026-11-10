@@ -183,8 +183,8 @@ def test_missing_competitors_is_missing_input_not_validation(client):
 def test_rate_limited_model_call_maps_to_429_and_persists_category(client, monkeypatch):
     """最贵的一类失败：模型限流必须让任务记成 rate_limited，而不是"未知错误"。
 
-    打桩点在 Provider 而不是 ``agent.skills``： 起 Listing 生成走子图，
-    链路是 ``子图 → provider.generate``，不再经过 ``skills.generate_listing``。
+    打桩点在 Provider 而不是 ``agent.skills``：Listing 生成走子图，
+    链路是 ``子图 → provider.generate``。
     """
     from surge.llm.providers import RuleProvider
 

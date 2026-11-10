@@ -1,4 +1,4 @@
-"""会话与消息测试（阶段 C4 / D7）。"""
+"""会话与消息测试。"""
 
 from __future__ import annotations
 

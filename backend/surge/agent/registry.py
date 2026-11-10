@@ -40,9 +40,8 @@ def _schema(properties: dict[str, str], required: list[str] | None = None) -> st
 # 定义数据（与代码里的真实能力一一对应）
 # ---------------------------------------------------------------------------
 #
-# Skills 不再是这里手写的第二份清单：唯一真源是 ``skills/catalog/<key>/SKILL.md``，
-# 由 ``skills.registry`` 扫描得到。这里只把它摊平成写库需要的行，
-# 不会再出现「代码改了、注册表没改」。
+# Skills 的唯一真源是 ``skills/catalog/<key>/SKILL.md``，由 ``skills.registry``
+# 扫描得到。这里只把它摊平成写库需要的行，保证代码与注册表不会各改一份。
 SKILLS: list[dict[str, Any]] = skills_registry.seed_rows()
 
 TOOLS: list[dict[str, Any]] = [

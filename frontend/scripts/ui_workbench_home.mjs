@@ -205,7 +205,7 @@ async function main() {
   await ev('document.getElementById("composer-send").click()')
   check('输入框提交能进参数确认', await waitFor('!!document.getElementById("wb-product")', 15000))
   /* 参数确认是独立的一屏「新建任务」：面包屑 + 四段表单 + 右侧执行信息栏。
-     首页骨架（大标题、底部输入框）不再出现，路由仍然是 /workbench。 */
+     首页骨架（大标题、底部输入框）不应出现，路由仍然是 /workbench。 */
   const paramsPage = await ev(`(() => ({
     title: (document.querySelector('.wb-task-title') || {}).textContent || '',
     sections: document.querySelectorAll('.wb-sec').length,

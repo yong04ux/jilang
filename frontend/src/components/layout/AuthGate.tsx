@@ -1,6 +1,6 @@
 /**
- * 登录门。结构与文案逐条对齐旧 `js/auth.js`（登录 / 注册 / 首次建管理员三态 +
- * 一键体验），未登录时覆盖整屏，业务页面不渲染 —— 避免出现「点了没反应」的假界面。
+ * 登录门。登录 / 注册 / 首次建管理员三态 + 一键体验，
+ * 未登录时覆盖整屏，业务页面不渲染 —— 避免出现「点了没反应」的假界面。
  */
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/shared/Icon'

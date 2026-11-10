@@ -42,9 +42,6 @@ def _isolate_credentials(monkeypatch, tmp_path):
     monkeypatch.setenv("SURGE_ENV_FILE", str(empty))
     for name in _CREDENTIAL_ENV:
         monkeypatch.delenv(name, raising=False)
-    # BYOK 在演示站默认强制；测试默认走"显式关闭"，这样确定性流程仍然可测。
-    # 需要验证 428 的测试会自己把它打开（见 tests/test_demo_mode.py）。
-    monkeypatch.setenv("SURGE_REQUIRE_API_KEY", "false")
     from surge.config import get_settings
 
     get_settings.cache_clear()

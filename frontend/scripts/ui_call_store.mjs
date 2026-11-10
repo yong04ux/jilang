@@ -41,7 +41,7 @@ async function main() {
   await send('Page.navigate', { url: `${BASE}/dashboard` })
   await sleep(2500)
 
-  // 凭据走环境变量；没有就现注册一个 —— 原来写死的 guest 账号早已失效，会 401
+  // 凭据走环境变量；没有就现注册一个（写死的账号会过期失效）
   const user = process.env.CP_USER || 'callstore_' + Date.now().toString(36)
   const pass = process.env.CP_PASS || 'password123'
   console.log('login:', await evaluate(`(async () => {
@@ -61,7 +61,7 @@ async function main() {
   console.log('authUser:', await evaluate(`window.CPAuth && window.CPAuth.user ? window.CPAuth.user.username : null`))
   console.log('gateVisible:', await evaluate(`(() => { const g = document.querySelector('#auth-gate'); return g ? !g.hidden : false })()`))
 
-  // 店铺页已由 React 接管（S7），旧模块不再由路由使用 —— 改走路由并等 stage 出现
+  // 走路由进入 /stores，并等 stage 出现
   console.log('manual render:', await evaluate(`(async () => {
     try {
       window.CPRouter.go('/stores', { force: true });

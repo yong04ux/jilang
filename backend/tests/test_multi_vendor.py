@@ -265,20 +265,11 @@ def test_health_reports_unverified_after_failed_test(client, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def _enable_byok(monkeypatch) -> None:
-    """conftest 默认把 BYOK 关掉；这两个用例必须打开才能验到网关。"""
-    from surge.config import get_settings
-
-    monkeypatch.setenv("SURGE_REQUIRE_API_KEY", "true")
-    get_settings.cache_clear()
-
-
 def test_configured_user_is_not_treated_as_fallback(client, monkeypatch):
-    """曾经这里用 isinstance(provider, RuleProvider) 判断降级。
+    """降级判据必须是「纯粹的规则引擎」，不能是「RuleProvider 的子类」。
 
-    但 ``DeepSeekProvider`` 继承自 ``RuleProvider``，于是**每一家真实厂商**
-    都被判成降级，配好 Key 的用户点「开始执行」一律 428——整条主流程跑不动。
-    正确判据是「纯粹的规则引擎」，不是「是不是 RuleProvider 的子类」。
+    ``DeepSeekProvider`` 继承自 ``RuleProvider``，按 isinstance 判断会把
+    每一家真实厂商都误判成降级，配好 Key 的用户也会被当成没配。
     """
     from surge.llm.providers import DeepSeekProvider
 
@@ -289,7 +280,6 @@ def test_configured_user_is_not_treated_as_fallback(client, monkeypatch):
     monkeypatch.setattr(DeepSeekProvider, "chat_client", lambda self: _FakeClient())
     headers = _register(client, "flow_not_fallback")
     _save_dashscope_config(client, headers)
-    _enable_byok(monkeypatch)
 
     resp = client.post(
         "/api/agent/resolve",
@@ -302,10 +292,9 @@ def test_configured_user_is_not_treated_as_fallback(client, monkeypatch):
     assert body["spec"]["product_name"] == "EcoSip 保温杯"
 
 
-def test_user_without_key_gets_rules_engine_not_a_wall(client, monkeypatch):
-    """没有 Key 不再拦人：照样解析目标，但要说清是规则推断的。"""
+def test_user_without_key_gets_rules_engine_not_a_wall(client):
+    """没有 Key 也照样解析目标，但要说清是规则推断的。"""
     headers = _register(client, "flow_no_key")
-    _enable_byok(monkeypatch)
     resp = client.post(
         "/api/agent/resolve", json={"goal": "随便写个 Listing"}, headers=headers
     )

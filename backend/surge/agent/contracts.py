@@ -44,12 +44,8 @@ STATUS_AVAILABLE = "available"
 STATUS_BETA = "beta"
 STATUS_DEV = "dev"
 STATUS_DISABLED = "disabled"
-STATUSES = (STATUS_AVAILABLE, STATUS_BETA, STATUS_DEV, STATUS_DISABLED)
 
-#: 依赖项声明用的保留字。
-#: - ``provider``：需要一个 Provider 实例（规则引擎也算，只要传进来）；
-#: - ``llm``：需要**真正可调用模型**的 Provider（缺 Key 时不算满足）。
-DEP_PROVIDER = "provider"
+#: 依赖项声明用的保留字：需要**真正可调用模型**的 Provider（缺 Key 时不算满足）。
 DEP_LLM = "llm"
 
 
@@ -147,7 +143,7 @@ class SkillDefinition:
         return self.input_schema or {"type": "object", "properties": {}}
 
     def as_registry_row(self) -> dict[str, Any]:
-        """转成 ``seed_registry`` 需要的行（兼容旧 ``SKILLS`` 结构）。"""
+        """转成 ``seed_registry`` 需要的行。"""
         import json
 
         return {
@@ -244,7 +240,7 @@ class SkillError(RuntimeError):
         """扁平化的错误载荷。
 
         ``detail`` 里的键（``errors`` / ``missing`` / ``field`` …）直接提到顶层，
-        因为前端只会读 ``detail.errors`` 这一层（见 ``frontend/js/api.js``）；
+        因为前端只会读 ``detail.errors`` 这一层（见 ``frontend/src/lib/api.ts`` 的 ``describe``）；
         再套一层 ``detail`` 会让它拿不到字段名，只能显示一句干巴巴的提示。
         """
         payload: dict[str, Any] = dict(self.detail or {})
@@ -303,8 +299,6 @@ class SkillTimeout(SkillError):
 
 __all__ = [
     "DEP_LLM",
-    "DEP_PROVIDER",
-    "STATUSES",
     "STATUS_AVAILABLE",
     "STATUS_BETA",
     "STATUS_DEV",

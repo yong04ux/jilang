@@ -1,4 +1,4 @@
-"""Mock 店铺连接器测试（阶段 F1–F4）。"""
+"""Mock 店铺连接器测试。"""
 
 from __future__ import annotations
 
@@ -120,7 +120,7 @@ def test_live_connector_reports_not_connected_and_refuses_sync():
     try:
         connector.sync()
     except ConnectorError as exc:
-        assert "阶段 G" in str(exc)
+        assert "未接入" in str(exc) and "SP-API" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("Live connector 不应返回数据")
 

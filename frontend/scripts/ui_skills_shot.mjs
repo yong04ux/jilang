@@ -3,7 +3,7 @@
 //
 // 验两件事：
 //   1) 广场页：卡片都从接口来、筛选与搜索真的生效、卡片信息完整且文案是业务语言；
-//   2) 详情页：点卡片进去能真跑出结果（PRD v3.0 P0 的 F-06）。
+//   2) 详情页：点卡片进去能真跑出结果。
 import { spawn } from 'node:child_process'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -389,9 +389,7 @@ async function main() {
   })()`)
   let keyInfo = {}
   try { keyInfo = JSON.parse(keyRun) } catch {}
-  /* 这条断言原先验的是「没 Key → 428 → 弹去配置的引导」。BYOK 改版后
-     无 Key 也能跑（走规则引擎），428 分支不存在了，于是它会误抓 Listing 的
-     质检警告当成功。改成验真正该守的契约：**结果必须如实标注执行引擎**，
+  /* 这条断言守的是：**结果必须如实标注执行引擎**，
      不能让人把规则生成当成模型生成。 */
   const engineOk = Boolean(keyInfo.kind) && /规则|模型/.test(keyInfo.text || '')
   check('结果标注执行引擎（无 Key 时为规则引擎）', engineOk, keyInfo)

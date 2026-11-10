@@ -1,4 +1,4 @@
-"""F-04：统一执行入口 ``POST /api/skills/{key}/run`` 的契约。
+"""统一执行入口 ``POST /api/skills/{key}/run`` 的契约。
 
 判定顺序是这一组测试的重点（登录 → 角色 → 技能存在 → 参数 → 依赖 → 限流 → 执行）：
 顺序错了不会报错，只会让用户多撞几次墙，所以必须钉住。
@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import base64
 import time
-
-import pytest
 
 from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST, DEMO_LISTING_REQUEST
 from surge.skills import SKILL_REGISTRY
@@ -36,19 +34,6 @@ def wait_status(client, task_id: str, headers: dict, statuses: set[str], timeout
             return detail
         time.sleep(0.05)
     raise AssertionError(f"任务未进入 {statuses}，当前 {detail.get('task', {}).get('status')}")
-
-
-@pytest.fixture()
-def byok_client(client, monkeypatch):
-    """打开 BYOK 强制的客户端（conftest 默认关掉它，便于确定性流程）。"""
-    from surge.config import get_settings
-
-    monkeypatch.setenv("SURGE_REQUIRE_API_KEY", "true")
-    get_settings.cache_clear()
-    try:
-        yield client
-    finally:
-        get_settings.cache_clear()
 
 
 # ---------------------------------------------------------------------------
@@ -146,24 +131,24 @@ def test_unknown_skill_is_404(client):
     assert "not_a_skill" not in resp.text
 
 
-def test_expected_422_before_missing_key(byok_client):
+def test_expected_422_before_missing_key(client):
     """参数错必须先于「没配 Key」暴露，否则用户配完 Key 还会再撞一次。"""
-    headers = register(byok_client, "skill_run_order")
+    headers = register(client, "skill_run_order")
     resp = run_skill(
-        byok_client, headers, "listing_generation", {"product": {"name": ""}}
+        client, headers, "listing_generation", {"product": {"name": ""}}
     )
     assert resp.status_code == 422, resp.text
 
 
-def test_llm_skill_falls_back_to_rules_and_reports_engine(byok_client):
+def test_llm_skill_falls_back_to_rules_and_reports_engine(client):
     """没有 Key 也要能跑，但返回里必须写清用的是规则引擎。"""
-    headers = register(byok_client, "skill_run_engine")
+    headers = register(client, "skill_run_engine")
 
-    listing = run_skill(byok_client, headers, "listing_generation", DEMO_LISTING_REQUEST)
+    listing = run_skill(client, headers, "listing_generation", DEMO_LISTING_REQUEST)
     assert listing.status_code == 200, listing.text
     assert listing.json()["engine"]["kind"] == "rule"
 
-    analysis = run_skill(byok_client, headers, "competitor_analysis", DEMO_ANALYSIS_REQUEST)
+    analysis = run_skill(client, headers, "competitor_analysis", DEMO_ANALYSIS_REQUEST)
     assert analysis.status_code == 200, analysis.text
     assert analysis.json()["engine"]["kind"] == "rule"
 

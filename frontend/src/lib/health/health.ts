@@ -1,7 +1,7 @@
 /**
  * /api/health 的共享缓存。
  *
- * 语义逐字保留旧 `CPShell.getHealth`（shell.js:48-69）：
+ * 语义：
  *  - 模块级单个 Promise，15s TTL 内复用同一个 Promise（顶栏 / 工作台 / 设置页共用，
  *    首屏只发一次请求）；
  *  - `force` 跳过 TTL；
@@ -24,13 +24,9 @@ export interface ProviderInfo {
 }
 
 export interface HealthInfo {
-  status?: string
   version?: string
-  brand?: string
   provider?: ProviderInfo
-  requires_api_key?: boolean
-  worker?: { backend?: string; alive?: boolean; redis?: boolean | null }
-  marketplace_mode?: string
+  worker?: { backend?: string; alive?: boolean }
 }
 
 const HEALTH_TTL_MS = 15000

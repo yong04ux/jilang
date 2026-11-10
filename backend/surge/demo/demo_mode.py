@@ -1,4 +1,4 @@
-"""演示站机制：BYOK 强制、一键体验临时账号、限流。
+"""演示站机制：BYOK、一键体验临时账号、限流。
 
 三条铁律：
 
@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 
-import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -65,9 +64,6 @@ def ensure_demo_account(
     )
     create_personal_tenant(db, user_id, username)
     return db.get_user(user_id)
-
-
-DEMO_USERNAME_RE = re.compile(r"^demo$", re.IGNORECASE)
 
 
 def is_demo_account(user: dict[str, Any] | None, *, demo_username: str) -> bool:

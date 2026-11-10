@@ -320,7 +320,7 @@ async def test_provider_config(
         result = {
             "ok": bool(ok),
             "detail": detail,
-            # 用归一化后的名字回报：库里可能存着已退役的旧模型名（如 deepseek-v4-flash）
+            # 用归一化后的名字回报：库里可能存着不在预置清单中的模型名
             "model": candidate.model,
             "elapsed_ms": int((time.perf_counter() - started) * 1000),
         }

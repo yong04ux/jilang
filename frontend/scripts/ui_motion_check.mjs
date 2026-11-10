@@ -284,7 +284,7 @@ try {
     await shot('state-workbench-run')
   }
 
-  /* ---------------- 第二批：走纸切页 ---------------- */
+  /* ---------------- 走纸切页 ---------------- */
   await go('/tasks', 900) // 预热目标页，保证 lazy 已解析，才能验同步契约
   const travel = await ev(`(() => {
     window.CPRouter.go('/settings', { force: true });
@@ -308,7 +308,7 @@ try {
   )
   check(await ev(`!document.querySelector('.view.view--fed') || getComputedStyle(document.querySelector('.view')).animationName === 'none'`), '走纸：新页没有叠第二层 CSS 进场')
 
-  /* ---------------- 第二批：列表 FLIP ---------------- */
+  /* ---------------- 列表 FLIP ---------------- */
   await go('/tasks', 1200)
   await waitFor(`document.querySelectorAll('#task-body table tbody tr').length > 1`, 8000)
   const rowCount = await ev(`document.querySelectorAll('#task-body table tbody tr').length`)
@@ -344,7 +344,7 @@ try {
     await sleep(500)
   }
 
-  /* ---------------- 第二批：骨架显影（限速 + 禁用缓存，逼出慢 chunk） ---------------- */
+  /* ---------------- 骨架显影（限速 + 禁用缓存，逼出慢 chunk） ---------------- */
   await send('Network.enable')
   await send('Network.setCacheDisabled', { cacheDisabled: true })
   await send('Network.emulateNetworkConditions', {
@@ -370,7 +370,7 @@ try {
     offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1,
   })
 
-  /* ---------------- 第三批：套准 ---------------- */
+  /* ---------------- 套准 ---------------- */
   const reg = await ev(`(async () => {
     const find = () => {
       const t = document.querySelector('.page-title');
@@ -399,7 +399,7 @@ try {
   check(reg.last !== null && reg.last <= 3.6, '套准：洋红版最终归位 3px', String(reg.last))
   check(reg.first === null || reg.last === null || reg.first >= reg.last, '套准：起点比终点更偏', `${reg.first} → ${reg.last}`)
 
-  /* ---------------- 第三批：盖章 ---------------- */
+  /* ---------------- 盖章 ---------------- */
   await go('/tasks', 1200)
   check(await ev(`document.querySelectorAll('.stamp-slam').length === 0`), '盖章：进页面不播（只在状态变更时触发）')
   check(
@@ -414,7 +414,7 @@ try {
     '盖章：stamp-slam 动画已接上',
   )
 
-  /* ---------------- 第三批：指标计数 ----------------
+  /* ---------------- 指标计数 ----------------
      用 MutationObserver 记录数字的每一次变化：采样会太晚，420ms 的滚动早跑完了 */
   const counter = await ev(`(async () => {
     window.CPRouter.go('/dashboard', { force: true });
@@ -438,7 +438,7 @@ try {
   check(counter.final.every((v) => /^\d+$/.test(v)), '计数：终值是纯数字', counter.final.join('/'))
   await shot('state-count-up')
 
-  /* ---------------- 第三批：图表生长 ---------------- */
+  /* ---------------- 图表生长 ---------------- */
   const chartMotion = await ev(`(() => {
     if (!window.CPChart) return { has: false };
     const bars = document.createElement('div');
@@ -460,7 +460,7 @@ try {
   check(chartMotion.has && chartMotion.barAnims > 0, '图表：手写柱体首绘在生长', JSON.stringify(chartMotion))
   check(String(chartMotion.dash).length > 0, '图表：手写折线在描出', String(chartMotion.dash))
 
-  /* ---------------- 第三批：滚动揭示 ---------------- */
+  /* ---------------- 滚动揭示 ---------------- */
   await go('/settings', 1400)
   const reveal = await ev(`(() => {
     const nodes = [...document.querySelectorAll('#view-root [data-reveal]')];

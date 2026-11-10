@@ -1,4 +1,4 @@
-"""业务产物持久化：Graph 节点不再直接写库。
+"""业务产物持久化：Graph 节点不直接写库。
 
 如果 ``persist`` 节点在 ``agent/runtime.py`` 里直接调 ``db.save_report`` /
 ``db.save_listing``，会有三个后果：

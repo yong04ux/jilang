@@ -1,4 +1,4 @@
-"""PG 迁移测试（SQLite 后端已移除）。
+"""PG 迁移测试。
 
 每个用例重置 public schema；`schema_migrations` 由 runner 维护。
 """

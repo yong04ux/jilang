@@ -1,9 +1,9 @@
 /**
- * 极简 History 路由 —— 逐条移植自旧 `js/router.js`，额外接上 React 订阅。
+ * 极简 History 路由 —— 接上 React 订阅。
  *
- * 三条必须保留的旧语义：
- *  1. 「同路径 + 同查询串」时只重绘、不动历史（router.js:80-89 的注释解释了原因：
- *     早先只比 pathname 会让 `/skills → /skills?skill=x` 既不更新地址栏也不进历史）；
+ * 三条必须保留的语义：
+ *  1. 「同路径 + 同查询串」时只重绘、不动历史（只比 pathname 会让
+ *     `/skills → /skills?skill=x` 既不更新地址栏也不进历史）；
  *  2. `force` 跳过上面的捷径，强制 push 一条历史；
  *  3. 只拦截带 `data-link` 的站内链接，且跳过外链、`#`、修饰键与中键。
  *
@@ -137,8 +137,6 @@ let ghostShadow: ShadowRoot | null = null
 
 function ghostShell(): ShadowRoot | null {
   if (ghostShadow && ghostHost?.isConnected) return ghostShadow
-  if (typeof document === 'undefined' || typeof Element === 'undefined') return null
-  if (typeof Element.prototype.attachShadow !== 'function') return null
   const host = document.createElement('div')
   host.className = 'cp-page-ghost'
   host.setAttribute('aria-hidden', 'true')
@@ -265,7 +263,7 @@ function pageFeed(apply: () => void, slide: boolean): void {
   }
   const done = () => {
     hideGhost()
-    // 等遗留页的挂载 effect 跑完再摘标记（它的 stagger 靠这个标记跳过）
+    // 等整页的挂载 effect 跑完再摘标记（它的 stagger 靠这个标记跳过）
     window.setTimeout(() => {
       delete document.documentElement.dataset.cpFeed
     }, 240)
@@ -277,10 +275,10 @@ function pageFeed(apply: () => void, slide: boolean): void {
 /**
  * 提交路由变更。
  *
- * **必须同步生效**：旧 `CPRouter.go()` 是「pushState 后立刻调用 handler 写 DOM」，
- * 调用方（页面模块代码、仓库里的验收脚本）都依赖「go() 返回时 DOM 已经是新页面」。
- * 例如 ui_skills_shot 会在 go() 之后马上 `querySelector('#sk-form')` 并点运行按钮，
- * 若这里只是通知订阅者、等 React 异步提交，拿到的会是上一页的表单，点错按钮。
+ * **必须同步生效**：调用方（页面模块代码、仓库里的验收脚本）依赖
+ * 「go() 返回时 DOM 已经是新页面」。例如 ui_skills_shot 会在 go() 之后马上
+ * `querySelector('#sk-form')` 并点运行按钮，若这里只是通知订阅者、等 React
+ * 异步提交，拿到的会是上一页的表单，点错按钮。
  */
 function notify(nextPath?: string): void {
   const apply = () => {
@@ -332,14 +330,9 @@ export function go(path: string, opts?: GoOptions): void {
   window.scrollTo({ top: 0, behavior: 'auto' })
 }
 
-/** 对应旧 `CPRouter.render(path)`：不碰 history，只按给定路径重绘 */
+/** 不碰 history，只按给定路径重绘 */
 export function renderPath(path: string): void {
   notify(path)
-}
-
-/** 旧 `CPRouter` 的 `current` 字段形态（极少被用，保留以免调用点报错） */
-export function currentPath(): string {
-  return snapshot.path
 }
 
 /* ------------------------------------------------------- 全局监听（只装一次） */

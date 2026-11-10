@@ -763,8 +763,8 @@ def _parse_range_days(range_value: str) -> int:
     """把时间范围解析成天数。
 
     支持三种写法：``30d`` / ``today|week|month|quarter`` / ISO 时间串。
-    ISO 那条分支是给 ``list_orders(since=...)`` 复用的——历史上它收的是
-    绝对时间，改成相对天数后不能把老调用方直接打死。
+    ISO 那条分支是给 ``list_orders(since=...)`` 复用的：它收绝对时间，
+    与按天数的范围写法并存，不能把老调用方直接打死。
     """
     text = (range_value or "30d").strip().lower()
     if text.endswith("d") and text[:-1].isdigit():

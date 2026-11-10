@@ -1,4 +1,4 @@
-"""发布审批测试（阶段 D8）。"""
+"""发布审批测试。"""
 
 from __future__ import annotations
 

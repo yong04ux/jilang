@@ -333,7 +333,7 @@ a.proof:hover .proof-nm {
   z-index: 1;
 }
 
-/* 空态输入框不再靠 sticky 浮在页面底部：内容区自己滚动，输入框是固定页脚 */
+/* 空态输入框是固定页脚（内容区自己滚动），不用 sticky 浮在页面底部 */
 .wb-empty > .composer { position: static; }
 
 .wb-empty::before {
@@ -1152,7 +1152,7 @@ a.proof:hover .proof-nm {
 }
 .res-tab:hover { color: var(--ink); }
 .res-tab.is-active { color: var(--ink); font-weight: 800; background: var(--acid-lime); }
-/* 当前项的洋红下划线改由 .tab-ink 滑动承担，不再每项各画一条 */
+/* 当前项的洋红下划线由 .tab-ink 滑动承担，每项不各画一条 */
 
 .res-body { flex: 1; overflow-y: auto; padding: var(--sp-4); }
 .res-inner { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -2692,7 +2692,7 @@ a.proof:hover .proof-nm {
 }
 
 /* ==========================================================================
-   工作台分栏：grid → 可拖拽 flex（js/panels.js）
+   工作台分栏：grid → 可拖拽 flex（lib/panels.ts）
    比例写在 --split-a 上，移动端整体退化为上下堆叠并隐藏拖拽条。
    ========================================================================== */
 .wb-run.split {
@@ -2805,7 +2805,7 @@ a.proof:hover .proof-nm {
   gap: var(--sp-4);
 }
 
-/* 工序段：左侧 Anton 编号块，右侧内容；阶梯错位让四段不再等高 */
+/* 工序段：左侧 Anton 编号块，右侧内容；阶梯错位、四段不等高 */
 .wb-sec {
   display: grid;
   grid-template-columns: 46px minmax(0, 1fr);
@@ -3080,7 +3080,7 @@ a.proof:hover .proof-nm {
 .wb-chat .chat-scroll { padding: var(--sp-5); }
 .wb-chat .chat-inner { max-width: 860px; }
 
-/* 轮询时被清空的卡片槽不再占走一个 gap */
+/* 轮询时被清空的卡片槽不占 gap */
 .chat-inner > div[data-run-card]:empty,
 .chat-inner > div[data-decision-card]:empty,
 .chat-inner > div[data-result-card]:empty { display: none; }
@@ -3668,7 +3668,7 @@ a.proof:hover .proof-nm {
   .wb-task-info { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* 任务中心：行内展开详情（不再右侧抽屉） */
+/* 任务中心：行内展开详情 */
 .tasks-table tbody tr.task-inline-row { cursor: default; }
 .tasks-table tbody tr.task-inline-row td {
   padding: 0;

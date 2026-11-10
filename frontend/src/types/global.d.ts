@@ -101,13 +101,10 @@ declare global {
       readonly user: unknown
     }
     CPRouter?: {
-      define(...args: unknown[]): void
-      start(...args: unknown[]): void
       go(path: string, opts?: { replace?: boolean; force?: boolean }): void
       render(path?: string): void
       resolve(path: string): unknown
       normalize(path: string): string
-      setOnChange(fn: unknown): void
       readonly current: unknown
     }
     CPShell?: {
@@ -115,10 +112,8 @@ declare global {
       invalidateHealth(): void
       loadProvider(): void
       loadUser(): void
-      setNavKey(key: string): void
       openDrawer(): void
       closeDrawer(): void
-      mountBanner(): void
       LABELS: Record<string, string>
     }
   }

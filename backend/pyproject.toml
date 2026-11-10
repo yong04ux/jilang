@@ -7,7 +7,7 @@ name = "surge"
 version = "1.0.0"
 description = "Surge 跨境电商 AI 内容工作台：竞品分析与 Listing 生成"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115,<1.0",
     "uvicorn>=0.30,<1.0",
@@ -17,9 +17,11 @@ dependencies = [
     "python-dotenv>=1.0",
     "openpyxl>=3.1,<4.0",
     "langgraph>=1.0,<2.0",
+    "langgraph-checkpoint-postgres>=3.2,<4.0",
     "langchain-anthropic>=1.7,<2.0",
     "langchain-google-genai>=3.0,<5.0",
     "psycopg[binary]>=3.2",
+    "psycopg_pool>=3.2,<4.0",
     "openai>=1.40",
 ]
 
@@ -36,8 +38,7 @@ surge = ["skills/catalog/*/SKILL.md", "skills/catalog/*/*.json"]
 
 [tool.setuptools.packages.find]
 # 包布局：backend/ 是工程根，surge/ 是唯一的顶级包，
-# 其下按业务域分 api / agent / services / engine / llm / market /
-# persistence / ingest / demo 九个子包（职责见 surge/__init__.py）。
+# 其下按业务域拆分子包（目录职责见 surge/__init__.py 的 docstring）。
 include = ["surge*"]
 
 # tests / scripts / config 不进入 wheel：

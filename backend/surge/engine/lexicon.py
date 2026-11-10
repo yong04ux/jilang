@@ -309,7 +309,6 @@ CONCERN_THEMES: tuple[Theme, ...] = (
 )
 
 ALL_THEMES: tuple[Theme, ...] = PAIN_THEMES + NEED_THEMES + CONCERN_THEMES
-THEMES_BY_KEY = {theme.key: theme for theme in ALL_THEMES}
 
 
 def themes_of(kind: ThemeKind) -> tuple[Theme, ...]:
@@ -325,7 +324,6 @@ __all__ = [
     "CONCERN_THEMES",
     "NEED_THEMES",
     "PAIN_THEMES",
-    "THEMES_BY_KEY",
     "Theme",
     "ThemeKind",
     "themes_of",

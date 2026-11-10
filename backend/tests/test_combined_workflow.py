@@ -181,7 +181,7 @@ def test_confirm_cancel_ends_without_listing(client):
 def test_missing_product_facts_block_before_confirmation(client):
     """商品事实缺失时**直接拦住**，不会白问一次"要不要继续"。
 
-     收敛后把事实检查提到了确认之前：事实缺了必然生成不了，
+    事实检查放在确认之前：事实缺了必然生成不了，
     这时候再弹确认只是浪费用户一次点击。
     """
     headers = register(client, "cw_nofacts")

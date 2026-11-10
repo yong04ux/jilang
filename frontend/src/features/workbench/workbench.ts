@@ -4,7 +4,7 @@
  * 完整的步骤、证据、日志收进可开合的「过程与产物」抽屉。
  * - 自然语言目标先经 `/api/agent/resolve` 解析；
  * - 执行走 `/api/agent/runs` 的异步模式，轮询真实 task_steps，可停止；
- * - 状态只有一个真源：等待补充/等待确认绝不再显示「已完成」。
+ * - 状态只有一个真源：等待补充/等待确认绝不显示「已完成」。
  *
  * 内部用 HTML 字符串渲染，因此本文件带 @ts-nocheck；页面由 routes.tsx 经 LegacyPage 挂载。
  * 全局 `U / A / C / R / AR` 由 `ensureDeps()` 懒取：模块在 bundle 初始化时就被 import，
@@ -97,7 +97,6 @@ function dockView(root, selector) {
     inlineOpen: false,       // 过程与产物在会话内展开
     continuing: false,        // 本次目标是在当前会话里继续，而不是新建
     missingFocus: false,      // 从「缺资料」进入澄清卡时自动展开缺失项
-    needKey: false,           // 上一步因为没配 Key 被 428 拦下 → 给一个可点的入口
     // ---- Listing 生成（对话内配置卡）----
     products: [],             // 店铺商品，供商品选择器用
     productsLoaded: false,
@@ -121,7 +120,7 @@ function dockView(root, selector) {
 
   /* 竞品录入：一行一个，字段之间用「|」隔开
      名称 | 价格 | 评分 | 评论数 | 一条评论
-     解析实现放在 js/schema-form.js——技能页也用同一套，避免出现第三份解析 */
+     解析实现放在 lib/schema-form——技能页也用同一套，避免出现第三份解析 */
   function parseCompetitors(text) {
     return window.CPSchemaForm.parseCompetitors(text);
   }
@@ -131,7 +130,7 @@ function dockView(root, selector) {
   }
 
   /* ================= 空态：一句话开始 =================
-   * 「自动 / 专家 / 技能」不再是首屏三段入口，而是输入框里的执行方式选择器。
+   * 「自动 / 专家 / 技能」是输入框里的执行方式选择器。
    * 首屏只留标题、提示语、最近会话和输入框，减少「先选类型」这一步。
    */
 
@@ -472,7 +471,7 @@ function dockView(root, selector) {
 
   /* ================= 参数澄清：对话内的一张卡 =================
    * 目标解析完就在对话里把「我理解成什么 + 还差什么」摊开，
-   * 不再把用户甩到另一张四段式表单页。控件 id 与旧表单一致，执行逻辑不用重写。
+   * 在对话里直接补参数，不跳转到独立表单页。控件 id 保持稳定，执行逻辑按 id 取值。
    */
 
   function resolveSummary() {
@@ -668,11 +667,6 @@ function dockView(root, selector) {
       `<div class="wb-card-body">` +
       resolveSummary() +
       missingCallout() +
-      (state.needKey
-        ? `<div class="callout callout-warn">${U.icon("alert")}<div><strong>这一步需要模型</strong><br>` +
-          `到「设置 → 模型与密钥」填入你自己的 API Key 后就能继续。` +
-          `<div class="mt-2"><a class="btn btn-sm" href="/settings" data-link>去配置 API Key</a></div></div></div>`
-        : "") +
       (listing ? listingFields() : competitorFields()) +
       `<details class="wb-more"${state.moreParamsOpen || state.missingFocus ? " open" : ""}>` +
       `<summary>更多参数（可选，填了结果更准）</summary>` +
@@ -834,7 +828,7 @@ function dockView(root, selector) {
 
   /* ================= Listing 生成：对话内配置 =================
    * 用户选完商品就能生成：商品资料由商品库带出，规格/卖点是可选项。
-   * 竞品数据这条路径完全不需要，因此这里不再出现竞品输入框。 */
+   * 竞品数据这条路径完全不需要，因此不出现竞品输入框。 */
   const LISTING_SITES = ["US", "UK", "DE", "JP"];
   const LISTING_LANGUAGES = { US: "en-US", UK: "en-US", DE: "de-DE", JP: "ja-JP" };
 
@@ -842,12 +836,12 @@ function dockView(root, selector) {
     return Boolean((state.picked && state.picked.key === "listing_generation") || state.listingOnly);
   }
 
-  /** 显式选了「竞品分析」就只做分析：不再顺手生成 Listing。 */
+  /** 显式选了「竞品分析」就只做分析，不顺带生成 Listing。 */
   function isCompetitorOnly() {
     return Boolean(state.picked && state.picked.key === "competitor_analysis");
   }
 
-  /* 选商品 → 名称/价格/站点自动带入，不再要求手写 */
+  /* 选商品 → 名称/价格/站点自动带入，不需要手写 */
   function applyListingProduct(productId) {
     const product = (state.products || []).find(function (p) {
       return p.product_id === productId;
@@ -2049,7 +2043,6 @@ function dockView(root, selector) {
     state.assistantOpen = false;
     state.skillsOpen = false;
     state.renamingId = null;
-    state.needKey = false;
     state.productName = "";
     state.productCategory = "";
     state.competitorsText = "";
@@ -2082,7 +2075,6 @@ function dockView(root, selector) {
     state.goal = goal;
     state.error = "";
     state.composerDraft = "";
-    state.needKey = false;
     state.missingFocus = false;
     state.inlineOpen = false;
     state.resolveInfo = null;
@@ -2113,13 +2105,7 @@ function dockView(root, selector) {
         U.toast("模型不可用，目标已按规则解析，请确认参数", "danger");
       }
     } catch (err) {
-      if (err.status === 428) {
-        state.needKey = true;
-        state.error = "";
-        U.toast("这一步要用模型来读你的目标，可以先手动补充参数", "danger");
-      } else {
-        state.resolveInfo = { degraded: true, reason: err.message, spec: {} };
-      }
+      state.resolveInfo = { degraded: true, reason: err.message, spec: {} };
     }
     if (state.mode === "params") {
       render(root);
@@ -2128,7 +2114,7 @@ function dockView(root, selector) {
     }
   }
 
-  /* 继续追问：沿用当前会话与已填参数，不再从空白表单开始 */
+  /* 继续追问：沿用当前会话与已填参数，不从空白表单开始 */
   function continueGoal(root, goal) {
     if (state.busy) {
       U.toast("当前任务还在运行，等它结束再继续", "danger");
@@ -2172,8 +2158,7 @@ function dockView(root, selector) {
   }
 
   /* 生成 Listing：走 listing_only 路径，不需要竞品数据。
-   * 三类失败分开说，别统一成「技术报错」：
-   *   428 → 模型不可用（去配置 Key）
+   * 两类失败分开说，别统一成「技术报错」：
    *   422 + missing product_name → 还没选商品
    *   其它 → 把服务端给的中文说明原样转达 */
   async function runListingOnly(root) {
@@ -2231,7 +2216,6 @@ function dockView(root, selector) {
       state.selectedSkills = run.selected_skills || [];
       state.routing = run.routing || null;
       state.taskId = run.task_id;
-      state.needKey = false;
       state.taskStatus = run.status || "queued";
       state.busy = true;
       await refreshMessages();
@@ -2241,10 +2225,7 @@ function dockView(root, selector) {
       state.busy = false;
       state.taskStatus = "failed";
       state.mode = "params";
-      if (err.status === 428) {
-        state.needKey = true;
-        state.error = "模型不可用：到「设置 → 模型与密钥」配置你自己的 API Key 并设为当前使用。";
-      } else if (err.status === 422) {
+      if (err.status === 422) {
         const detail = err.detail || {};
         state.error = detail.message || "参数还不完整，检查一下商品、站点和语言。";
       } else {
@@ -2350,7 +2331,6 @@ function dockView(root, selector) {
       state.engine = run.engine || null;
       state.degradedReason = run.degraded_reason || "";
       state.taskId = run.task_id;
-      state.needKey = false;
       state.taskStatus = run.status || "queued";
       state.busy = true;
       await refreshMessages();
@@ -2359,12 +2339,7 @@ function dockView(root, selector) {
     } catch (err) {
       state.busy = false;
       state.taskStatus = "failed";
-      if (err.status === 428) {
-        state.needKey = true;
-        state.error = "还没有可用的模型。到「设置 → 模型与密钥」填入你自己的 API Key 并设为当前使用后再运行。";
-      } else {
-        state.error = err.message || String(err);
-      }
+      state.error = err.message || String(err);
       U.toast(state.error, "danger");
       render(root);
     }

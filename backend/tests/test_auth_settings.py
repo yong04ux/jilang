@@ -261,7 +261,7 @@ def test_api_key_is_encrypted_at_rest(fresh_app):
         json={"provider": "deepseek", "api_key": plaintext},
         headers=headers,
     )
-    # SQLite 已移除，数据库是 PostgreSQL：直接查库确认密文而非明文
+    # 数据库是 PostgreSQL：直接查库确认密文而非明文
     import psycopg
 
     from pg_support import database_url

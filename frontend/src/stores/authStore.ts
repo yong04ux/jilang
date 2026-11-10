@@ -1,11 +1,10 @@
 /**
  * 会话状态与登录动作。
  *
- * 对应旧 `js/auth.js` 的状态部分：currentUser / allowRegister / demoAccount / guestTtl。
  * 渲染由 `layout/AuthGate.tsx` 负责，这里只管状态与接口调用，两边不混。
  *
- * `gateOpen` 独立于 `user`：现有实现在 401 时只把登录门亮出来、并不清 user
- * （app.js:108-114 先读 wasSignedIn 再 show），行为上必须一致。
+ * `gateOpen` 独立于 `user`：401 只亮登录门、不清 user
+ * （先读 wasSignedIn 再 show），行为上必须一致。
  */
 import { create } from 'zustand'
 import { api } from '@/lib/api'

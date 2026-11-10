@@ -1,7 +1,7 @@
 /**
  * 应用外壳骨架。
  *
- * DOM 形状必须与旧 index.html 一致（`.app > aside.sidebar + .main >
+ * DOM 形状是布局契约（`.app > aside.sidebar + .main >
  * header.topbar + .source-banner + main#view-root`）——layout.css 的
  * flex 链依赖这条结构，`.view-root > .mount-slot > .view` 少一层布局就塌。
  *

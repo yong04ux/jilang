@@ -49,7 +49,7 @@ KNOWN_ISSUES: tuple[KnownIssue, ...] = (
     KnownIssue(
         rule_id="qc-failed-but-succeeded",
         reason=(
-            "组合流程在「质检未通过且无法修订」时仍标成功（历史决定：降级生成不算 partial）。"
+            "组合流程在「质检未通过且无法修订」时仍标成功（降级生成不计为 partial）。"
             "后果是用户可能把未过质检的草稿当成可用产出，建议改为 needs_review。"
         ),
         matches=lambda case, observed: (

@@ -1,6 +1,6 @@
 """Agent 执行入口：校验 → 分派 → 收尾。
 
-主图不再是一张十几个节点的 LangGraph。业务只有两份，都在子图里：
+主图只做三阶段调度，业务实现都在两份子图里：
 
 - ``with_listing=false`` → 竞品分析子图（``graphs/competitor_analysis.py``）
 - ``with_listing=true``  → 组合子图（``graphs/combined_operations.py``）

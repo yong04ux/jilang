@@ -1,5 +1,5 @@
 /**
- * 图标组件：直接用 `src/lib/icons.ts` 的 SVG 字符串，不再经 `window.CPIcon`。
+ * 图标组件：直接用 `src/lib/icons.ts` 的 SVG 字符串。
  *
  * 为什么包一层 `display: contents`：图标选择器（`.nav-item .icon`、
  * `.account-menu-item .icon`、`.proto-flag .icon` …）都是后代选择器，

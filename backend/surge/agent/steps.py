@@ -71,8 +71,8 @@ class StepRunner:
         self.task = task
         self.resume_from = resume_from or {}
         self.labels = labels or {}
-        # 有任务记录就默认按任务状态判取消：原来只有主图在节点边界查取消，
-        # 拆成子图后三个图共用这一个检查点，语义才不会分叉。
+        # 有任务记录就默认按任务状态判取消：主图与两份子图共用这一个检查点，
+        # 语义才不会分叉。
         if cancel_check is not None:
             self.cancel_check = cancel_check
         elif task is not None and hasattr(task, "is_cancel_requested"):

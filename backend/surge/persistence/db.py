@@ -1,11 +1,10 @@
 """PostgreSQL 持久化层。
 
-唯一数据库后端；SQLite 已移除。
+PostgreSQL 是唯一数据库后端。
 
 - 只依赖 ``psycopg``（异步/同步均可，这里用同步）；
 - 所有主键为字符串，JSON 内容整体存为 TEXT，便于审计与迁移；
-- 业务 SQL 用 ``?`` 占位符，由 ``_PgConnection`` 统一转成 ``%s``，
-  这样从 SQLite 迁移时业务代码无需逐条改写。
+- 业务 SQL 用 psycopg 的 ``%s`` 占位符，参数单独传入，不做字符串拼接。
 """
 
 from __future__ import annotations
@@ -38,7 +37,7 @@ class DatabaseError(RuntimeError):
 class _PgConnection:
     """把 psycopg 连接适配成 db.py 使用的极简接口。
 
-    只做两件事：``?`` → ``%s`` 占位符转换、``executescript`` 拆分。
+    补齐 psycopg 没有的 ``executescript``（多语句 DDL 按 ``;`` 拆分）。
     dict 行结果由 psycopg 的 ``dict_row`` 提供。
     """
 
@@ -47,10 +46,10 @@ class _PgConnection:
 
     def execute(self, sql: str, params: Any = ()):
         if not perf.active():
-            return self._connection.execute(sql.replace("?", "%s"), params or ())
+            return self._connection.execute(sql, params or ())
         started = time.perf_counter()
         try:
-            return self._connection.execute(sql.replace("?", "%s"), params or ())
+            return self._connection.execute(sql, params or ())
         finally:
             perf.incr("db.queries")
             perf.add(
@@ -450,7 +449,7 @@ class Database:
     def _columns(self, connection: Any, table: str) -> list[str]:
         rows = connection.execute(
             "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = current_schema() AND table_name = ?",
+            "WHERE table_schema = current_schema() AND table_name = %s",
             (table,),
         ).fetchall()
         return [row["column_name"] for row in rows]
@@ -479,7 +478,7 @@ class Database:
         2. 为每个还没有租户的用户建一个「个人空间」租户（owner）；
         3. 按 ``user_id`` 回填历史记录的 ``tenant_id``。
 
-        历史遗留记录（``user_id IS NULL``）保持 ``tenant_id`` 为空，
+        ``user_id IS NULL`` 的记录保持 ``tenant_id`` 为空，
         不臆测归属——它们仍由管理员显式认领。
         """
         tables = ("import_batches", "tasks", "task_steps")
@@ -507,17 +506,17 @@ class Database:
             tenant_id = uuid.uuid4().hex
             now = datetime.now(timezone.utc).isoformat()
             connection.execute(
-                "INSERT INTO tenants (tenant_id, name, slug, created_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO tenants (tenant_id, name, slug, created_at) VALUES (%s, %s, %s, %s)",
                 (tenant_id, f"{row['username']} 的个人空间", f"personal-{row['user_id'][:12]}", now),
             )
             connection.execute(
-                "INSERT INTO tenant_members (tenant_id, user_id, role, joined_at) VALUES (?, ?, 'owner', ?)",
+                "INSERT INTO tenant_members (tenant_id, user_id, role, joined_at) VALUES (%s, %s, 'owner', %s)",
                 (tenant_id, row["user_id"], now),
             )
             # 该用户的全部历史数据归入其个人租户
             for table in tables:
                 connection.execute(
-                    f"UPDATE {table} SET tenant_id = ? WHERE user_id = ? AND tenant_id IS NULL",
+                    f"UPDATE {table} SET tenant_id = %s WHERE user_id = %s AND tenant_id IS NULL",
                     (tenant_id, row["user_id"]),
                 )
 
@@ -525,27 +524,27 @@ class Database:
     def create_tenant(self, tenant_id: str, name: str, slug: str) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "INSERT INTO tenants (tenant_id, name, slug, created_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO tenants (tenant_id, name, slug, created_at) VALUES (%s, %s, %s, %s)",
                 (tenant_id, name, slug, datetime.now(timezone.utc).isoformat()),
             )
 
     def get_tenant(self, tenant_id: str) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM tenants WHERE tenant_id = ?", (tenant_id,)
+                "SELECT * FROM tenants WHERE tenant_id = %s", (tenant_id,)
             ).fetchone()
         return dict(row) if row else None
 
     def find_tenant_by_slug(self, slug: str) -> dict[str, Any] | None:
         with self.connect() as connection:
-            row = connection.execute("SELECT * FROM tenants WHERE slug = ?", (slug,)).fetchone()
+            row = connection.execute("SELECT * FROM tenants WHERE slug = %s", (slug,)).fetchone()
         return dict(row) if row else None
 
     def add_member(self, tenant_id: str, user_id: str, role: str = "owner") -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
                 "INSERT INTO tenant_members (tenant_id, user_id, role, joined_at) "
-                "VALUES (?, ?, ?, ?) "
+                "VALUES (%s, %s, %s, %s) "
                 "ON CONFLICT(tenant_id, user_id) DO UPDATE SET role=excluded.role, joined_at=excluded.joined_at",
                 (tenant_id, user_id, role, datetime.now(timezone.utc).isoformat()),
             )
@@ -554,12 +553,12 @@ class Database:
         with self.connect() as connection:
             if tenant_id is None:
                 row = connection.execute(
-                    "SELECT * FROM tenant_members WHERE user_id = ? ORDER BY joined_at LIMIT 1",
+                    "SELECT * FROM tenant_members WHERE user_id = %s ORDER BY joined_at LIMIT 1",
                     (user_id,),
                 ).fetchone()
             else:
                 row = connection.execute(
-                    "SELECT * FROM tenant_members WHERE user_id = ? AND tenant_id = ?",
+                    "SELECT * FROM tenant_members WHERE user_id = %s AND tenant_id = %s",
                     (user_id, tenant_id),
                 ).fetchone()
         return dict(row) if row else None
@@ -572,11 +571,11 @@ class Database:
             "SELECT m.tenant_id, m.user_id, m.role, m.joined_at, "
             "       t.name AS tenant_name, t.slug "
             "FROM tenant_members m JOIN tenants t ON t.tenant_id = m.tenant_id "
-            "WHERE m.user_id = ?"
+            "WHERE m.user_id = %s"
         )
         params: list[Any] = [user_id]
         if tenant_id is not None:
-            sql += " AND m.tenant_id = ?"
+            sql += " AND m.tenant_id = %s"
             params.append(tenant_id)
         sql += " ORDER BY m.joined_at LIMIT 1"
         with self.connect() as connection:
@@ -588,7 +587,7 @@ class Database:
             rows = connection.execute(
                 "SELECT m.tenant_id, m.role, m.joined_at, t.name, t.slug "
                 "FROM tenant_members m JOIN tenants t ON t.tenant_id = m.tenant_id "
-                "WHERE m.user_id = ? ORDER BY m.joined_at",
+                "WHERE m.user_id = %s ORDER BY m.joined_at",
                 (user_id,),
             ).fetchall()
         return [dict(row) for row in rows]
@@ -598,7 +597,7 @@ class Database:
             rows = connection.execute(
                 "SELECT m.user_id, m.role, m.joined_at, u.username, u.display_name "
                 "FROM tenant_members m JOIN users u ON u.user_id = m.user_id "
-                "WHERE m.tenant_id = ? ORDER BY m.joined_at",
+                "WHERE m.tenant_id = %s ORDER BY m.joined_at",
                 (tenant_id,),
             ).fetchall()
         return [dict(row) for row in rows]
@@ -607,7 +606,7 @@ class Database:
         with self.connect() as connection:
             def count(table: str) -> int:
                 row = connection.execute(
-                    f"SELECT COUNT(*) AS n FROM {table} WHERE tenant_id = ?", (tenant_id,)
+                    f"SELECT COUNT(*) AS n FROM {table} WHERE tenant_id = %s", (tenant_id,)
                 ).fetchone()
                 return int(row["n"] if row else 0)
 
@@ -644,7 +643,7 @@ class Database:
                 """INSERT INTO competitor_reports
                    (report_id, tenant_id, user_id, task_id, product_name, platform, marketplace,
                     is_demo, data_source, summary, payload, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT(report_id) DO UPDATE SET
                      tenant_id=excluded.tenant_id, user_id=excluded.user_id,
                      task_id=excluded.task_id, product_name=excluded.product_name,
@@ -673,14 +672,14 @@ class Database:
         user_id: str | None = None,
         tenant_id: str | None = None,
     ) -> dict[str, Any] | None:
-        query = "SELECT payload FROM competitor_reports WHERE report_id = ?"
+        query = "SELECT payload FROM competitor_reports WHERE report_id = %s"
         params: list[Any] = [report_id]
         # 租户优先：同一租户内的成员共享数据；未提供租户时才退回按用户过滤
         if tenant_id is not None:
-            query += " AND tenant_id = ?"
+            query += " AND tenant_id = %s"
             params.append(tenant_id)
         elif user_id is not None:
-            query += " AND user_id = ?"
+            query += " AND user_id = %s"
             params.append(user_id)
         with self.connect() as connection:
             row = connection.execute(query, params).fetchone()
@@ -694,7 +693,7 @@ class Database:
         """
         if not refs:
             return {}
-        marks = ", ".join("?" for _ in refs)
+        marks = ", ".join("%s" for _ in refs)
         query = (
             "SELECT result_ref, task_id FROM tasks "
             f"WHERE result_ref IN ({marks}) ORDER BY created_at ASC"
@@ -715,12 +714,12 @@ class Database:
                    FROM competitor_reports"""
         params: list[Any] = []
         if tenant_id is not None:
-            query += " WHERE tenant_id = ?"
+            query += " WHERE tenant_id = %s"
             params.append(tenant_id)
         elif user_id is not None:
-            query += " WHERE user_id = ?"
+            query += " WHERE user_id = %s"
             params.append(user_id)
-        query += " ORDER BY created_at DESC LIMIT ?"
+        query += " ORDER BY created_at DESC LIMIT %s"
         params.append(limit)
         with self._using(connection) as conn:
             rows = conn.execute(query, params).fetchall()
@@ -735,7 +734,7 @@ class Database:
     def report_summary(self, report_id: str, tenant_id: str) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT summary FROM competitor_reports WHERE report_id = ? AND tenant_id = ?",
+                "SELECT summary FROM competitor_reports WHERE report_id = %s AND tenant_id = %s",
                 (report_id, tenant_id),
             ).fetchone()
         if row is None:
@@ -771,7 +770,7 @@ class Database:
                 """INSERT INTO business_reports
                    (report_id, tenant_id, user_id, kind, title, input, summary, payload,
                     is_demo, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT(report_id) DO UPDATE SET
                      title=excluded.title, input=excluded.input, summary=excluded.summary,
                      payload=excluded.payload, updated_at=excluded.updated_at""",
@@ -798,7 +797,7 @@ class Database:
             row = connection.execute(
                 """SELECT report_id, kind, title, input, summary, payload, is_demo,
                           created_at, updated_at
-                   FROM business_reports WHERE report_id = ? AND tenant_id = ?""",
+                   FROM business_reports WHERE report_id = %s AND tenant_id = %s""",
                 (report_id, tenant_id),
             ).fetchone()
         return self._business_row(row) if row else None
@@ -808,12 +807,12 @@ class Database:
     ) -> list[dict[str, Any]]:
         """列表只返回摘要，不带 ``payload``（完整结果可能很大）。"""
         query = """SELECT report_id, kind, title, summary, is_demo, created_at, updated_at
-                   FROM business_reports WHERE tenant_id = ?"""
+                   FROM business_reports WHERE tenant_id = %s"""
         params: list[Any] = [tenant_id]
         if kind:
-            query += " AND kind = ?"
+            query += " AND kind = %s"
             params.append(kind)
-        query += " ORDER BY created_at DESC LIMIT ?"
+        query += " ORDER BY created_at DESC LIMIT %s"
         params.append(max(1, min(limit, 200)))
         with self.connect() as connection:
             rows = connection.execute(query, params).fetchall()
@@ -822,7 +821,7 @@ class Database:
     def delete_business_report(self, report_id: str, tenant_id: str) -> bool:
         with self._lock, self.connect() as connection:
             cursor = connection.execute(
-                "DELETE FROM business_reports WHERE report_id = ? AND tenant_id = ?",
+                "DELETE FROM business_reports WHERE report_id = %s AND tenant_id = %s",
                 (report_id, tenant_id),
             )
             return bool(cursor.rowcount)
@@ -854,7 +853,7 @@ class Database:
         created_at = datetime.now(timezone.utc).isoformat()
         with self._lock, self.connect() as connection:
             existing = connection.execute(
-                "SELECT version, parent_listing_id FROM listing_drafts WHERE listing_id = ?",
+                "SELECT version, parent_listing_id FROM listing_drafts WHERE listing_id = %s",
                 (listing["listing_id"],),
             ).fetchone()
             resolved_version = (
@@ -873,7 +872,7 @@ class Database:
                     product_name, platform, marketplace, language, title, bullets, description,
                     search_terms, quality_check, fact_ledger, pending_confirmations, is_demo,
                     engine, payload, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT(listing_id) DO UPDATE SET
                      tenant_id=excluded.tenant_id, user_id=excluded.user_id,
                      report_id=excluded.report_id, task_id=excluded.task_id,
@@ -918,13 +917,13 @@ class Database:
         user_id: str | None = None,
         tenant_id: str | None = None,
     ) -> dict[str, Any] | None:
-        query = "SELECT payload FROM listing_drafts WHERE listing_id = ?"
+        query = "SELECT payload FROM listing_drafts WHERE listing_id = %s"
         params: list[Any] = [listing_id]
         if tenant_id is not None:
-            query += " AND tenant_id = ?"
+            query += " AND tenant_id = %s"
             params.append(tenant_id)
         elif user_id is not None:
-            query += " AND user_id = ?"
+            query += " AND user_id = %s"
             params.append(user_id)
         with self.connect() as connection:
             row = connection.execute(query, params).fetchone()
@@ -943,7 +942,7 @@ class Database:
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT report_id, payload FROM competitor_reports "
-                "WHERE task_id = ? AND tenant_id = ? "
+                "WHERE task_id = %s AND tenant_id = %s "
                 "ORDER BY created_at ASC LIMIT 1",
                 (task_id, tenant_id),
             ).fetchone()
@@ -968,7 +967,7 @@ class Database:
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT listing_id, payload FROM listing_drafts "
-                "WHERE task_id = ? AND tenant_id = ? "
+                "WHERE task_id = %s AND tenant_id = %s "
                 "ORDER BY created_at ASC LIMIT 1",
                 (task_id, tenant_id),
             ).fetchone()
@@ -991,12 +990,12 @@ class Database:
                    FROM listing_drafts"""
         params: list[Any] = []
         if tenant_id is not None:
-            query += " WHERE tenant_id = ?"
+            query += " WHERE tenant_id = %s"
             params.append(tenant_id)
         elif user_id is not None:
-            query += " WHERE user_id = ?"
+            query += " WHERE user_id = %s"
             params.append(user_id)
-        query += " ORDER BY created_at DESC LIMIT ?"
+        query += " ORDER BY created_at DESC LIMIT %s"
         params.append(limit)
         with self._using(connection) as conn:
             rows = conn.execute(query, params).fetchall()
@@ -1016,7 +1015,7 @@ class Database:
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT listing_id, version, parent_listing_id, task_id, created_at "
-                "FROM listing_drafts WHERE listing_id = ? AND tenant_id = ?",
+                "FROM listing_drafts WHERE listing_id = %s AND tenant_id = %s",
                 (listing_id, tenant_id),
             ).fetchone()
         return dict(row) if row else None
@@ -1032,10 +1031,10 @@ class Database:
         columns = "listing_id, version, parent_listing_id, title, created_at"
 
         def fetch(draft_id: str) -> dict[str, Any] | None:
-            sql = f"SELECT {columns} FROM listing_drafts WHERE listing_id = ?"
+            sql = f"SELECT {columns} FROM listing_drafts WHERE listing_id = %s"
             params: list[Any] = [draft_id]
             if tenant_id is not None:
-                sql += " AND tenant_id = ?"
+                sql += " AND tenant_id = %s"
                 params.append(tenant_id)
             with self.connect() as connection:
                 row = connection.execute(sql, params).fetchone()
@@ -1064,11 +1063,11 @@ class Database:
         for _ in range(100):
             with self.connect() as connection:
                 sql = (
-                    f"SELECT {columns} FROM listing_drafts WHERE parent_listing_id = ?"
+                    f"SELECT {columns} FROM listing_drafts WHERE parent_listing_id = %s"
                 )
                 params: list[Any] = [cursor]
                 if tenant_id is not None:
-                    sql += " AND tenant_id = ?"
+                    sql += " AND tenant_id = %s"
                     params.append(tenant_id)
                 sql += " ORDER BY version, created_at LIMIT 1"
                 row = connection.execute(sql, params).fetchone()
@@ -1089,7 +1088,7 @@ class Database:
         payload = json.dumps(payload_row, ensure_ascii=False)
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE listing_drafts SET quality_check = ?, payload = ? WHERE listing_id = ?",
+                "UPDATE listing_drafts SET quality_check = %s, payload = %s WHERE listing_id = %s",
                 (
                     json.dumps(quality_check, ensure_ascii=False),
                     payload,
@@ -1109,7 +1108,7 @@ class Database:
                 """INSERT INTO import_batches
                    (batch_id, filename, source_format, total_rows, valid_rows, errors, payload,
                     created_at, user_id, tenant_id, data_source_id, field_mapping)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT(batch_id) DO UPDATE SET
                      filename=excluded.filename, source_format=excluded.source_format,
                      total_rows=excluded.total_rows, valid_rows=excluded.valid_rows,
@@ -1145,7 +1144,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 """INSERT INTO users (user_id, username, display_name, password_hash, is_admin, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
                 (
                     user_id,
                     username.strip().lower(),
@@ -1165,13 +1164,13 @@ class Database:
     def get_user_by_username(self, username: str) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM users WHERE username = ?", ((username or "").strip().lower(),)
+                "SELECT * FROM users WHERE username = %s", ((username or "").strip().lower(),)
             ).fetchone()
         return dict(row) if row else None
 
     def get_user(self, user_id: str) -> dict[str, Any] | None:
         with self.connect() as connection:
-            row = connection.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+            row = connection.execute("SELECT * FROM users WHERE user_id = %s", (user_id,)).fetchone()
         return dict(row) if row else None
 
     def count_users(self) -> int:
@@ -1189,39 +1188,39 @@ class Database:
     def touch_last_login(self, user_id: str) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE users SET last_login_at = ? WHERE user_id = ?",
+                "UPDATE users SET last_login_at = %s WHERE user_id = %s",
                 (datetime.now(timezone.utc).isoformat(), user_id),
             )
 
     def update_password_hash(self, user_id: str, password_hash: str) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE users SET password_hash = ? WHERE user_id = ?", (password_hash, user_id)
+                "UPDATE users SET password_hash = %s WHERE user_id = %s", (password_hash, user_id)
             )
 
     def update_avatar(self, user_id: str, avatar: str | None) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE users SET avatar = ? WHERE user_id = ?", (avatar, user_id)
+                "UPDATE users SET avatar = %s WHERE user_id = %s", (avatar, user_id)
             )
 
     def update_display_name(self, user_id: str, display_name: str) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE users SET display_name = ? WHERE user_id = ?",
+                "UPDATE users SET display_name = %s WHERE user_id = %s",
                 (display_name.strip(), user_id),
             )
 
     def update_phone(self, user_id: str, phone: str | None) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE users SET phone = ? WHERE user_id = ?", (phone, user_id)
+                "UPDATE users SET phone = %s WHERE user_id = %s", (phone, user_id)
             )
 
     def get_user_by_phone(self, phone: str) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM users WHERE phone = ?", (phone,)
+                "SELECT * FROM users WHERE phone = %s", (phone,)
             ).fetchone()
         return dict(row) if row else None
 
@@ -1229,7 +1228,7 @@ class Database:
     def mark_guest(self, user_id: str, expires_at: str) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE users SET is_guest = 1, guest_expires_at = ? WHERE user_id = ?",
+                "UPDATE users SET is_guest = 1, guest_expires_at = %s WHERE user_id = %s",
                 (expires_at, user_id),
             )
 
@@ -1237,7 +1236,7 @@ class Database:
         with self.connect() as connection:
             rows = connection.execute(
                 "SELECT user_id, username, guest_expires_at FROM users "
-                "WHERE is_guest = 1 AND (guest_expires_at IS NULL OR guest_expires_at < ?)",
+                "WHERE is_guest = 1 AND (guest_expires_at IS NULL OR guest_expires_at < %s)",
                 (now_iso,),
             ).fetchall()
         return [dict(row) for row in rows]
@@ -1246,14 +1245,14 @@ class Database:
         """删除临时账号及其数据。外键不一定带 CASCADE，这里显式逐表清理。"""
         with self._lock, self.connect() as connection:
             memberships = connection.execute(
-                "SELECT tenant_id FROM tenant_members WHERE user_id = ?", (user_id,)
+                "SELECT tenant_id FROM tenant_members WHERE user_id = %s", (user_id,)
             ).fetchall()
             tenant_ids = [row["tenant_id"] for row in memberships]
 
             for tenant_id in tenant_ids:
                 connection.execute(
                     "DELETE FROM task_steps WHERE task_id IN "
-                    "(SELECT task_id FROM tasks WHERE tenant_id = ?)",
+                    "(SELECT task_id FROM tasks WHERE tenant_id = %s)",
                     (tenant_id,),
                 )
                 for table in (
@@ -1271,24 +1270,24 @@ class Database:
                     "store_connections",
                 ):
                     connection.execute(
-                        f"DELETE FROM {table} WHERE tenant_id = ?", (tenant_id,)
+                        f"DELETE FROM {table} WHERE tenant_id = %s", (tenant_id,)
                     )
                 connection.execute(
-                    "DELETE FROM tenant_members WHERE tenant_id = ?", (tenant_id,)
+                    "DELETE FROM tenant_members WHERE tenant_id = %s", (tenant_id,)
                 )
-                connection.execute("DELETE FROM tenants WHERE tenant_id = ?", (tenant_id,))
+                connection.execute("DELETE FROM tenants WHERE tenant_id = %s", (tenant_id,))
 
             connection.execute(
-                "DELETE FROM user_provider_configs WHERE user_id = ?", (user_id,)
+                "DELETE FROM user_provider_configs WHERE user_id = %s", (user_id,)
             )
             connection.execute(
-                "DELETE FROM user_model_settings WHERE user_id = ?", (user_id,)
+                "DELETE FROM user_model_settings WHERE user_id = %s", (user_id,)
             )
-            connection.execute("DELETE FROM auth_sessions WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM auth_sessions WHERE user_id = %s", (user_id,))
             connection.execute(
-                "DELETE FROM tenant_members WHERE user_id = ?", (user_id,)
+                "DELETE FROM tenant_members WHERE user_id = %s", (user_id,)
             )
-            connection.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM users WHERE user_id = %s", (user_id,))
 
     # -- 会话 ---------------------------------------------------------------
     def create_session(self, token_hash: str, user_id: str, expires_at: str) -> None:
@@ -1296,14 +1295,14 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 """INSERT INTO auth_sessions (token_hash, user_id, created_at, expires_at, last_seen_at)
-                   VALUES (?, ?, ?, ?, ?)""",
+                   VALUES (%s, %s, %s, %s, %s)""",
                 (token_hash, user_id, now, expires_at, now),
             )
 
     def get_session(self, token_hash: str) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM auth_sessions WHERE token_hash = ?", (token_hash,)
+                "SELECT * FROM auth_sessions WHERE token_hash = %s", (token_hash,)
             ).fetchone()
         return dict(row) if row else None
 
@@ -1318,7 +1317,7 @@ class Database:
                 "SELECT u.*, s.token_hash, s.expires_at, s.last_seen_at, "
                 "       s.created_at AS session_created_at "
                 "FROM auth_sessions s JOIN users u ON u.user_id = s.user_id "
-                "WHERE s.token_hash = ?",
+                "WHERE s.token_hash = %s",
                 (token_hash,),
             ).fetchone()
         return dict(row) if row else None
@@ -1326,22 +1325,22 @@ class Database:
     def touch_session(self, token_hash: str) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE auth_sessions SET last_seen_at = ? WHERE token_hash = ?",
+                "UPDATE auth_sessions SET last_seen_at = %s WHERE token_hash = %s",
                 (datetime.now(timezone.utc).isoformat(), token_hash),
             )
 
     def delete_session(self, token_hash: str) -> None:
         with self._lock, self.connect() as connection:
-            connection.execute("DELETE FROM auth_sessions WHERE token_hash = ?", (token_hash,))
+            connection.execute("DELETE FROM auth_sessions WHERE token_hash = %s", (token_hash,))
 
     def delete_user_sessions(self, user_id: str) -> None:
         with self._lock, self.connect() as connection:
-            connection.execute("DELETE FROM auth_sessions WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM auth_sessions WHERE user_id = %s", (user_id,))
 
     def purge_expired_sessions(self) -> int:
         with self._lock, self.connect() as connection:
             cursor = connection.execute(
-                "DELETE FROM auth_sessions WHERE expires_at < ?",
+                "DELETE FROM auth_sessions WHERE expires_at < %s",
                 (datetime.now(timezone.utc).isoformat(),),
             )
             return cursor.rowcount or 0
@@ -1350,7 +1349,7 @@ class Database:
     def get_model_settings(self, user_id: str) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM user_model_settings WHERE user_id = ?", (user_id,)
+                "SELECT * FROM user_model_settings WHERE user_id = %s", (user_id,)
             ).fetchone()
         return dict(row) if row else None
 
@@ -1373,7 +1372,7 @@ class Database:
                 """INSERT INTO user_model_settings
                    (user_id, provider, model, base_url, api_key_encrypted, temperature,
                     max_tokens, timeout, max_retries, thinking, reasoning_effort, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT(user_id) DO UPDATE SET
                      provider=excluded.provider,
                      model=excluded.model,
@@ -1404,13 +1403,13 @@ class Database:
 
     def delete_model_settings(self, user_id: str) -> None:
         with self._lock, self.connect() as connection:
-            connection.execute("DELETE FROM user_model_settings WHERE user_id = ?", (user_id,))
+            connection.execute("DELETE FROM user_model_settings WHERE user_id = %s", (user_id,))
 
     # -- 多厂商 Provider 配置（每用户可存多套） ----------------------------
     def list_provider_configs(self, user_id: str) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM user_provider_configs WHERE user_id = ? "
+                "SELECT * FROM user_provider_configs WHERE user_id = %s "
                 "ORDER BY created_at ASC",
                 (user_id,),
             ).fetchall()
@@ -1421,7 +1420,7 @@ class Database:
     ) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM user_provider_configs WHERE user_id = ? AND config_id = ?",
+                "SELECT * FROM user_provider_configs WHERE user_id = %s AND config_id = %s",
                 (user_id, config_id),
             ).fetchone()
         return dict(row) if row else None
@@ -1432,7 +1431,7 @@ class Database:
         with self.connect() as connection:
             row = connection.execute(
                 "SELECT * FROM user_provider_configs "
-                "WHERE user_id = ? AND provider = ? AND label = ?",
+                "WHERE user_id = %s AND provider = %s AND label = %s",
                 (user_id, provider, label),
             ).fetchone()
         return dict(row) if row else None
@@ -1446,7 +1445,7 @@ class Database:
                    (config_id, user_id, provider, label, base_url, model,
                     api_key_encrypted, enabled, last_tested_at, last_test_ok,
                     last_test_detail, task_overrides, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                    ON CONFLICT(user_id, provider, label) DO UPDATE SET
                      base_url = excluded.base_url,
                      model = excluded.model,
@@ -1482,7 +1481,7 @@ class Database:
     def delete_provider_config(self, user_id: str, config_id: str) -> bool:
         with self._lock, self.connect() as connection:
             cursor = connection.execute(
-                "DELETE FROM user_provider_configs WHERE user_id = ? AND config_id = ?",
+                "DELETE FROM user_provider_configs WHERE user_id = %s AND config_id = %s",
                 (user_id, config_id),
             )
             return bool(cursor.rowcount)
@@ -1503,7 +1502,7 @@ class Database:
                 """INSERT INTO user_model_settings
                    (user_id, provider, model, base_url, temperature, thinking,
                     reasoning_effort, active_config_id, updated_at)
-                   VALUES (?, 'rule', '', '', NULL, 0, '', ?, ?)
+                   VALUES (%s, 'rule', '', '', NULL, 0, '', %s, %s)
                    ON CONFLICT(user_id) DO UPDATE SET
                      active_config_id = excluded.active_config_id,
                      updated_at = excluded.updated_at""",
@@ -1516,7 +1515,7 @@ class Database:
         with self._lock, self.connect() as connection:
             row = connection.execute(
                 """INSERT INTO rate_limit_counters (bucket_key, window_start, count)
-                   VALUES (?, ?, 1)
+                   VALUES (%s, %s, 1)
                    ON CONFLICT(bucket_key) DO UPDATE SET
                      count = CASE
                        WHEN rate_limit_counters.window_start = excluded.window_start
@@ -1532,7 +1531,7 @@ class Database:
     def purge_rate_limit_before(self, window_start: str) -> int:
         with self._lock, self.connect() as connection:
             cursor = connection.execute(
-                "DELETE FROM rate_limit_counters WHERE window_start < ?", (window_start,)
+                "DELETE FROM rate_limit_counters WHERE window_start < %s", (window_start,)
             )
             return cursor.rowcount or 0
 
@@ -1546,11 +1545,11 @@ class Database:
     def update_encrypted_setting(self, user_id: str, encrypted: str) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE user_model_settings SET api_key_encrypted = ?, updated_at = ? WHERE user_id = ?",
+                "UPDATE user_model_settings SET api_key_encrypted = %s, updated_at = %s WHERE user_id = %s",
                 (encrypted, datetime.now(timezone.utc).isoformat(), user_id),
             )
 
-    # -- 遗留数据 -----------------------------------------------------------
+    # -- 未归属租户的数据 ---------------------------------------------------
     def count_legacy_records(self) -> dict[str, int]:
         with self.connect() as connection:
             reports = connection.execute(
@@ -1568,11 +1567,11 @@ class Database:
         """
         with self._lock, self.connect() as connection:
             r1 = connection.execute(
-                "UPDATE competitor_reports SET user_id = ?, tenant_id = ? WHERE user_id IS NULL",
+                "UPDATE competitor_reports SET user_id = %s, tenant_id = %s WHERE user_id IS NULL",
                 (user_id, tenant_id),
             ).rowcount
             r2 = connection.execute(
-                "UPDATE listing_drafts SET user_id = ?, tenant_id = ? WHERE user_id IS NULL",
+                "UPDATE listing_drafts SET user_id = %s, tenant_id = %s WHERE user_id IS NULL",
                 (user_id, tenant_id),
             ).rowcount
         return {"reports": r1 or 0, "listings": r2 or 0}
@@ -1610,7 +1609,7 @@ class Database:
             payload["output"] = json.dumps(payload["output"], ensure_ascii=False)
         if payload.get("degraded") is None:
             payload["degraded"] = 0
-        placeholders = ", ".join("?" for _ in self._TASK_COLUMNS)
+        placeholders = ", ".join("%s" for _ in self._TASK_COLUMNS)
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO tasks ({', '.join(self._TASK_COLUMNS)}) VALUES ({placeholders})",
@@ -1629,13 +1628,13 @@ class Database:
 
         为什么不是"先查状态再更新"：两次调用之间隔着网络往返，用户双击
         确认按钮就会起两个恢复任务，同一份 checkpoint 被跑两遍。
-        这里用 ``UPDATE ... WHERE status = ?`` 让数据库做比较并交换（CAS），
+        这里用 ``UPDATE ... WHERE status = %s`` 让数据库做比较并交换（CAS），
         只有第一个请求能拿到 ``rowcount == 1``。
         """
         with self._lock, self.connect() as connection:
             cursor = connection.execute(
-                "UPDATE tasks SET status = ?, started_at = ? "
-                "WHERE task_id = ? AND tenant_id = ? AND status = ?",
+                "UPDATE tasks SET status = %s, started_at = %s "
+                "WHERE task_id = %s AND tenant_id = %s AND status = %s",
                 (to_status, datetime.now(timezone.utc).isoformat(), task_id, tenant_id, from_status),
             )
             return cursor.rowcount == 1
@@ -1673,7 +1672,7 @@ class Database:
             item["ok"] = 1 if row.get("ok", True) else 0
             item["created_at"] = row.get("created_at") or created_at
             payload.append(tuple(item[name] for name in fields))
-        placeholders = ", ".join("?" for _ in fields)
+        placeholders = ", ".join("%s" for _ in fields)
         statement = f"INSERT INTO llm_calls ({', '.join(fields)}) VALUES ({placeholders})"
         with self._lock, self.connect() as connection:
             # 逐条插入：连接适配层只暴露 execute，没有必要为几行数据引入 executemany
@@ -1684,10 +1683,10 @@ class Database:
         self, task_id: str, tenant_id: str | None = None
     ) -> list[dict[str, Any]]:
         """按任务取模型调用记录（执行链追踪用）。"""
-        sql = "SELECT * FROM llm_calls WHERE task_id = ?"
+        sql = "SELECT * FROM llm_calls WHERE task_id = %s"
         params: list[Any] = [task_id]
         if tenant_id is not None:
-            sql += " AND tenant_id = ?"
+            sql += " AND tenant_id = %s"
             params.append(tenant_id)
         sql += " ORDER BY created_at ASC"
         with self.connect() as connection:
@@ -1704,10 +1703,10 @@ class Database:
             return
         if "output" in updates and updates["output"] is not None:
             updates["output"] = json.dumps(updates["output"], ensure_ascii=False)
-        assignments = ", ".join(f"{name} = ?" for name in updates)
+        assignments = ", ".join(f"{name} = %s" for name in updates)
         with self._lock, self.connect() as connection:
             connection.execute(
-                f"UPDATE tasks SET {assignments} WHERE task_id = ?",
+                f"UPDATE tasks SET {assignments} WHERE task_id = %s",
                 (*updates.values(), task_id),
             )
 
@@ -1728,13 +1727,13 @@ class Database:
     def get_task(
         self, task_id: str, user_id: str, tenant_id: str | None = None
     ) -> dict[str, Any] | None:
-        sql = "SELECT * FROM tasks WHERE task_id = ?"
+        sql = "SELECT * FROM tasks WHERE task_id = %s"
         params: list[Any] = [task_id]
         if tenant_id is not None:
-            sql += " AND tenant_id = ?"
+            sql += " AND tenant_id = %s"
             params.append(tenant_id)
         else:
-            sql += " AND user_id = ?"
+            sql += " AND user_id = %s"
             params.append(user_id)
         with self.connect() as connection:
             row = connection.execute(sql, params).fetchone()
@@ -1744,7 +1743,7 @@ class Database:
         """内部/Worker 用：不按用户过滤，调用方必须先校验归属。"""
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM tasks WHERE task_id = ?", (task_id,)
+                "SELECT * FROM tasks WHERE task_id = %s", (task_id,)
             ).fetchone()
         return self._task_row(row) if row else None
 
@@ -1759,19 +1758,19 @@ class Database:
         connection: Any = None,
     ) -> list[dict[str, Any]]:
         if tenant_id is not None:
-            sql = "SELECT * FROM tasks WHERE tenant_id = ?"
+            sql = "SELECT * FROM tasks WHERE tenant_id = %s"
             params: list[Any] = [tenant_id]
         else:
-            sql = "SELECT * FROM tasks WHERE user_id = ?"
+            sql = "SELECT * FROM tasks WHERE user_id = %s"
             params: list[Any] = [user_id]
         if status:
-            sql += " AND status = ?"
+            sql += " AND status = %s"
             params.append(status)
         if query:
-            sql += " AND (title LIKE ? OR task_id LIKE ? OR type LIKE ?)"
+            sql += " AND (title LIKE %s OR task_id LIKE %s OR type LIKE %s)"
             like = f"%{query}%"
             params.extend([like, like, like])
-        sql += " ORDER BY created_at DESC LIMIT ?"
+        sql += " ORDER BY created_at DESC LIMIT %s"
         params.append(limit)
         with self._using(connection) as conn:
             rows = conn.execute(sql, params).fetchall()
@@ -1788,7 +1787,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO task_steps ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)})",
+                f"VALUES ({', '.join('%s' for _ in fields)})",
                 tuple(payload.get(name) for name in fields),
             )
 
@@ -1803,23 +1802,23 @@ class Database:
             updates["output"] = json.dumps(updates["output"], ensure_ascii=False)
         if not updates:
             return
-        assignments = ", ".join(f"{name} = ?" for name in updates)
+        assignments = ", ".join(f"{name} = %s" for name in updates)
         with self._lock, self.connect() as connection:
             connection.execute(
-                f"UPDATE task_steps SET {assignments} WHERE step_id = ?",
+                f"UPDATE task_steps SET {assignments} WHERE step_id = %s",
                 (*updates.values(), step_id),
             )
 
     def list_task_steps(
         self, task_id: str, user_id: str, tenant_id: str | None = None
     ) -> list[dict[str, Any]]:
-        sql = "SELECT * FROM task_steps WHERE task_id = ?"
+        sql = "SELECT * FROM task_steps WHERE task_id = %s"
         params: list[Any] = [task_id]
         if tenant_id is not None:
-            sql += " AND tenant_id = ?"
+            sql += " AND tenant_id = %s"
             params.append(tenant_id)
         else:
-            sql += " AND user_id = ?"
+            sql += " AND user_id = %s"
             params.append(user_id)
         sql += " ORDER BY seq"
         with self.connect() as connection:
@@ -1838,11 +1837,11 @@ class Database:
         """断点续跑用：返回已成功步骤的 ``{node: 输出对象}``。"""
         sql = (
             "SELECT node, output FROM task_steps "
-            "WHERE task_id = ? AND status = 'succeeded'"
+            "WHERE task_id = %s AND status = 'succeeded'"
         )
         params: list[Any] = [task_id]
         if tenant_id is not None:
-            sql += " AND tenant_id = ?"
+            sql += " AND tenant_id = %s"
             params.append(tenant_id)
         with self.connect() as connection:
             rows = connection.execute(sql, params).fetchall()
@@ -1862,10 +1861,10 @@ class Database:
         self, user_id: str, tenant_id: str | None = None, *, connection: Any = None
     ) -> dict[str, int]:
         if tenant_id is not None:
-            sql = "SELECT status, COUNT(*) AS n FROM tasks WHERE tenant_id = ?"
+            sql = "SELECT status, COUNT(*) AS n FROM tasks WHERE tenant_id = %s"
             params: list[Any] = [tenant_id]
         else:
-            sql = "SELECT status, COUNT(*) AS n FROM tasks WHERE user_id = ?"
+            sql = "SELECT status, COUNT(*) AS n FROM tasks WHERE user_id = %s"
             params: list[Any] = [user_id]
         sql += " GROUP BY status"
         with self._using(connection) as conn:
@@ -1889,13 +1888,13 @@ class Database:
         if tenant_id is not None:
             sql = (
                 "SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS n FROM tasks "
-                "WHERE tenant_id = ? AND substr(created_at, 1, 10) >= ? GROUP BY day"
+                "WHERE tenant_id = %s AND substr(created_at, 1, 10) >= %s GROUP BY day"
             )
             params: list[Any] = [tenant_id, start.isoformat()]
         else:
             sql = (
                 "SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS n FROM tasks "
-                "WHERE user_id = ? AND substr(created_at, 1, 10) >= ? GROUP BY day"
+                "WHERE user_id = %s AND substr(created_at, 1, 10) >= %s GROUP BY day"
             )
             params = [user_id, start.isoformat()]
         with self._using(connection) as conn:
@@ -1919,21 +1918,21 @@ class Database:
         if tenant_id is not None:
             sql = (
                 "SELECT "
-                "(SELECT COUNT(*) FROM competitor_reports WHERE tenant_id = ?) AS reports, "
-                "(SELECT COUNT(*) FROM listing_drafts WHERE tenant_id = ?) AS listings, "
-                "(SELECT COUNT(*) FROM store_connections WHERE tenant_id = ?) AS stores, "
+                "(SELECT COUNT(*) FROM competitor_reports WHERE tenant_id = %s) AS reports, "
+                "(SELECT COUNT(*) FROM listing_drafts WHERE tenant_id = %s) AS listings, "
+                "(SELECT COUNT(*) FROM store_connections WHERE tenant_id = %s) AS stores, "
                 "(SELECT COUNT(*) FROM approval_requests "
-                " WHERE tenant_id = ? AND status = 'pending') AS approvals"
+                " WHERE tenant_id = %s AND status = 'pending') AS approvals"
             )
             params: list[Any] = [tenant_id] * 4
         else:
             sql = (
                 "SELECT "
-                "(SELECT COUNT(*) FROM competitor_reports WHERE user_id = ?) AS reports, "
-                "(SELECT COUNT(*) FROM listing_drafts WHERE user_id = ?) AS listings, "
-                "(SELECT COUNT(*) FROM store_connections WHERE tenant_id = ?) AS stores, "
+                "(SELECT COUNT(*) FROM competitor_reports WHERE user_id = %s) AS reports, "
+                "(SELECT COUNT(*) FROM listing_drafts WHERE user_id = %s) AS listings, "
+                "(SELECT COUNT(*) FROM store_connections WHERE tenant_id = %s) AS stores, "
                 "(SELECT COUNT(*) FROM approval_requests "
-                " WHERE requested_by = ? AND status = 'pending') AS approvals"
+                " WHERE requested_by = %s AND status = 'pending') AS approvals"
             )
             params = [user_id] * 4
         with self._using(connection) as conn:
@@ -1954,7 +1953,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO conversations ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)})",
+                f"VALUES ({', '.join('%s' for _ in fields)})",
                 tuple(conversation.get(name) for name in fields),
             )
 
@@ -1962,10 +1961,10 @@ class Database:
         self, conversation_id: str, user_id: str, tenant_id: str | None = None
     ) -> dict[str, Any] | None:
         """会话属于个人（同一租户成员之间也不共享聊天记录）。"""
-        sql = "SELECT * FROM conversations WHERE conversation_id = ? AND user_id = ? AND status = 'active'"
+        sql = "SELECT * FROM conversations WHERE conversation_id = %s AND user_id = %s AND status = 'active'"
         params: list[Any] = [conversation_id, user_id]
         if tenant_id is not None:
-            sql += " AND tenant_id = ?"
+            sql += " AND tenant_id = %s"
             params.append(tenant_id)
         with self.connect() as connection:
             row = connection.execute(sql, params).fetchone()
@@ -1977,13 +1976,13 @@ class Database:
         sql = (
             "SELECT c.*, "
             "(SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.conversation_id) "
-            "AS message_count FROM conversations c WHERE c.user_id = ?"
+            "AS message_count FROM conversations c WHERE c.user_id = %s"
         )
         params: list[Any] = [user_id]
         if tenant_id is not None:
-            sql += " AND c.tenant_id = ?"
+            sql += " AND c.tenant_id = %s"
             params.append(tenant_id)
-        sql += " AND c.status = 'active' ORDER BY c.updated_at DESC LIMIT ?"
+        sql += " AND c.status = 'active' ORDER BY c.updated_at DESC LIMIT %s"
         params.append(limit)
         with self.connect() as connection:
             rows = connection.execute(sql, params).fetchall()
@@ -1994,10 +1993,10 @@ class Database:
         updates = {k: v for k, v in fields.items() if k in allowed}
         if "updated_at" not in updates:
             updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-        assignments = ", ".join(f"{name} = ?" for name in updates)
+        assignments = ", ".join(f"{name} = %s" for name in updates)
         with self._lock, self.connect() as connection:
             connection.execute(
-                f"UPDATE conversations SET {assignments} WHERE conversation_id = ?",
+                f"UPDATE conversations SET {assignments} WHERE conversation_id = %s",
                 (*updates.values(), conversation_id),
             )
 
@@ -2020,7 +2019,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO messages ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)})",
+                f"VALUES ({', '.join('%s' for _ in fields)})",
                 tuple(payload[name] for name in fields),
             )
 
@@ -2029,8 +2028,8 @@ class Database:
     ) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM messages WHERE conversation_id = ? AND tenant_id = ? "
-                "ORDER BY created_at, message_id LIMIT ?",
+                "SELECT * FROM messages WHERE conversation_id = %s AND tenant_id = %s "
+                "ORDER BY created_at, message_id LIMIT %s",
                 (conversation_id, tenant_id, limit),
             ).fetchall()
         return [self._message_row(row) for row in rows]
@@ -2046,7 +2045,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO audit_logs ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)})",
+                f"VALUES ({', '.join('%s' for _ in fields)})",
                 tuple(payload[name] for name in fields),
             )
 
@@ -2058,15 +2057,15 @@ class Database:
         action: str | None = None,
         actor_id: str | None = None,
     ) -> list[dict[str, Any]]:
-        sql = "SELECT * FROM audit_logs WHERE tenant_id = ?"
+        sql = "SELECT * FROM audit_logs WHERE tenant_id = %s"
         params: list[Any] = [tenant_id]
         if action:
-            sql += " AND action = ?"
+            sql += " AND action = %s"
             params.append(action)
         if actor_id:
-            sql += " AND actor_id = ?"
+            sql += " AND actor_id = %s"
             params.append(actor_id)
-        sql += " ORDER BY audit_id DESC LIMIT ?"
+        sql += " ORDER BY audit_id DESC LIMIT %s"
         params.append(limit)
         with self.connect() as connection:
             rows = connection.execute(sql, params).fetchall()
@@ -2093,7 +2092,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO approval_requests ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)})",
+                f"VALUES ({', '.join('%s' for _ in fields)})",
                 tuple(payload[name] for name in fields),
             )
 
@@ -2109,7 +2108,7 @@ class Database:
     def get_approval(self, approval_id: str, tenant_id: str) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM approval_requests WHERE approval_id = ? AND tenant_id = ?",
+                "SELECT * FROM approval_requests WHERE approval_id = %s AND tenant_id = %s",
                 (approval_id, tenant_id),
             ).fetchone()
         return self._approval_row(row) if row else None
@@ -2121,12 +2120,12 @@ class Database:
         status: str | None = None,
         limit: int = 50,
     ) -> list[dict[str, Any]]:
-        sql = "SELECT * FROM approval_requests WHERE tenant_id = ?"
+        sql = "SELECT * FROM approval_requests WHERE tenant_id = %s"
         params: list[Any] = [tenant_id]
         if status:
-            sql += " AND status = ?"
+            sql += " AND status = %s"
             params.append(status)
-        sql += " ORDER BY created_at DESC LIMIT ?"
+        sql += " ORDER BY created_at DESC LIMIT %s"
         params.append(limit)
         with self.connect() as connection:
             rows = connection.execute(sql, params).fetchall()
@@ -2143,8 +2142,8 @@ class Database:
     ) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE approval_requests SET status = ?, decided_by = ?, "
-                "decided_at = ?, note = ? WHERE approval_id = ?",
+                "UPDATE approval_requests SET status = %s, decided_by = %s, "
+                "decided_at = %s, note = %s WHERE approval_id = %s",
                 (status, decided_by, decided_at, note, approval_id),
             )
 
@@ -2157,21 +2156,21 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO tenant_invites ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)})",
+                f"VALUES ({', '.join('%s' for _ in fields)})",
                 tuple(invite.get(name) for name in fields),
             )
 
     def get_invite_by_token_hash(self, token_hash: str) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM tenant_invites WHERE token_hash = ?", (token_hash,)
+                "SELECT * FROM tenant_invites WHERE token_hash = %s", (token_hash,)
             ).fetchone()
         return dict(row) if row else None
 
     def mark_invite_accepted(self, invite_id: str, user_id: str) -> None:
         with self._lock, self.connect() as connection:
             connection.execute(
-                "UPDATE tenant_invites SET accepted_at = ?, accepted_by = ? WHERE invite_id = ?",
+                "UPDATE tenant_invites SET accepted_at = %s, accepted_by = %s WHERE invite_id = %s",
                 (datetime.now(timezone.utc).isoformat(), user_id, invite_id),
             )
 
@@ -2181,7 +2180,7 @@ class Database:
             rows = connection.execute(
                 "SELECT invite_id, tenant_id, role, created_by, created_at, expires_at, "
                 "accepted_at, accepted_by FROM tenant_invites "
-                "WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?",
+                "WHERE tenant_id = %s ORDER BY created_at DESC LIMIT %s",
                 (tenant_id, limit),
             ).fetchall()
         return [dict(row) for row in rows]
@@ -2192,12 +2191,12 @@ class Database:
     ) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT payload FROM import_batches WHERE batch_id = ? AND tenant_id = ?",
+                "SELECT payload FROM import_batches WHERE batch_id = %s AND tenant_id = %s",
                 (batch_id, tenant_id),
             ).fetchone()
         return json.loads(row["payload"]) if row else None
 
-    # -- 数据源（阶段 E6） --------------------------------------------------
+    # -- 数据源 -------------------------------------------------------------
     _DATA_SOURCE_FIELDS = (
         "data_source_id", "tenant_id", "user_id", "kind", "name", "format",
         "storage_key", "row_count", "is_demo", "status", "field_mapping",
@@ -2233,7 +2232,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO data_sources ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)})",
+                f"VALUES ({', '.join('%s' for _ in fields)})",
                 tuple(payload[name] for name in fields),
             )
 
@@ -2242,7 +2241,7 @@ class Database:
     ) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM data_sources WHERE data_source_id = ? AND tenant_id = ?",
+                "SELECT * FROM data_sources WHERE data_source_id = %s AND tenant_id = %s",
                 (data_source_id, tenant_id),
             ).fetchone()
         return self._data_source_row(row) if row else None
@@ -2258,10 +2257,10 @@ class Database:
             updates["field_mapping"] = json.dumps(
                 updates["field_mapping"] or {}, ensure_ascii=False
             )
-        assignments = ", ".join(f"{name} = ?" for name in updates)
+        assignments = ", ".join(f"{name} = %s" for name in updates)
         with self._lock, self.connect() as connection:
             connection.execute(
-                f"UPDATE data_sources SET {assignments} WHERE data_source_id = ?",
+                f"UPDATE data_sources SET {assignments} WHERE data_source_id = %s",
                 (*updates.values(), data_source_id),
             )
 
@@ -2270,13 +2269,13 @@ class Database:
     ) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
-                "SELECT * FROM data_sources WHERE tenant_id = ? "
-                "ORDER BY created_at DESC LIMIT ?",
+                "SELECT * FROM data_sources WHERE tenant_id = %s "
+                "ORDER BY created_at DESC LIMIT %s",
                 (tenant_id, limit),
             ).fetchall()
         return [self._data_source_row(row) for row in rows]
 
-    # -- 店铺连接（阶段 F） -------------------------------------------------
+    # -- 店铺连接 -----------------------------------------------------------
     _STORE_FIELDS = (
         "connection_id", "tenant_id", "platform", "marketplace", "shop_name",
         "mode", "status", "scopes", "credential_ref", "last_sync_at",
@@ -2307,7 +2306,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO store_connections ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)})",
+                f"VALUES ({', '.join('%s' for _ in fields)})",
                 tuple(payload[name] for name in fields),
             )
 
@@ -2316,7 +2315,7 @@ class Database:
     ) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM store_connections WHERE connection_id = ? AND tenant_id = ?",
+                "SELECT * FROM store_connections WHERE connection_id = %s AND tenant_id = %s",
                 (connection_id, tenant_id),
             ).fetchone()
         return self._store_row(row) if row else None
@@ -2326,7 +2325,7 @@ class Database:
     ) -> list[dict[str, Any]]:
         with self._using(connection) as conn:
             rows = conn.execute(
-                "SELECT * FROM store_connections WHERE tenant_id = ? ORDER BY created_at",
+                "SELECT * FROM store_connections WHERE tenant_id = %s ORDER BY created_at",
                 (tenant_id,),
             ).fetchall()
         return [self._store_row(row) for row in rows]
@@ -2345,17 +2344,17 @@ class Database:
             updates["last_sync_summary"] = json.dumps(
                 updates["last_sync_summary"] or {}, ensure_ascii=False
             )
-        assignments = ", ".join(f"{name} = ?" for name in updates)
+        assignments = ", ".join(f"{name} = %s" for name in updates)
         with self._lock, self.connect() as connection:
             connection.execute(
-                f"UPDATE store_connections SET {assignments} WHERE connection_id = ?",
+                f"UPDATE store_connections SET {assignments} WHERE connection_id = %s",
                 (*updates.values(), connection_id),
             )
 
     def delete_store_connection(self, connection_id: str, tenant_id: str) -> bool:
         with self._lock, self.connect() as connection:
             cursor = connection.execute(
-                "DELETE FROM store_connections WHERE connection_id = ? AND tenant_id = ?",
+                "DELETE FROM store_connections WHERE connection_id = %s AND tenant_id = %s",
                 (connection_id, tenant_id),
             )
         return bool(cursor.rowcount)
@@ -2366,7 +2365,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 "INSERT INTO store_credentials (credential_ref, tenant_id, ciphertext, created_at) "
-                "VALUES (?, ?, ?, ?) ON CONFLICT(credential_ref) DO UPDATE SET ciphertext=excluded.ciphertext",
+                "VALUES (%s, %s, %s, %s) ON CONFLICT(credential_ref) DO UPDATE SET ciphertext=excluded.ciphertext",
                 (
                     credential_ref,
                     tenant_id,
@@ -2380,7 +2379,7 @@ class Database:
     ) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                "SELECT * FROM store_credentials WHERE credential_ref = ? AND tenant_id = ?",
+                "SELECT * FROM store_credentials WHERE credential_ref = %s AND tenant_id = %s",
                 (credential_ref, tenant_id),
             ).fetchone()
         return dict(row) if row else None
@@ -2413,7 +2412,7 @@ class Database:
         with self._lock, self.connect() as connection:
             connection.execute(
                 f"INSERT INTO {table} ({', '.join(fields)}) "
-                f"VALUES ({', '.join('?' for _ in fields)}) "
+                f"VALUES ({', '.join('%s' for _ in fields)}) "
                 f"ON CONFLICT({conflict}) DO UPDATE SET {updates}",
                 values,
             )
@@ -2454,7 +2453,7 @@ class Database:
     ) -> dict[str, Any] | None:
         with self.connect() as connection:
             row = connection.execute(
-                f"SELECT * FROM {table} WHERE {key_field} = ? AND tenant_id = ?",
+                f"SELECT * FROM {table} WHERE {key_field} = %s AND tenant_id = %s",
                 (key, tenant_id),
             ).fetchone()
         return self._definition_row(row) if row else None
@@ -2464,7 +2463,7 @@ class Database:
     ) -> list[dict[str, Any]]:
         with self.connect() as connection:
             rows = connection.execute(
-                f"SELECT * FROM {table} WHERE tenant_id IN (?, '') ORDER BY {key_field}",
+                f"SELECT * FROM {table} WHERE tenant_id IN (%s, '') ORDER BY {key_field}",
                 (tenant_id,),
             ).fetchall()
         return [self._definition_row(row) for row in rows]

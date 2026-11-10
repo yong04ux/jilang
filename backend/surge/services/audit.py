@@ -1,4 +1,4 @@
-"""审计日志（阶段 C7）。
+"""审计日志。
 
 原则：
 
@@ -44,13 +44,6 @@ ACTION_SKILL_RUN = "skill.run"
 ACTION_CONVERSATION_ARCHIVE = "conversation.archive"
 ACTION_APPROVAL_REQUEST = "approval.request"
 ACTION_APPROVAL_DECIDE = "approval.decide"
-ACTION_REPORT_EXPORT = "report.export"
-ACTION_LISTING_EXPORT = "listing.export"
-ACTION_LISTING_VERSION = "listing.version_create"
-ACTION_STORE_CREATE = "store.create"
-ACTION_STORE_SYNC = "store.sync"
-ACTION_STORE_DISCONNECT = "store.disconnect"
-ACTION_STORE_CREDENTIAL = "store.credential"
 
 
 def _now() -> str:
@@ -125,8 +118,6 @@ __all__ = [
     "ACTION_APPROVAL_REQUEST",
     "ACTION_CONVERSATION_ARCHIVE",
     "ACTION_INVITE_CREATE",
-    "ACTION_LISTING_EXPORT",
-    "ACTION_LISTING_VERSION",
     "ACTION_LOGIN",
     "ACTION_LOGOUT",
     "ACTION_MEMBER_INVITE",
@@ -134,12 +125,7 @@ __all__ = [
     "ACTION_MODEL_UPDATE",
     "ACTION_PASSWORD_CHANGE",
     "ACTION_REGISTER",
-    "ACTION_REPORT_EXPORT",
     "ACTION_SKILL_RUN",
-    "ACTION_STORE_CREATE",
-    "ACTION_STORE_CREDENTIAL",
-    "ACTION_STORE_DISCONNECT",
-    "ACTION_STORE_SYNC",
     "ACTION_TASK_CANCEL",
     "ACTION_TASK_CONFIRM",
     "ACTION_TASK_RUN",

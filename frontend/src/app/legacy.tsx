@@ -67,8 +67,8 @@ export function LegacyPage({
     window.CPIcon?.hydrate(document)
 
     // 页面进场：主区块按序淡入（reduced-motion 下 CPMotion 自己会跳过）
-    // 走纸过渡期间整页由 router 统一播进场，这里改成同一条从右推入，
-    // 不再叠一层交错淡入（两层会互相打断）。
+    // 走纸过渡期间整页由 router 统一播进场：这里只做同一条从右推入，
+    // 不叠交错淡入（两层会互相打断）。
     const stage = (host.querySelector('.page-inner') ||
       host.querySelector('.view')) as HTMLElement | null
     const feed = document.documentElement.dataset.cpFeed === '1'

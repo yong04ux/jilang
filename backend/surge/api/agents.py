@@ -271,9 +271,9 @@ async def get_agent(
     return agent
 
 
-# 技能目录与直连执行统一由 api/skills.py 提供（main 分支的技能平台）：
+# 技能目录与直连执行统一由 api/skills.py 提供：
 # /api/skills、/api/skills/{key}、POST /api/skills/{key}/run 及自定义技能增删改。
-# 这里曾有一份重复实现，合并时删除——两套同名路由只会让"到底谁在响应"变成谜。
+# 同名路由只允许存在一份，否则"到底谁在响应"会变成谜。
 
 
 @router.get("/api/tools")
@@ -728,7 +728,7 @@ async def run_agent_endpoint(
     except TaskCancelled as exc:
         raise HTTPException(status_code=409, detail="任务已取消") from exc
     except AgentRunError as exc:
-        # 状态码与文案都由统一分类决定，不再一律 502
+        # 状态码与文案都由统一分类决定
         info = exc.info
         raise HTTPException(status_code=info.http_status, detail=info.as_payload()) from exc
 
@@ -784,7 +784,7 @@ async def run_combined_endpoint(
 
     下**和 ``/api/agent/runs`` 走同一条路**：``with_listing=true`` 就是
     分派到组合工作流。这个端点只是"参数更窄、不接自然语言目标"的入口，
-    不再自己另起一套编排——那正是收敛前的毛病。
+    编排只走统一入口，不另起一套。
 
     同步返回：
     - 一次跑完 → succeeded / partial / waiting_for_input

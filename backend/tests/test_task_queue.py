@@ -1,8 +1,7 @@
 """``ThreadTaskQueue`` 的并发上限与排队行为。
 
-背景：``SURGE_MAX_JOBS`` 曾经只是个摆设 —— ``Settings`` 里没有这个字段，
-``ThreadTaskQueue`` 也没有任何并发控制，每个任务立刻起一个线程。免费实例
-（Render 512MB）上几个用户同时点分析就有 OOM 风险。这组测试锁住修复后的语义：
+背景：``SURGE_MAX_JOBS`` 限制并发线程数。不设限时每个任务立刻起一个线程，
+免费实例（Render 512MB）上几个用户同时点分析就有 OOM 风险。这组测试锁住这些语义：
 
 - ``submit`` 永不阻塞调用方（API 仍然"提交即返回"）
 - 超出上限的任务在线程内排队，不并发执行
@@ -90,7 +89,7 @@ def test_cancelled_while_queued_is_never_executed():
 
 
 def test_non_positive_max_jobs_means_unlimited():
-    """max_jobs<=0 时不限制并发（保留原来的行为）。"""
+    """max_jobs<=0 时不限制并发。"""
     queue = ThreadTaskQueue(max_jobs=0)
     assert queue.max_jobs == 0
     assert queue._slots is None

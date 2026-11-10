@@ -26,8 +26,6 @@ OUTCOME_SUCCEEDED = "succeeded"
 OUTCOME_NEEDS_INPUT = "needs_user_input"
 OUTCOME_NEEDS_REVIEW = "needs_review"
 
-OUTCOMES = (OUTCOME_SUCCEEDED, OUTCOME_NEEDS_INPUT, OUTCOME_NEEDS_REVIEW)
-
 #: 质量修订的最大次数。1 次是刻意选的：修订要重新过一遍模型（花钱、耗时），
 #: 而两轮之后仍不过通常是**资料问题**而不是措辞问题，继续重试只会重复扣费。
 DEFAULT_MAX_REVISIONS = 1
@@ -161,7 +159,6 @@ class CombinedState(TypedDict, total=False):
 
 __all__ = [
     "DEFAULT_MAX_REVISIONS",
-    "OUTCOMES",
     "OUTCOME_CANCELLED",
     "OUTCOME_NEEDS_INPUT",
     "OUTCOME_NEEDS_REVIEW",

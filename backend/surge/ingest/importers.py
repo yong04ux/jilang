@@ -73,7 +73,6 @@ COLUMN_ALIASES: dict[str, str] = {
 }
 
 REQUIRED_FIELDS = ("name",)
-NON_NEGATIVE_NUMERIC = ("price", "review_count")
 RATING_RANGE = (0.0, 5.0)
 
 KEYWORD_ALIASES: dict[str, str] = {

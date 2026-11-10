@@ -1,5 +1,5 @@
 /**
- * 技能清单缓存 —— 与旧 `CPCatalog.ensureSkills()`（catalog.js:137-156）同语义。
+ * 技能清单缓存。
  *
  * 三个必须保留的性质：
  *  1. **单飞**：并发调用只发一次请求，后续复用同一个 Promise；
@@ -18,7 +18,6 @@ export interface Skill {
   desc: string
   status?: string
   renderer?: string
-  requires: string[]
   /** 会调用模型但不是硬依赖：没有 Key 时退回规则引擎 */
   usesLlm: boolean
   credits: number
@@ -55,7 +54,6 @@ function mergeSkill(item: Record<string, any>): Skill {
     desc: item.summary || '',
     status: item.status,
     renderer: item.renderer || '',
-    requires: item.requires || [],
     usesLlm: item.uses_llm === true,
     credits: item.credits || 0,
     inputSchema: item.input_schema || {},

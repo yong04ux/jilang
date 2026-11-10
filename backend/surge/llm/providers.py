@@ -138,7 +138,7 @@ class DeepSeekProvider(RuleProvider):
 
     预置的每一家（DeepSeek / OpenAI / Moonshot / 智谱 / 通义 / 硅基流动 /
     OpenRouter / Ollama）以及「自定义」都走这里，差别只有 base_url 与 model。
-    类名沿用 DeepSeekProvider 是历史原因，别再往里加厂商专属逻辑。
+    这个类实现的是通用 OpenAI 兼容协议，不要往里加厂商专属逻辑。
 
     竞品分析仍走本地统计（统计必须可复现），LLM 只用于把统计结论组织成
     可读建议——这样"数字"永远来自计算而不是模型。
@@ -309,7 +309,7 @@ def build_provider(settings, config=None) -> RuleProvider:
         return RuleProvider(engine_version=settings.engine_version)
 
     # 设置页能选的每一家都必须在册：只认 deepseek/openai 会让「通义」「Kimi」
-    # 这类配置测试能过、一生成就 500（历史上真出过这事）
+    # 这类配置通过测试却一生成就 500，所以这里必须校验。
     preset = PRESET_BY_KEY.get(kind)
     if kind not in {"deepseek", "openai"} and preset is None:
         raise ProviderError(

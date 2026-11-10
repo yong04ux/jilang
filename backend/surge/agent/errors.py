@@ -111,7 +111,7 @@ class ErrorInfo:
         """扁平化的错误载荷：``detail`` 里的键提到顶层。
 
         前端只读 ``detail.errors`` / ``detail.message``（见
-        ``frontend/js/api.js`` 的 ``describe``），多套一层就拿不到字段名。
+        ``frontend/src/lib/api.ts`` 的 ``describe``），多套一层就拿不到字段名。
         """
         payload: dict[str, Any] = dict(self.detail or {})
         payload["code"] = self.code or self.category.value

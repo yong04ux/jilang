@@ -148,7 +148,7 @@ async function main() {
   /* ---------------- 工作台 ---------------- */
   console.log('\n/dashboard')
   await ev(`window.CPRouter.go('/dashboard', { force: true })`)
-  // 工作台改用 shadcn Card 后不再有 .kpi/.dash-grid：按语义属性断言
+  // 工作台用 shadcn Card：按语义属性断言，不绑样式类名
   const dashReady = await waitFor(`!!document.querySelector('[data-kpi]')`)
   check(dashReady, 'KPI 行已渲染')
   // 趋势图由 useEffect 在提交后绘制，取样要等它落地（否则会读到空容器）
@@ -179,8 +179,8 @@ async function main() {
     await ev(`!document.getElementById('source-banner').hidden`),
     '数据来源提示条可见',
   )
-  // v3.0 定稿（2026-11-07）删除了主标题下的说明文，这里断言它确实不在
-  check(dash.desc.length === 0, '主标题下无说明文（v3 定稿）', dash.desc.slice(0, 20))
+  // 主标题下不应有说明文
+  check(dash.desc.length === 0, '主标题下无说明文', dash.desc.slice(0, 20))
   check(dash.kpis === 5, 'KPI 5 格', dash.kpis)
   check(
     dash.kpiLabels.join('|') === '任务总数|进行中|报告|Listing|待审批',
@@ -199,8 +199,6 @@ async function main() {
   check(dash.devwords === false, '无开发标记/内部标识')
 
   /* ---------------- 侧栏导航：点导航项应改地址、重挂页面，且不整页刷新 ----------------
-     这条原先只在 ui_flows_v2 里有，而那个脚本的选择器是迁移前的前端
-     （.kpi-row / svg.trend / /competitors），早已失效。搬到统一入口后，
      其他断言由本文件与 ui_*_v2 各自覆盖。 */
   console.log('\n侧栏导航')
   await ev(`window.__navStamp = 42; 1`)
@@ -405,7 +403,7 @@ async function main() {
   /* ---------------- Agent 市场 ---------------- */
   console.log('\n/agents')
   await ev(`window.CPRouter.go('/agents', { force: true })`)
-  // 迁移到 shadcn Card 后不再有 .card 类：按语义钩子断言，不绑样式类名
+  // shadcn Card 没有 .card 类：按语义钩子断言，不绑样式类名
   const agentsReady = await waitFor(`!!document.querySelector('[data-agent-card]')`)
   check(agentsReady, 'Agent 卡片已渲染')
   const agents = await ev(`JSON.stringify({

@@ -86,7 +86,7 @@
 
   --brand:      var(--primary);
   --brand-dark: var(--primary-hover);
-  --brand-soft: #E8EFFD;   /* 只给「弱蓝底」保留，不再当选中底 */
+  --brand-soft: #E8EFFD;   /* 只给「弱蓝底」用，不作选中底 */
   --brand-line: #BFDBFE;
 
   --ok:     var(--success);     --ok-soft:     var(--success-soft);     --ok-line:     var(--success-line);

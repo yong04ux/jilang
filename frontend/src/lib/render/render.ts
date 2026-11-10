@@ -1,13 +1,11 @@
 /**
- * 结果渲染器 —— 报告与 Listing 的展示逻辑。逐条移植自旧 `js/render.js`。
+ * 结果渲染器 —— 报告与 Listing 的展示逻辑。
  *
- * 为什么保留「返回 HTML 字符串」而不是改成 JSX：工作台与技能页都在旧代码里
- * 直接 `innerHTML` 消费它，两边共用同一份实现最稳；等  页面迁完，
- * 这层字符串渲染会被 `<ReportView>` 包成组件，但**内容契约不变**。
- *
- * 与 ui.ts 一样用相对路径 + `.ts` 扩展名，以便 Node 直接加载做语义对照。
+ * 为什么保留「返回 HTML 字符串」而不是改成 JSX：工作台与技能页直接在
+ * `innerHTML` 里消费它，两边共用同一份实现最稳；将来若包成组件，
+ * **内容契约不变**。
  */
-import { byteLen, esc, fmtTime, icon, mockFlag } from '../../lib/ui.ts'
+import { byteLen, esc, fmtTime, icon, mockFlag } from '../../lib/ui'
 import { field as labelField, language as labelLanguage, level as labelLevel } from '../../lib/labels.ts'
 import { platform as labelPlatform, site as labelSite } from '../../lib/labels.ts'
 

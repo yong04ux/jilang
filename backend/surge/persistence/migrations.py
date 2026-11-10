@@ -46,7 +46,7 @@ def _now() -> str:
 def _has_table(connection, name: str) -> bool:
     row = connection.execute(
         "SELECT 1 FROM information_schema.tables "
-        "WHERE table_schema = current_schema() AND table_name = ?",
+        "WHERE table_schema = current_schema() AND table_name = %s",
         (name,),
     ).fetchone()
     return row is not None
@@ -57,7 +57,7 @@ def _has_column(connection, table: str, column: str) -> bool:
         return False
     row = connection.execute(
         "SELECT 1 FROM information_schema.columns "
-        "WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?",
+        "WHERE table_schema = current_schema() AND table_name = %s AND column_name = %s",
         (table, column),
     ).fetchone()
     return row is not None
@@ -190,7 +190,7 @@ def _task_columns(connection) -> None:
 
 
 def _exports_and_versions(connection) -> None:
-    """阶段 E1：报告/Listing 新表 + 导入数据源 + 历史数据回填。"""
+    """报告/Listing 新表 + 导入数据源 + 数据回填。"""
     connection.executescript(
         """
         CREATE TABLE IF NOT EXISTS competitor_reports (
@@ -309,7 +309,7 @@ def _backfill_v2(connection) -> None:
             "INSERT INTO competitor_reports "
             "(report_id, tenant_id, user_id, task_id, product_name, platform, marketplace, "
             " is_demo, data_source, summary, payload, created_at) "
-            "VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "VALUES (%s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT(report_id) DO NOTHING",
             (
                 row["report_id"],
@@ -346,7 +346,7 @@ def _backfill_v2(connection) -> None:
             " product_name, platform, marketplace, language, title, bullets, description, "
             " search_terms, quality_check, fact_ledger, pending_confirmations, is_demo, engine, "
             " payload, created_at) "
-            "VALUES (?, ?, ?, ?, NULL, 1, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "VALUES (%s, %s, %s, %s, NULL, 1, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT(listing_id) DO NOTHING",
             (
                 row["listing_id"],
@@ -373,7 +373,7 @@ def _backfill_v2(connection) -> None:
 
 
 def _stores(connection) -> None:
-    """阶段 F1/F3/F4：店铺连接与凭据引用。"""
+    """店铺连接与凭据引用。"""
     connection.executescript(
         """
         CREATE TABLE IF NOT EXISTS store_connections (
@@ -654,7 +654,7 @@ def apply_migrations(connection) -> list[str]:
             continue
         migration.apply(connection)
         connection.execute(
-            f"INSERT INTO {SCHEMA_VERSION_TABLE} (version, name, applied_at) VALUES (?, ?, ?)",
+            f"INSERT INTO {SCHEMA_VERSION_TABLE} (version, name, applied_at) VALUES (%s, %s, %s)",
             (migration.version, migration.name, _now()),
         )
         newly.append(migration.version)

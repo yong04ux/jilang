@@ -1,16 +1,11 @@
 """FastAPI 应用装配层。
 
-本文件只做三件事：**装配 → 挂载 → 错误处理**，不再出现任何端点定义。
+本文件只做三件事：**装配 → 挂载 → 错误处理**，不含任何端点定义。
 所有端点按业务域拆分在 ``surge/api/`` 下（分层约定见 ``api/__init__.py``）：
 
 - ``api/deps.py``     —— ``ApiContext``：所有 router 的唯一共享依赖；
 - ``api/<domain>.py`` —— 某一业务域的端点，只依赖 ``ApiContext``；
 - ``api/handlers.py`` / ``api/helpers.py`` —— 任务外层保护 / 无状态小工具。
-
-**历史**：端点曾经是 ``create_app()`` 里的 88 个闭包函数，共享 15 个闭包变量
-（``db`` / ``require_user`` / ``audit_user`` / ``resolve_llm_provider``…），
-导致无法拆文件、无法脱离 ``create_app()`` 单测。现已全部搬入 ``api/``，
-这里收敛成"装配 + 挂载"。
 """
 
 from __future__ import annotations
@@ -158,7 +153,7 @@ def create_app() -> FastAPI:
         logger.warning("demo 账号初始化失败：%s", exc)
 
     # ------------------------------------------------------------------
-    # 共享依赖：router 只认 ApiContext，不再依赖 create_app 的词法作用域。
+    # 共享依赖：router 只认 ApiContext，不依赖 create_app 的词法作用域。
     # 认证依赖（require_user/require_admin）由 api.deps 作为 FastAPI 依赖
     # 直接提供，不进上下文对象。
     # ------------------------------------------------------------------

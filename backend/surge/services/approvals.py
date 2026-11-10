@@ -1,8 +1,8 @@
-"""发布审批（阶段 D8）。
+"""发布审批。
 
 边界（必须如实）：
 
-- 本项目**没有接入任何平台发布接口**（Amazon SP-API 在阶段 G 才做接入准备）。
+- 本项目**没有接入任何平台发布接口**（尚未接入 Amazon SP-API）。
   所以审批通过后的动作是「记录审批结论」，不是"发布成功"。
 - ``publish_listing`` 任务在等待审批时状态为 ``awaiting_approval``，
   这是真实状态机，不是进度条装饰。
@@ -124,7 +124,7 @@ def request_publish(
             "seq": 1,
             "name": "等待发布审批",
             "status": "pending",
-            "detail": "审批通过也不会真实发布：平台发布接口尚未接入（阶段 G）",
+            "detail": "审批通过也不会真实发布：平台发布接口尚未接入",
             "started_at": now,
             "finished_at": None,
             "duration_ms": None,

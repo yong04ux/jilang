@@ -1,4 +1,4 @@
-"""任务队列抽象（阶段 C6 / D6）。
+"""任务队列抽象。
 
 当前实现提供两种后端：
 
@@ -176,7 +176,7 @@ class ArqTaskQueue:
             try:
                 await pool.enqueue_job("run_task", task_id, _queue_name=self._queue_name)
             finally:
-                # redis-py asyncio 用 aclose()，旧版 arq 用 async_close()
+                # 按客户端类型选用关闭方法：redis-py asyncio 用 aclose()，arq 用 async_close()
                 close = getattr(pool, "aclose", None) or getattr(pool, "async_close", None)
                 if close is not None:
                     await close()

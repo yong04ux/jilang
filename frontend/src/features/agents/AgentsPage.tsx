@@ -182,7 +182,7 @@ export function AgentsPage() {
     )
   }
 
-  // 只展示中文能力名；目录里没有的（历史遗留 key）直接不出现
+  // 只展示中文能力名；目录里没有的 key 直接不出现
   const skillName = (window.CPCatalog?.SKILL_NAME ?? {}) as Record<string, string>
 
   return (

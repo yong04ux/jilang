@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse
 
 from .. import perf
 from ..config import get_settings
-from ..version import __version__
+from ..version import display_version
 from ..auth import extract_token, resolve_session
 from ..llm.llm import KNOWN_MODELS
 from ..market.marketplaces import get_marketplace, supported_marketplaces
@@ -184,10 +184,9 @@ def health(request: Request, api: ApiContext = Depends(get_ctx)) -> dict[str, An
 
     return {
         "status": "ok",
-        "version": __version__,
+        "version": display_version(),
         "brand": active.brand_name,
         "provider": provider_info,
-        "requires_api_key": bool(active.require_api_key),
         "configured_model": (
             {
                 "provider": model_config.provider,

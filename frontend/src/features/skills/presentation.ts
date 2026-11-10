@@ -2,8 +2,8 @@
  * 技能卡片的**展示**配置：图标字、色调、短标签、起始提示语。
  *
  * 这里不含任何能力语义 —— 技能叫什么、要什么参数、产出什么，全部来自
- * `GET /api/skills`（见 skillsCache.ts）。之前这里写死过一整份技能数组，
- * 改一处漏三处，所以现在只留「怎么展示」。
+ * `GET /api/skills`（见 skillsCache.ts）。能力语义不在这里，
+ * 避免同一份清单在两处维护而漂移。
  */
 export interface Presentation {
   icon: string

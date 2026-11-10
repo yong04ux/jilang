@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <code>V1.0</code> · <code>Python 3.10+</code> · <code>FastAPI</code> · <code>Pydantic v2</code> · <code>PostgreSQL 16</code> · <code>React 19</code> · <code>TypeScript</code> · <code>Vite</code>
+  <code>V1.0</code> · <code>Python 3.13+</code> · <code>FastAPI</code> · <code>Pydantic v2</code> · <code>PostgreSQL 16</code> · <code>React 19</code> · <code>TypeScript</code> · <code>Vite</code>
 </p>
 
 每个结论都有出处，每次生成都过事实审计，每个任务都有真实步骤与耗时。模型只负责解析目标与撰写文案；统计、字符限制、字段校验和机会分全部由可测试的代码计算。
@@ -39,7 +39,7 @@
 
 - **确定性归代码，语言归模型。** 价格统计、字符与字节限制、单位换算、字段校验、机会分计算由业务代码完成；模型输出必须通过 schema 校验与事实对齐质检。
 - **证据分级。** 每条结论标记 `事实` / `统计` / `推断` / `假设`，尽量附竞品名或评论原文；`事实` 与 `统计` 缺证据即构造失败。
-- **BYOK，不静默降级。** 平台不提供模型额度。没有可用 Key 时，需要模型的接口返回 `428 api_key_required`，界面引导去配置，而不是悄悄换成规则引擎还显示成功。
+- **BYOK，如实标注。** 平台不提供模型额度。没有可用 Key 时照常执行，但结果里必须标明本次用的是规则引擎还是大模型，并给出降级理由——不把规则生成伪装成模型生成。
 - **进度就是状态。** 页面上的步骤与耗时来自真实任务记录，失败可定位，重试默认从断点续跑。
 
 ---
@@ -65,7 +65,7 @@
 
 ## 安装
 
-环境要求：**Python ≥ 3.10** + **PostgreSQL 16**。
+环境要求：**Python ≥ 3.13** + **PostgreSQL 16**。
 
 ```bash
 cd backend                         # Python 工程根：venv / 依赖 / 测试都在这里
@@ -124,7 +124,7 @@ docker compose up -d
 | `python -m surge serve --env cloud` | `backend/.env.cloud` | 本地连线上 Supabase |
 | `python -m surge migrate --env cloud` | `backend/.env.cloud` | 对线上库跑迁移 |
 
-`--env local` 与不带参数等价——「本地」就是 `.env` 本身，不再复制第二份内容，避免两个文件各自演化。`--env X` 找不到 `.env.X` 时**直接报错**，不会静默退回默认配置（那种失败最难发现：以为连着线上库，实际写进了本地库）。
+`--env local` 与不带参数等价——「本地」就是 `.env` 本身，不复制第二份内容，避免两个文件各自演化。`--env X` 找不到 `.env.X` 时**直接报错**，不会静默退回默认配置（那种失败最难发现：以为连着线上库，实际写进了本地库）。
 
 `--env` 对所有子命令生效（`serve` / `check` / `migrate`），写在子命令**后面**。启动时会把实际使用的配置文件与 `用户@主机:端口/库名` 打出来（不含密码），省得反复确认"我现在连的是哪个库"。
 
@@ -177,7 +177,6 @@ python -m surge migrate        # 应用迁移并打印版本
 | `SURGE_MIGRATION_DATABASE_URL` | 空 | 迁移专用直连串；为空则用 `DATABASE_URL` |
 | `SURGE_HOST` / `SURGE_PORT` | `127.0.0.1` / `8000` | 监听地址与端口 |
 | `SURGE_SECRET_KEY` | 自动生成文件 | API Key 加密主密钥；**一旦设定不要改**（改了旧 Key 全部失效） |
-| `SURGE_REQUIRE_API_KEY` | `true` | BYOK 强制；仅本地调试可关闭 |
 | `SURGE_PROVIDER` | `rule` | 进程级默认 Provider（无用户配置时兜底） |
 | `SURGE_RATE_LIMIT_ENABLED` | `true` | 是否启用限流 |
 | `SURGE_RATE_LIMIT_TASKS_PER_HOUR` | `10` | 每账号每小时任务数 |
@@ -224,7 +223,7 @@ python scripts/check_frontend.py   # 前端资源契约 + 路由一致性 + tsc
 python scripts/live_check.py       # 对运行中的服务做 HTTP 端到端断言
 python scripts/pg_check.py <PG_URL> --reset   # PostgreSQL 专项验收
 
-node frontend/scripts/ui_flows_v2.mjs http://127.0.0.1:8000        # 交互验收
+node frontend/scripts/ui_interactions.mjs http://127.0.0.1:8000      # 交互验收
 node frontend/scripts/ui_workbench_v2.mjs http://127.0.0.1:8000    # 运行态与结果 Tab
 node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots   # 逐页截图
 ```
@@ -298,10 +297,10 @@ Surge/
 4. **审批不等于发布。** 平台发布接口未接入，审批通过只记录结论。
 5. **会话不共享。** 聊天记录属于个人；团队共享的是任务、报告与草稿。
 6. **重试默认断点续跑。** `POST /api/tasks/{id}/retry` 复用原任务已成功步骤的输出，只从失败点继续；`?resume=false` 整任务重跑。仅适用于 Agent 工作流任务，新任务带 `retry_of` 血缘。
-7. **历史 Listing 可能没有商品事实快照**，无法复检；新生成与新版本可以。
+7. **早期生成的 Listing 若没有商品事实快照**，无法复检；新生成与新版本可以。
 8. **真实平台数据与授权待接入。** 连接器缺凭据时显式报错，不会退回本地数据。
 9. **arq 队列需要 Redis。** 默认线程执行器不依赖外部服务。
-10. **只支持 OpenAI 兼容协议。** Anthropic / Gemini 原生协议未适配。
+10. **只支持三类协议。** OpenAI 兼容（预置多数厂商）、Anthropic、Google Gemini；其他厂商需提供 OpenAI 兼容端点后走「自定义」。
 11. **单实例假设。** 线程队列、取消语义、限流计数都假设只有一个进程。
 
 ---

@@ -93,8 +93,6 @@ class PlatformSpec:
 #: 真实接入状态。目前所有平台都是 ``not_configured``：
 #: 应用未注册 / 卖家未授权 / 平台未审核，一律不伪造数据。
 LIVE_NOT_CONFIGURED = "not_configured"
-LIVE_PENDING_REVIEW = "pending_review"
-LIVE_AVAILABLE = "available"
 
 _COMMERCE_CAPS = frozenset({CAP_PRODUCTS, CAP_ORDERS, CAP_METRICS})
 _FULL_CAPS = frozenset({CAP_PRODUCTS, CAP_ORDERS, CAP_METRICS, CAP_ADS, CAP_FEES})
@@ -338,9 +336,7 @@ __all__ = [
     "CAP_ORDERS",
     "CAP_PRODUCTS",
     "DEFAULT_PLATFORM",
-    "LIVE_AVAILABLE",
     "LIVE_NOT_CONFIGURED",
-    "LIVE_PENDING_REVIEW",
     "PLATFORMS",
     "PLATFORM_BY_KEY",
     "PlatformError",

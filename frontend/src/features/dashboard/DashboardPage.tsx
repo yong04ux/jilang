@@ -19,7 +19,6 @@
 import { Suspense, lazy, useEffect, useState } from 'react'
 import { FileText, ListChecks, ScrollText, Sparkles, TriangleAlert } from 'lucide-react'
 import { api } from '@/lib/api'
-import { getHealth } from '@/lib/health/health'
 import { fmtTime } from '@/lib/ui'
 import {
   language as labelLanguage,
@@ -266,9 +265,7 @@ export function DashboardPage() {
     let alive = true
     setView({ kind: 'loading' })
 
-    // 三个请求互不依赖：一起发出，别串成瀑布。
-    // 健康状态与顶栏共用同一份 15s 缓存，首屏只发一次。
-    const healthPromise = getHealth().catch(() => null)
+    // 两个请求互不依赖：一起发出，别串成瀑布。
     const providerPromise = api.get<Dict>('/api/settings/providers').catch(() => null)
 
     ;(async () => {
@@ -280,12 +277,8 @@ export function DashboardPage() {
         return
       }
       const providerInfo = await providerPromise
-      const health = await healthPromise
       // 进站第一屏就要说清「还差一步：配自己的 Key」
-      const needsKey =
-        Boolean(providerInfo) &&
-        !providerInfo!.active_config_id &&
-        !(health && health.requires_api_key === false)
+      const needsKey = Boolean(providerInfo) && !providerInfo!.active_config_id
 
       let shop: Dict | null = null
       try {

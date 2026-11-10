@@ -221,7 +221,7 @@ def test_demo_store_seed_is_idempotent(client):
 
 
 def test_custom_mock_store_keeps_random_mock_data(client):
-    """自建店铺不受演示目录影响，仍走原来的随机 Mock（行为不变）。"""
+    """自建店铺不受演示目录影响，走随机 Mock 数据。"""
     headers = register(client, "custom_store")
     resp = client.post(
         "/api/stores",

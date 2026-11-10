@@ -21,8 +21,8 @@ mkdirSync(OUT_DIR, { recursive: true })
 
 const PAGES = [
   // 热身截图：就绪条件用「一定存在」的 KPI 行。
-  // 原先等 .st-metric 是错的：未绑定店铺时 /api/marketplace/metrics 返回 409，
-  // 工作台不会渲染「经营概览」，这个选择器永远等不到。
+  // 未绑定店铺时 /api/marketplace/metrics 返回 409，工作台不会渲染「经营概览」，
+  // 所以不能用 .st-metric 作就绪条件。
   { name: '0-workbench', path: '/dashboard', ready: '[data-kpi]' },
   { name: '1-dashboard', path: '/stores', ready: '.st-metric' },
   { name: '2-dashboard-orders', path: '/stores?seg=orders', ready: '.st-grid-2' },
@@ -123,7 +123,7 @@ async function main() {
   }
   await sleep(2500)
 
-  // 单品详情的 ASIN 从真实目录取；没有商品就退回列表页（不再写死 ASIN 造成假 MISS）
+  // 单品详情的 ASIN 从真实目录取；没有商品就退回列表页（写死 ASIN 会得到假 MISS）
   const sampleAsin = await evaluate(`fetch('/api/marketplace/products?limit=1')
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => (d && d.items && d.items[0] ? d.items[0].asin : ''))

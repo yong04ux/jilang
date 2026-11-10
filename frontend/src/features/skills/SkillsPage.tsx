@@ -79,7 +79,6 @@ function glyphOf(skill: Skill): string {
 }
 
 function SkillCard({ skill }: { skill: Skill }) {
-  const needsKey = skill.requires.indexOf('llm') !== -1
   return (
     <article
       className="sk-card"
@@ -96,7 +95,6 @@ function SkillCard({ skill }: { skill: Skill }) {
         <div className="sk-card-title-wrap">
           <h3 className="sk-card-title">{skill.name}</h3>
         </div>
-        {needsKey ? <span className="badge badge-warn sk-card-badge">需要密钥</span> : null}
       </div>
       <p className="sk-card-desc">{skill.desc}</p>
       <div className="sk-card-tags">
@@ -456,7 +454,6 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
   const [resultHtml, setResultHtml] = useState('')
   const [revealSignal, setRevealSignal] = useState(0)
 
-  const needsKey = skill.requires.indexOf('llm') !== -1
   const usesLlm = skill.usesLlm
   const needs = describe(skill.inputSchema, { max: 5 })
 
@@ -541,15 +538,6 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
 
   const handleError = (err: Dict) => {
     const detail = err.detail || {}
-    if (err.status === 428) {
-      showResult(
-        `<div class="callout callout-warn">${icon('alert')}<div>` +
-          `<strong>这一步需要你自己的模型密钥</strong><br>${esc(err.message)}` +
-          `<div class="row gap-2 mt-2"><a class="btn btn-primary btn-sm" href="/settings" data-link>` +
-          `${icon('settings')}去配置 API Key</a></div></div></div>`,
-      )
-      return
-    }
     if (err.status === 422 && Array.isArray(detail.errors) && detail.errors.length) {
       applyFieldErrors(detail.errors)
       showResult(
@@ -688,9 +676,7 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
             <h2 className="sk-h2">{skill.name}</h2>
             <span className="sk-card-cat">{skill.cat}</span>
           </div>
-          {needsKey ? (
-            <span className="badge badge-warn">需要密钥</span>
-          ) : usesLlm ? (
+          {usesLlm ? (
             <span className="badge badge-info">模型可选</span>
           ) : (
             <span className="badge badge-ok">本地计算</span>
@@ -744,11 +730,9 @@ function SkillDetail({ skill, batch }: { skill: Skill; batch: string }) {
             </span>
           </button>
           <span className="t-xs t-muted" id="sk-hint">
-            {needsKey
-              ? '这一步会调用你自己的模型密钥'
-              : usesLlm
-                ? '有可用模型时用模型生成，没有则用规则引擎，结果会标明引擎'
-                : '全部本地计算，不调用模型'}
+            {usesLlm
+              ? '有可用模型时用模型生成，没有则用规则引擎，结果会标明引擎'
+              : '全部本地计算，不调用模型'}
           </span>
         </div>
       </section>

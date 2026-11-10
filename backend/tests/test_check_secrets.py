@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -17,7 +18,12 @@ def run_scan(target: Path | None = None) -> subprocess.CompletedProcess[str]:
     args = [sys.executable, str(SCRIPT)]
     if target is not None:
         args.append(f"--path={target}")
-    return subprocess.run(args, capture_output=True, text=True, encoding="utf-8")
+    # 子进程的 stdout 默认跟随系统编码（Windows 为 GBK），这里显式统一成 UTF-8，
+    # 否则中文字符按 UTF-8 解码会失败。
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    return subprocess.run(
+        args, capture_output=True, text=True, encoding="utf-8", env=env
+    )
 
 
 def test_detects_real_looking_key_and_masks_it(tmp_path):

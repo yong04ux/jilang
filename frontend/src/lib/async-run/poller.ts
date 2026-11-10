@@ -1,16 +1,13 @@
 /**
- * 任务轮询器 —— 移植自旧 `js/async-run.js:123-159`，并修掉一个缺陷。
+ * 任务轮询器。
  *
- * 保留的语义（页面全靠它们）：
+ * 语义（页面全靠它们）：
  *  - 间隔 1s、首次立刻执行一次（不等第一个 1s）；
  *  - `RUNNING` 只有 queued / running / cancelling 三个值，其余状态一律视为终态；
  *  - `onDone` 只触发一次；
- *  - `stop()` 后不再发请求。
- *
- * 修掉的缺陷：现有实现 tick 的 catch 分支 `return` 之后**不再排下一次 setTimeout**，
- * 于是任何一次网络抖动都会让轮询永久停住，界面停在最后一次状态（注释却写着
- * 「忽略单次失败，下次轮询继续」）。现在改为连续失败计数，达到上限才放弃并回调
- * `onGiveUp`，让界面能明确说「状态获取失败」而不是静静卡住。
+ *  - `stop()` 后不再发请求；
+ *  - 连续失败计数，达到上限才放弃并回调 `onGiveUp`，
+ *    让界面能明确说「状态获取失败」，而不是单次网络抖动就静静卡住。
  *
  * 本模块**不 import 任何东西**（连 api 都不引）：取数函数由调用方注入。
  * 这样它能在 Node 里直接跑测试，也避免核心状态机被网络层绑死。
@@ -26,7 +23,7 @@ export const RUNNING: Record<string, 1> = {
   cancelling: 1,
 }
 
-/** 与旧 `CPAsyncRun.isRunning()` 同义 */
+/** 任务是否处于运行中状态 */
 export function isRunning(status: string | null | undefined): boolean {
   return Boolean(status && RUNNING[status])
 }

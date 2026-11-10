@@ -1,4 +1,4 @@
-"""Listing 服务（阶段 E2/E4/E5/E3）。
+"""Listing 服务。
 
 - ``generate``：包装 Provider，并保留商品事实快照（供后续复检）；
 - ``create_version``：派生新版本，记录 parent/version；
@@ -77,7 +77,7 @@ def recheck(
     snapshot = payload.get("product_snapshot")
     if not snapshot:
         raise ListingSnapshotMissing(
-            "该草稿生成于阶段 E 之前，没有保存商品事实快照，无法重新质检；"
+            "该草稿没有保存商品事实快照，无法重新质检；"
             "请重新生成或等待历史数据补齐"
         )
     try:

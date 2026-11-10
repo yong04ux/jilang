@@ -1,12 +1,12 @@
 """``SURGE_SECRET_KEY`` 的来源优先级：显式配置 > 密钥文件。
 
-背景（真实踩过的坑）：``SecretBox`` 原本只读 ``os.environ``，而 pydantic 读 ``.env``
-文件时不会把值注入 ``os.environ``。``Settings`` 里又没有 ``secret_key`` 字段
-（``extra="ignore"`` 会直接丢弃），因此在 ``.env`` 里写 ``SURGE_SECRET_KEY``
-是**静默无效**的：本地照样能跑，但用的是自动生成的 ``data/.secret_key``，
-与线上（真实环境变量）各一套密钥，将来搬数据时已存的 API Key 全部解不开。
+背景：``SecretBox`` 只读 ``os.environ``，而 pydantic 读 ``.env`` 文件时不会把值
+注入 ``os.environ``。``Settings`` 没有 ``secret_key`` 字段时，``extra="ignore"``
+会把 ``.env`` 里的 ``SURGE_SECRET_KEY`` 静默丢弃：本地照样能跑，但用的是自动
+生成的 ``data/.secret_key``，与线上（真实环境变量）各一套密钥，将来搬数据时
+已存的 API Key 全部解不开。因此必须有这个字段。
 
-这三个测试锁住修复后的行为。
+这三个测试锁住上述来源优先级。
 """
 
 from __future__ import annotations

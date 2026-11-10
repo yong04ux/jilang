@@ -2,7 +2,7 @@
  * 能力目录的门面数据：导航、图标栏短标签、Agent 清单。
  *
  * 技能清单本身（名称/分类/入参）来自接口，见 `features/skills/skillsCache`；
- * 这里只放「怎么展示」的静态配置，以及把两者拼成旧 `window.CPCatalog` 的形状 ——
+ * 这里只放「怎么展示」的静态配置，以及把两者拼成 `window.CPCatalog` 的形状 ——
  * 还有代码（workbench）按 `C.NAV` / `C.skillByKey` 读它。
  */
 import { PRESENTATION } from '@/features/skills/presentation'
@@ -51,9 +51,6 @@ export const RAIL_LABEL: Record<string, string> = {
   dashboard: '工作台',
   workbench: 'AI 助手',
   tasks: '任务',
-  competitors: '竞品',
-  profit: '利润',
-  listings: 'Listing',
   data: '数据',
   agents: 'Agent',
   skills: '技能',

@@ -42,7 +42,7 @@ def test_spa_routes_serve_the_same_shell(client):
 
 
 def test_legacy_ui_is_gone(client):
-    """旧版工作台已下线，不再提供 /legacy 与 /static 资源。"""
+    """这些路径不提供资源，应返回 404。"""
     assert client.get("/legacy").status_code == 404
     assert client.get("/static/app.js").status_code == 404
 

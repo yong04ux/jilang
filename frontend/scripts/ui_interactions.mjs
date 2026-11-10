@@ -149,7 +149,7 @@ async function main() {
   check('详情页显示真实步骤', (await ev('document.querySelectorAll(".timeline-item").length')) >= 3)
   check('详情页显示耗时', (await ev('document.body.innerText')).includes(' s') || (await ev('document.body.innerText')).includes('ms'))
 
-  // 6) 旧界面确实已下线（服务端返回 404，不再有 /legacy 与 /static）
+  // 6) 已下线路径应返回 404
   const legacyStatus = await ev('fetch("/legacy").then(r => r.status)')
   const staticStatus = await ev('fetch("/static/app.js").then(r => r.status)')
   check('/legacy 已下线', legacyStatus === 404, 'got ' + legacyStatus)

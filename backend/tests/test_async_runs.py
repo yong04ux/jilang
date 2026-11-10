@@ -1,4 +1,4 @@
-"""异步执行器与取消测试（阶段 C6 / D6）。"""
+"""异步执行器与取消测试。"""
 
 from __future__ import annotations
 

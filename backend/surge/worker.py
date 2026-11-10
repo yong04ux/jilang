@@ -1,4 +1,4 @@
-r"""arq worker 入口（阶段 D6）。
+r"""arq worker 入口。
 
 启动：
 

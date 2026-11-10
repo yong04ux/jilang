@@ -4,7 +4,7 @@
 
 - 新增内置技能 = 新增一个目录（``SKILL.md`` + 可选的产出结构）；
 - ``load_builtin_catalog`` 启动时扫描，解析头部并懒加载执行器；
-- ``GET /api/skills`` 用 ``list_skill_views`` 生成，前端不再硬编码；
+- ``GET /api/skills`` 用 ``list_skill_views`` 生成，前端只消费接口返回；
 - 租户导入的技能存在 ``skill_definitions`` 表里，与内置技能合并展示，
   但**没有执行器**，``runnable`` 如实为 ``False``。
 

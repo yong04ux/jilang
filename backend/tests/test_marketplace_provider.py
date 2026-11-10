@@ -1,4 +1,4 @@
-"""数据源 Provider 协议（M2）：Mock 确定性、Live 不降级、工厂与标记。"""
+"""数据源 Provider 协议：Mock 确定性、Live 不降级、工厂与标记。"""
 
 from __future__ import annotations
 

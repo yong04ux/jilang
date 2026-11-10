@@ -13,7 +13,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useHealthStore, providerFlagText } from '@/lib/health/health'
 
 /** 生成方式标识的语气 → 跑马灯条上的撞色 */
-const FLAG_TONE: Record<string, 'alert' | 'live' | 'muted'> = {
+const FLAG_TONE: Record<'ok' | 'warn' | 'plain', 'alert' | 'live' | 'muted'> = {
   warn: 'alert',
   ok: 'live',
   plain: 'muted',
@@ -74,7 +74,7 @@ export function Topbar({
         <span
           id="provider-flag"
           className="ticker-seg"
-          data-tone={FLAG_TONE[flag.tone] ?? 'muted'}
+          data-tone={FLAG_TONE[flag.tone]}
           title={flag.title}
         >
           {flag.text}
