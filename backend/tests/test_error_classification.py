@@ -10,18 +10,18 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.agent import errors
-from crosspilot.agent.contracts import (
+from surge.agent import errors
+from surge.agent.contracts import (
     SkillDependencyMissing,
     SkillForbidden,
     SkillInputInvalid,
     SkillNotExecutable,
 )
-from crosspilot.agent.errors import ErrorCategory
-from crosspilot.llm.llm import LLMError
-from crosspilot.persistence.db import DatabaseError
-from crosspilot.services.competitor_service import AnalysisInputError
-from crosspilot.services.tasks import TaskCancelled
+from surge.agent.errors import ErrorCategory
+from surge.llm.llm import LLMError
+from surge.persistence.db import DatabaseError
+from surge.services.competitor_service import AnalysisInputError
+from surge.services.tasks import TaskCancelled
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +154,7 @@ def _register(client, username: str) -> dict:
 
 
 def _payload(**overrides) -> dict:
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     payload = {
         "agent_key": "main",
@@ -186,7 +186,7 @@ def test_rate_limited_model_call_maps_to_429_and_persists_category(client, monke
     打桩点在 Provider 而不是 ``agent.skills``： 起 Listing 生成走子图，
     链路是 ``子图 → provider.generate``，不再经过 ``skills.generate_listing``。
     """
-    from crosspilot.llm.providers import RuleProvider
+    from surge.llm.providers import RuleProvider
 
     def boom(*args, **kwargs):
         raise LLMError("429 too many requests", kind="rate_limit")

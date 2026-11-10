@@ -1,9 +1,9 @@
 {
-  "name": "crosspilot-web",
+  "name": "surge-web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "CrossPilot 前端（React + TypeScript）。构建产物 dist/ 由 FastAPI 直接托管，目录形状必须与后端挂载点一致。",
+  "description": "Surge 前端（React + TypeScript）。构建产物 dist/ 由 FastAPI 直接托管，目录形状必须与后端挂载点一致。",
   "engines": {
     "node": ">=22.12.0"
   },

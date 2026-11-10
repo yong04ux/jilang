@@ -5,8 +5,8 @@ from __future__ import annotations
 import time
 
 
-from crosspilot.agent.planner import plan_for
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.agent.planner import plan_for
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
 def register(client, username: str) -> dict:
@@ -63,7 +63,7 @@ def test_async_run_completes_and_exposes_result(client):
 
 def test_cancel_running_task_takes_effect_at_checkpoint(client, monkeypatch):
     headers = register(client, "async_cancel")
-    from crosspilot.engine import analysis as engine_analysis
+    from surge.engine import analysis as engine_analysis
 
     original = engine_analysis.run_analysis
 
@@ -72,7 +72,7 @@ def test_cancel_running_task_takes_effect_at_checkpoint(client, monkeypatch):
         return original(*args, **kwargs)
 
     # 打桩在引擎层：竞品子图通过 engine.analysis.run_analysis 做统计
-    monkeypatch.setattr("crosspilot.engine.analysis.run_analysis", slow_analysis)
+    monkeypatch.setattr("surge.engine.analysis.run_analysis", slow_analysis)
 
     resp = client.post(
         "/api/agent/runs",
@@ -139,15 +139,15 @@ def test_async_run_requires_write_role(client):
 
 
 def test_force_sync_tasks_runs_inline_for_serverless(client, monkeypatch):
-    """``CROSSPILOT_FORCE_SYNC_TASKS``：Serverless 部署必须走同步。
+    """``SURGE_FORCE_SYNC_TASKS``：Serverless 部署必须走同步。
 
     Vercel 这类平台在响应返回后冻结实例，进程内线程队列的后台任务会就地停摆，
     任务永远停在 queued。打开开关后即使前端传 ``async_run=true``，
     也要在本次请求内跑完并返回结果。
     """
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_FORCE_SYNC_TASKS", "true")
+    monkeypatch.setenv("SURGE_FORCE_SYNC_TASKS", "true")
     get_settings.cache_clear()
     try:
         headers = register(client, "force_sync")

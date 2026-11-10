@@ -75,10 +75,10 @@ source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
 cp .env.example .env
-# 编辑 .env，至少填写 CROSSPILOT_DATABASE_URL
+# 编辑 .env，至少填写 SURGE_DATABASE_URL
 ```
 
-也可以可编辑模式安装，之后在任意目录使用 `crosspilot` 命令：
+也可以可编辑模式安装，之后在任意目录使用 `surge` 命令：
 
 ```bash
 cd backend
@@ -86,9 +86,9 @@ pip install -e .
 ```
 
 > **目录约定**：`backend/` 是 Python 工程根（venv、依赖、测试、脚本都在这）；
-> 包代码在 `backend/crosspilot/`，前端静态站在仓库根的 `frontend/`。
+> 包代码在 `backend/surge/`，前端静态站在仓库根的 `frontend/`。
 > 所有 Python 命令都在 `backend/` 下执行——站在仓库根运行会报
-> `No module named crosspilot`，不是安装失败，是站错了目录。
+> `No module named surge`，不是安装失败，是站错了目录。
 
 ---
 
@@ -99,13 +99,13 @@ pip install -e .
 先准备 PostgreSQL 16，并在 `.env` 里配置连接串：
 
 ```
-CROSSPILOT_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/crosspilot
+SURGE_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/surge
 ```
 
 缺省时应用拒绝启动，不会静默回退到 SQLite。迁移在启动时自动执行，也可手动执行并查看版本：
 
 ```bash
-crosspilot migrate
+surge migrate
 ```
 
 本地开发可用仓库附带的 `docker-compose.yml` 快速起一个库：
@@ -116,13 +116,13 @@ docker compose up -d
 
 ### 多环境配置（本地 / 线上）
 
-配置文件由 `CROSSPILOT_ENV_FILE` 定位，默认 `backend/.env`。CLI 提供 `--env` 简写：
+配置文件由 `SURGE_ENV_FILE` 定位，默认 `backend/.env`。CLI 提供 `--env` 简写：
 
 | 命令 | 使用的文件 | 典型用途 |
 |---|---|---|
-| `python -m crosspilot serve` | `backend/.env` | 本地 PostgreSQL + 本地上传目录 |
-| `python -m crosspilot serve --env cloud` | `backend/.env.cloud` | 本地连线上 Supabase |
-| `python -m crosspilot migrate --env cloud` | `backend/.env.cloud` | 对线上库跑迁移 |
+| `python -m surge serve` | `backend/.env` | 本地 PostgreSQL + 本地上传目录 |
+| `python -m surge serve --env cloud` | `backend/.env.cloud` | 本地连线上 Supabase |
+| `python -m surge migrate --env cloud` | `backend/.env.cloud` | 对线上库跑迁移 |
 
 `--env local` 与不带参数等价——「本地」就是 `.env` 本身，不再复制第二份内容，避免两个文件各自演化。`--env X` 找不到 `.env.X` 时**直接报错**，不会静默退回默认配置（那种失败最难发现：以为连着线上库，实际写进了本地库）。
 
@@ -133,7 +133,7 @@ docker compose up -d
 本地开发（等价于生产入口，含 `/health`；在 `backend/` 下执行）：
 
 ```bash
-uvicorn crosspilot.worker_service:app --host 127.0.0.1 --port 8000
+uvicorn surge.worker_service:app --host 127.0.0.1 --port 8000
 ```
 
 或未安装本包时：
@@ -141,7 +141,7 @@ uvicorn crosspilot.worker_service:app --host 127.0.0.1 --port 8000
 ```bash
 cd backend
 export PYTHONPATH=.            # Windows: $env:PYTHONPATH='.'
-python -m crosspilot serve --port 8000
+python -m surge serve --port 8000
 ```
 
 启动后打开 `http://127.0.0.1:8000/`。首次访问会引导创建管理员账号。
@@ -149,8 +149,8 @@ python -m crosspilot serve --port 8000
 ### 其他 CLI
 
 ```bash
-python -m crosspilot check          # 检查依赖、规则文件、数据库连通性
-python -m crosspilot migrate        # 应用迁移并打印版本
+python -m surge check          # 检查依赖、规则文件、数据库连通性
+python -m surge migrate        # 应用迁移并打印版本
 ```
 
 <details>
@@ -158,9 +158,9 @@ python -m crosspilot migrate        # 应用迁移并打印版本
 
 | 报错 | 原因 | 处理 |
 |---|---|---|
-| `DatabaseError: 无法连接数据库` | PostgreSQL 未启动或连接串错误 | 先启动数据库，核对 `CROSSPILOT_DATABASE_URL` |
+| `DatabaseError: 无法连接数据库` | PostgreSQL 未启动或连接串错误 | 先启动数据库，核对 `SURGE_DATABASE_URL` |
 | `ModuleNotFoundError` | 依赖未安装 | `cd backend && pip install -r requirements.txt` |
-| `No module named crosspilot` | 站在 `backend/` 外，或未安装、未设 `PYTHONPATH` | 回到 `backend/`，或 `pip install -e .` |
+| `No module named surge` | 站在 `backend/` 外，或未安装、未设 `PYTHONPATH` | 回到 `backend/`，或 `pip install -e .` |
 | `[Errno 10048]` 端口占用 | 端口已被占用 | 换端口：`--port 8010` |
 
 </details>
@@ -173,24 +173,24 @@ python -m crosspilot migrate        # 应用迁移并打印版本
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `CROSSPILOT_DATABASE_URL` | 必填 | PostgreSQL 连接串 |
-| `CROSSPILOT_MIGRATION_DATABASE_URL` | 空 | 迁移专用直连串；为空则用 `DATABASE_URL` |
-| `CROSSPILOT_HOST` / `CROSSPILOT_PORT` | `127.0.0.1` / `8000` | 监听地址与端口 |
-| `CROSSPILOT_SECRET_KEY` | 自动生成文件 | API Key 加密主密钥；**一旦设定不要改**（改了旧 Key 全部失效） |
-| `CROSSPILOT_REQUIRE_API_KEY` | `true` | BYOK 强制；仅本地调试可关闭 |
-| `CROSSPILOT_PROVIDER` | `rule` | 进程级默认 Provider（无用户配置时兜底） |
-| `CROSSPILOT_RATE_LIMIT_ENABLED` | `true` | 是否启用限流 |
-| `CROSSPILOT_RATE_LIMIT_TASKS_PER_HOUR` | `10` | 每账号每小时任务数 |
-| `CROSSPILOT_RATE_LIMIT_KEY_TESTS_PER_HOUR` | `5` | 每账号每小时 Key 测试数 |
-| `CROSSPILOT_ALLOW_OPEN_REGISTRATION` | `true` | 关闭后除首个用户外必须持邀请令牌 |
-| `CROSSPILOT_TASK_QUEUE` | `thread` | `thread`（进程内）或 `arq`（需 Redis + worker） |
-| `CROSSPILOT_REDIS_URL` | `redis://127.0.0.1:6379/0` | arq 队列使用的 Redis |
-| `CROSSPILOT_AUTO_MIGRATE` | `true` | 生产建议 `false`，改由 `crosspilot migrate` 显式迁移 |
-| `CROSSPILOT_COOKIE_SECURE` | `false` | HTTPS 部署必须设 `true` |
-| `CROSSPILOT_STORAGE_BACKEND` | `local` | `local` 或 `supabase` |
-| `CROSSPILOT_SUPABASE_URL` / `_SERVICE_KEY` / `_BUCKET` | 空 / 空 / `crosspilot` | Supabase Storage 配置 |
-| `CROSSPILOT_ALLOWED_ORIGINS` | 空 | CORS 允许来源（逗号分隔）；空表示仅同源 |
-| `CROSSPILOT_MAX_UPLOAD_BYTES` | 5 MB | 上传限制 |
+| `SURGE_DATABASE_URL` | 必填 | PostgreSQL 连接串 |
+| `SURGE_MIGRATION_DATABASE_URL` | 空 | 迁移专用直连串；为空则用 `DATABASE_URL` |
+| `SURGE_HOST` / `SURGE_PORT` | `127.0.0.1` / `8000` | 监听地址与端口 |
+| `SURGE_SECRET_KEY` | 自动生成文件 | API Key 加密主密钥；**一旦设定不要改**（改了旧 Key 全部失效） |
+| `SURGE_REQUIRE_API_KEY` | `true` | BYOK 强制；仅本地调试可关闭 |
+| `SURGE_PROVIDER` | `rule` | 进程级默认 Provider（无用户配置时兜底） |
+| `SURGE_RATE_LIMIT_ENABLED` | `true` | 是否启用限流 |
+| `SURGE_RATE_LIMIT_TASKS_PER_HOUR` | `10` | 每账号每小时任务数 |
+| `SURGE_RATE_LIMIT_KEY_TESTS_PER_HOUR` | `5` | 每账号每小时 Key 测试数 |
+| `SURGE_ALLOW_OPEN_REGISTRATION` | `true` | 关闭后除首个用户外必须持邀请令牌 |
+| `SURGE_TASK_QUEUE` | `thread` | `thread`（进程内）或 `arq`（需 Redis + worker） |
+| `SURGE_REDIS_URL` | `redis://127.0.0.1:6379/0` | arq 队列使用的 Redis |
+| `SURGE_AUTO_MIGRATE` | `true` | 生产建议 `false`，改由 `surge migrate` 显式迁移 |
+| `SURGE_COOKIE_SECURE` | `false` | HTTPS 部署必须设 `true` |
+| `SURGE_STORAGE_BACKEND` | `local` | `local` 或 `supabase` |
+| `SURGE_SUPABASE_URL` / `_SERVICE_KEY` / `_BUCKET` | 空 / 空 / `surge` | Supabase Storage 配置 |
+| `SURGE_ALLOWED_ORIGINS` | 空 | CORS 允许来源（逗号分隔）；空表示仅同源 |
+| `SURGE_MAX_UPLOAD_BYTES` | 5 MB | 上传限制 |
 
 `.env.example` 不含任何真实密钥；`.env` 已在 `.gitignore` 中。
 
@@ -203,16 +203,16 @@ cd backend
 pytest
 ```
 
-测试需要独立数据库。默认使用 `CROSSPILOT_DATABASE_URL`，也可单独指定：
+测试需要独立数据库。默认使用 `SURGE_DATABASE_URL`，也可单独指定：
 
 ```bash
 cd backend
-export CROSSPILOT_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/crosspilot_test"
+export SURGE_TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/surge_test"
 pytest
 ```
 
 > **⚠️ 必须用独立的测试库。** 测试启动时会 `DROP SCHEMA public CASCADE` 再重建，
-> 对开发库执行会**清空业务数据**。首次使用先建库：`createdb -U postgres crosspilot_test`。
+> 对开发库执行会**清空业务数据**。首次使用先建库：`createdb -U postgres surge_test`。
 
 套件覆盖分析、Listing、导入、API、迁移、租户隔离、Agent、会话、异步任务、审计、审批、店铺、平台目录、多厂商配置、身份与权限矩阵。另有检查脚本：
 
@@ -255,9 +255,9 @@ node frontend/scripts/ui_shots_auth_v2.mjs http://127.0.0.1:8000 ./shots   # 逐
 ## 目录结构
 
 ```
-CrossPilot/
+Surge/
 ├── backend/                    # Python 工程根：venv / 依赖 / 测试 / 脚本
-│   ├── crosspilot/             # 业务包
+│   ├── surge/                  # 业务包
 │   │   ├── api/                # HTTP 层，按业务域拆分
 │   │   ├── agent/              # Agent Runtime：图、planner、tools/skills/registry
 │   │   ├── services/           # 任务、队列、会话、审计、审批、邀请
@@ -285,7 +285,7 @@ CrossPilot/
 ## 敏感信息
 
 - API Key、店铺凭据只加密存储，返回时仅给引用与掩码；
-- 日志与模型上下文统一经过 `crosspilot/engine/scrubbing.py` 脱敏；
+- 日志与模型上下文统一经过 `surge/engine/scrubbing.py` 脱敏；
 - 审计日志的 `detail` 字段在写入前同样脱敏。
 
 ---

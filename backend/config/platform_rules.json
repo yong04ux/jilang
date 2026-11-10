@@ -3,8 +3,8 @@
     "version": "2024-06",
     "verified": false,
     "verified_at": null,
-    "disclaimer": "本文件为 CrossPilot 内部可配置规则示例，字符限制与内容要求参考公开的卖家帮助中心常见条目整理，但未经项目方对最新平台政策逐条核验。生成结果只能作为草稿，发布前必须人工对照平台最新政策确认。",
-    "last_reviewed_by": "crosspilot-team"
+    "disclaimer": "本文件为 Surge 内部可配置规则示例，字符限制与内容要求参考公开的卖家帮助中心常见条目整理，但未经项目方对最新平台政策逐条核验。生成结果只能作为草稿，发布前必须人工对照平台最新政策确认。",
+    "last_reviewed_by": "surge-team"
   },
   "defaults": {
     "title_max_chars": 200,

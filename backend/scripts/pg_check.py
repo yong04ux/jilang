@@ -4,8 +4,8 @@ r"""PostgreSQL 验收脚本（阶段 F7）。
 
 ```powershell
 # 先启动 PostgreSQL（示例：Docker）
-docker run -d --name cp-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=crosspilot -p 55432:5432 postgres:16-alpine
-.\.venv\Scripts\python.exe scripts\pg_check.py postgresql://postgres:postgres@127.0.0.1:55432/crosspilot --reset
+docker run -d --name cp-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=surge -p 55432:5432 postgres:16-alpine
+.\.venv\Scripts\python.exe scripts\pg_check.py postgresql://postgres:postgres@127.0.0.1:55432/surge --reset
 ```
 
 脚本会清空 public schema（仅测试库！）、在 PG 上创建应用并跑一遍核心链路：
@@ -42,10 +42,10 @@ def main() -> int:
     url = (
         sys.argv[1]
         if len(sys.argv) > 1 and sys.argv[1].startswith("postgres")
-        else os.environ.get("CROSSPILOT_DATABASE_URL", "")
+        else os.environ.get("SURGE_DATABASE_URL", "")
     )
     if not url:
-        print("需要传入 PostgreSQL URL 或设置 CROSSPILOT_DATABASE_URL")
+        print("需要传入 PostgreSQL URL 或设置 SURGE_DATABASE_URL")
         return 2
     if "--reset" in sys.argv:
         print("重置 public schema…")
@@ -55,15 +55,15 @@ def main() -> int:
     tmp.mkdir(parents=True, exist_ok=True)
     env_file = tmp / "empty.env"
     env_file.write_text("", encoding="utf-8")
-    os.environ["CROSSPILOT_ENV_FILE"] = str(env_file)
-    os.environ["CROSSPILOT_DATABASE_URL"] = url
-    os.environ["CROSSPILOT_PROVIDER"] = "rule"
-    os.environ["CROSSPILOT_DATA_DIR"] = str(tmp)
+    os.environ["SURGE_ENV_FILE"] = str(env_file)
+    os.environ["SURGE_DATABASE_URL"] = url
+    os.environ["SURGE_PROVIDER"] = "rule"
+    os.environ["SURGE_DATA_DIR"] = str(tmp)
 
     from fastapi.testclient import TestClient
 
-    from crosspilot.app import create_app
-    from crosspilot.config import get_settings
+    from surge.app import create_app
+    from surge.config import get_settings
 
     get_settings.cache_clear()
     app = create_app()

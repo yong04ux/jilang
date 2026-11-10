@@ -4,12 +4,13 @@ import { spawn } from 'node:child_process'
 import { rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 
 const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'
 const BASE = process.env.CP_BASE || 'http://127.0.0.1:8300'
 const USER = process.env.CP_USER || 'guest_c7f46c00'
 const PASS = process.env.CP_PASS || 'dYgDoYuvmp650dpBlMv_ay4G'
-const OUT = process.env.CP_OUT || 'D:/my-project/CrossPilot/docs/shots'
+const OUT = process.env.CP_OUT || fileURLToPath(new URL('../docs/shots', import.meta.url))
 const PORT = 9100 + (Date.now() % 90)
 const profile = join(tmpdir(), `cp-switch-${Date.now()}`)
 mkdirSync(OUT, { recursive: true })

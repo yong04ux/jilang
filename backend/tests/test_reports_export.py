@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
 def register(client, username: str) -> dict:

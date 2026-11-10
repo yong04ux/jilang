@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.agent import tools
-from crosspilot.market.competitor_provider import (
+from surge.agent import tools
+from surge.market.competitor_provider import (
     MODE_IMPORTED,
     MODE_LIVE,
     SOURCE_IMPORT,

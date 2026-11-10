@@ -9,20 +9,20 @@ from __future__ import annotations
 import pytest
 from langchain_core.messages import AIMessage
 
-from crosspilot.llm.langchain_client import (
+from surge.llm.langchain_client import (
     NATIVE_PROVIDERS,
     LangChainChatClient,
     _text_of,
     _to_langchain_messages,
 )
-from crosspilot.llm.llm import DeepSeekClient, LLMError, create_chat_client
-from crosspilot.llm.provider_configs import (
+from surge.llm.llm import DeepSeekClient, LLMError, create_chat_client
+from surge.llm.provider_configs import (
     ALLOWED_PROVIDERS,
     PRESET_BY_KEY,
     ProviderConfigError,
     validate_base_url,
 )
-from crosspilot.llm.providers import build_provider
+from surge.llm.providers import build_provider
 
 
 # ---------------------------------------------------------------------------
@@ -89,8 +89,8 @@ def test_openai_compatible_providers_keep_one_client(provider):
 
 
 def test_build_provider_routes_native_vendor():
-    from crosspilot.config import get_settings
-    from crosspilot.llm.model_settings import EffectiveModelConfig
+    from surge.config import get_settings
+    from surge.llm.model_settings import EffectiveModelConfig
 
     settings = get_settings()
     config = EffectiveModelConfig(
@@ -222,7 +222,7 @@ def _register(client, username: str) -> dict:
 
 def test_health_reports_verified_after_successful_test(client, monkeypatch):
     """用户点了「测试」且通过，顶栏就不该再说「未验证」。"""
-    from crosspilot.llm.providers import DeepSeekProvider
+    from surge.llm.providers import DeepSeekProvider
 
     # 打桩 ping，避开真实网络调用；测试接口本身照常走
     monkeypatch.setattr(DeepSeekProvider, "ping", lambda self: (True, "响应正常"))
@@ -244,8 +244,8 @@ def test_health_reports_verified_after_successful_test(client, monkeypatch):
 
 
 def test_health_reports_unverified_after_failed_test(client, monkeypatch):
-    from crosspilot.llm.llm import LLMError
-    from crosspilot.llm.providers import DeepSeekProvider
+    from surge.llm.llm import LLMError
+    from surge.llm.providers import DeepSeekProvider
 
     def boom(self):
         raise LLMError("Error code: 401 - invalid_api_key", kind="auth")
@@ -267,9 +267,9 @@ def test_health_reports_unverified_after_failed_test(client, monkeypatch):
 
 def _enable_byok(monkeypatch) -> None:
     """conftest 默认把 BYOK 关掉；这两个用例必须打开才能验到网关。"""
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("SURGE_REQUIRE_API_KEY", "true")
     get_settings.cache_clear()
 
 
@@ -280,7 +280,7 @@ def test_configured_user_is_not_treated_as_fallback(client, monkeypatch):
     都被判成降级，配好 Key 的用户点「开始执行」一律 428——整条主流程跑不动。
     正确判据是「纯粹的规则引擎」，不是「是不是 RuleProvider 的子类」。
     """
-    from crosspilot.llm.providers import DeepSeekProvider
+    from surge.llm.providers import DeepSeekProvider
 
     class _FakeClient:
         def chat_json(self, messages, **kwargs):

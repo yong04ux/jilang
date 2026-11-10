@@ -15,16 +15,16 @@ from typing import Any
 
 import pytest
 
-from crosspilot.agent import skills as agent_skills
-from crosspilot.agent import tools
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST, DEMO_LISTING_REQUEST
-from crosspilot.engine.profit import ProfitRequest, calculate
-from crosspilot.ingest import importers
-from crosspilot.llm.providers import RuleProvider
-from crosspilot.models import AnalysisReport, CompetitorAnalysisRequest, ListingDraft, ListingGenerationRequest
-from crosspilot.services import listing_service
-from crosspilot.skills import SKILL_REGISTRY
-from crosspilot.skills.base import SkillContext
+from surge.agent import skills as agent_skills
+from surge.agent import tools
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST, DEMO_LISTING_REQUEST
+from surge.engine.profit import ProfitRequest, calculate
+from surge.ingest import importers
+from surge.llm.providers import RuleProvider
+from surge.models import AnalysisReport, CompetitorAnalysisRequest, ListingDraft, ListingGenerationRequest
+from surge.services import listing_service
+from surge.skills import SKILL_REGISTRY
+from surge.skills.base import SkillContext
 
 EXAMPLES = Path(__file__).resolve().parents[2] / "examples"
 

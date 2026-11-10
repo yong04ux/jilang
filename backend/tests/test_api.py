@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from crosspilot.demo.demo_data import (
+from surge.demo.demo_data import (
     DEMO_ANALYSIS_REQUEST,
     DEMO_LISTING_REQUEST,
     DEMO_OWN_PRODUCT_SPARSE,
@@ -197,13 +197,13 @@ def test_db_isolated_between_tests(auth_client):
 
 def test_llm_failure_degrades_and_is_flagged(auth_client, monkeypatch):
     """DeepSeek 调用失败时降级为事实直出，但必须明确标注，不能假装成功。"""
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_PROVIDER", "deepseek")
-    monkeypatch.setenv("CROSSPILOT_DEEPSEEK_API_KEY", "sk-placeholder")
-    monkeypatch.setenv("CROSSPILOT_DEEPSEEK_BASE_URL", "http://127.0.0.1:9/v1")
-    monkeypatch.setenv("CROSSPILOT_DEEPSEEK_TIMEOUT", "2")
-    monkeypatch.setenv("CROSSPILOT_DEEPSEEK_MAX_RETRIES", "0")
+    monkeypatch.setenv("SURGE_PROVIDER", "deepseek")
+    monkeypatch.setenv("SURGE_DEEPSEEK_API_KEY", "sk-placeholder")
+    monkeypatch.setenv("SURGE_DEEPSEEK_BASE_URL", "http://127.0.0.1:9/v1")
+    monkeypatch.setenv("SURGE_DEEPSEEK_TIMEOUT", "2")
+    monkeypatch.setenv("SURGE_DEEPSEEK_MAX_RETRIES", "0")
     get_settings.cache_clear()
     try:
         response = auth_client.post("/api/listings/generate", json=DEMO_LISTING_REQUEST)
@@ -222,8 +222,8 @@ def test_provider_error_returns_503(auth_client, monkeypatch):
     注入点选在 ``build_provider``，与具体 provider 种类无关：
     将来增删 provider 不会让这条防护失去覆盖。
     """
-    import crosspilot.api.analyses as analyses_mod
-    from crosspilot.llm.providers import ProviderError
+    import surge.api.analyses as analyses_mod
+    from surge.llm.providers import ProviderError
 
     def boom(*args, **kwargs):
         raise ProviderError("模型不可用（测试注入）")

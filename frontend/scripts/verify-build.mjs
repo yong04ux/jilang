@@ -38,7 +38,7 @@ function check(ok, label, detail = '') {
   }
 }
 
-console.log('\nCrossPilot 产物契约校验\n' + '─'.repeat(56))
+console.log('\nSurge 产物契约校验\n' + '─'.repeat(56))
 
 // 1. 外壳存在
 check(existsSync(indexPath), 'dist/index.html 存在')

@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from crosspilot.demo.demo_data import DEMO_LISTING_REQUEST
+from surge.demo.demo_data import DEMO_LISTING_REQUEST
 
 
 def register(client, username="alice") -> dict:
@@ -20,9 +20,9 @@ def register(client, username="alice") -> dict:
 @pytest.fixture()
 def byok_client(client, monkeypatch):
     """打开 BYOK 强制的客户端（conftest 默认把它关掉，便于确定性流程）。"""
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("SURGE_REQUIRE_API_KEY", "true")
     get_settings.cache_clear()
     try:
         yield client
@@ -37,7 +37,7 @@ def byok_client(client, monkeypatch):
 
 
 def test_agent_run_without_key_runs_on_rules_and_says_so(byok_client):
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     headers = register(byok_client, "byok_agent")
     resp = byok_client.post(
@@ -76,7 +76,7 @@ def test_listing_async_without_key_runs_on_rules_and_says_so(byok_client):
 
 def test_analyze_still_works_without_key(byok_client):
     """竞品分析是本地确定性计算，不需要 Key —— 不该被 BYOK 拦掉。"""
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     headers = register(byok_client, "byok_analyze")
     resp = byok_client.post(
@@ -122,7 +122,7 @@ def test_guest_can_run_tasks_in_own_tenant(client):
 def test_guest_expiry_is_detected():
     from datetime import datetime, timedelta, timezone
 
-    from crosspilot.demo.demo_mode import is_guest_expired
+    from surge.demo.demo_mode import is_guest_expired
 
     past = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
     future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
@@ -135,8 +135,8 @@ def test_guest_expiry_is_detected():
 def test_cleanup_removes_expired_guests(client):
     from datetime import datetime, timedelta, timezone
 
-    from crosspilot.demo.demo_mode import cleanup_guests
-    from crosspilot.persistence.db import Database
+    from surge.demo.demo_mode import cleanup_guests
+    from surge.persistence.db import Database
 
     client.post("/api/auth/demo", json={})
     db = client.app.state.db
@@ -154,7 +154,7 @@ def test_cleanup_removes_expired_guests(client):
 
 
 def test_cleanup_keeps_active_guests(client):
-    from crosspilot.demo.demo_mode import cleanup_guests
+    from surge.demo.demo_mode import cleanup_guests
 
     client.post("/api/auth/demo", json={})
     db = client.app.state.db
@@ -168,10 +168,10 @@ def test_cleanup_keeps_active_guests(client):
 
 
 def test_rate_limit_blocks_after_threshold(client, monkeypatch):
-    from crosspilot.config import get_settings
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.config import get_settings
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
-    monkeypatch.setenv("CROSSPILOT_RATE_LIMIT_TASKS_PER_HOUR", "2")
+    monkeypatch.setenv("SURGE_RATE_LIMIT_TASKS_PER_HOUR", "2")
     get_settings.cache_clear()
     try:
         headers = register(client, "ratelimit")
@@ -193,9 +193,9 @@ def test_guest_creation_is_rate_limited_per_ip(client, monkeypatch):
 
     否则写个循环就能把 users / tenants / store_connections 全部灌满。
     """
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_RATE_LIMIT_GUEST_PER_HOUR", "2")
+    monkeypatch.setenv("SURGE_RATE_LIMIT_GUEST_PER_HOUR", "2")
     get_settings.cache_clear()
     try:
         statuses = [client.post("/api/auth/demo", json={}).status_code for _ in range(3)]
@@ -206,11 +206,11 @@ def test_guest_creation_is_rate_limited_per_ip(client, monkeypatch):
 
 
 def test_rate_limit_can_be_disabled(client, monkeypatch):
-    from crosspilot.config import get_settings
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.config import get_settings
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
-    monkeypatch.setenv("CROSSPILOT_RATE_LIMIT_ENABLED", "false")
-    monkeypatch.setenv("CROSSPILOT_RATE_LIMIT_TASKS_PER_HOUR", "1")
+    monkeypatch.setenv("SURGE_RATE_LIMIT_ENABLED", "false")
+    monkeypatch.setenv("SURGE_RATE_LIMIT_TASKS_PER_HOUR", "1")
     get_settings.cache_clear()
     try:
         headers = register(client, "ratelimit_off")
@@ -229,7 +229,7 @@ def test_rate_limit_can_be_disabled(client, monkeypatch):
 
 
 def test_async_analyze_produces_real_steps(client):
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     headers = register(client, "async_analyze")
     resp = client.post(

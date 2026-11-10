@@ -23,7 +23,7 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 WEB = BACKEND_ROOT.parent / "frontend"
 INDEX = WEB / "index.html"
 ROUTES_TSX = WEB / "src" / "app" / "routes.tsx"
-META_PY = BACKEND_ROOT / "crosspilot" / "api" / "meta.py"
+META_PY = BACKEND_ROOT / "surge" / "api" / "meta.py"
 
 #: 后端登记了外壳、但前端刻意没有对应路由的路径。
 #: 它们会落到客户端 404 页（app/routes.tsx 的兜底），属于预期行为。
@@ -129,7 +129,7 @@ if META_PY.is_file() and frontend_paths:
         unregistered = [path for path in routable if normalize(path) not in registered_normalized]
         if unregistered:
             failures.append(
-                f"这些前端路由没有登记到 backend/crosspilot/api/meta.py 的 SPA_ROUTES，"
+                f"这些前端路由没有登记到 backend/surge/api/meta.py 的 SPA_ROUTES，"
                 f"刷新/分享深链会得到 JSON 404: {unregistered}"
             )
 

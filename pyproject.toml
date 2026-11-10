@@ -1,5 +1,5 @@
 [project]
-name = "crosspilot"
+name = "surge"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = []
@@ -11,6 +11,6 @@ dependencies = []
 # Vercel 默认只在项目根找 app.py / main.py 等入口，所以这里显式指过去。
 #
 # backend/ 没有 __init__.py，按命名空间包导入（Python 3.3+ 支持）；
-# crosspilot 包内部全部用相对导入，因此 `backend.crosspilot.*` 前缀不会破坏它。
+# surge 包内部全部用相对导入，因此 `backend.surge.*` 前缀不会破坏它。
 [tool.vercel]
-entrypoint = "backend.crosspilot.worker_service:app"
+entrypoint = "backend.surge.worker_service:app"

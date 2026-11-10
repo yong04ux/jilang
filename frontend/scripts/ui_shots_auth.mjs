@@ -53,15 +53,15 @@ async function main() {
   await send('Page.navigate', { url: BASE + '/workbench' })
   await sleep(1800)
 
-  const loginUser = process.env.CROSSPILOT_SHOT_USER
-  const loginPassword = process.env.CROSSPILOT_SHOT_PASSWORD
+  const loginUser = process.env.SURGE_SHOT_USER
+  const loginPassword = process.env.SURGE_SHOT_PASSWORD
   const username = loginUser || 'shot_' + Date.now().toString(36)
   if (loginUser) {
     const status = await ev(`fetch('/api/auth/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: ${JSON.stringify(loginUser)}, password: ${JSON.stringify(loginPassword || '')} })
     }).then(r => r.status)`)
-    if (status !== 200) throw new Error('登录失败，检查 CROSSPILOT_SHOT_USER / PASSWORD')
+    if (status !== 200) throw new Error('登录失败，检查 SURGE_SHOT_USER / PASSWORD')
   } else {
     await ev(`fetch('/api/auth/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

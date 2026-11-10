@@ -4,7 +4,7 @@
   "public": false,
   "trailingSlash": false,
   "functions": {
-    "backend/crosspilot/worker_service.py": {
+    "backend/surge/worker_service.py": {
       "maxDuration": 300
     }
   },

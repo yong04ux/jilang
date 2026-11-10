@@ -24,12 +24,12 @@ SKIP = {
     "venv",
     "build",
     "dist",
-    "crosspilot.egg-info",
+    "surge.egg-info",
     "_backup",
 }
 # backend/ 内的工程目录 + 仓库根的前端与资产目录
 ALLOW_DIRS = (
-    (BACKEND_ROOT, "crosspilot"),
+    (BACKEND_ROOT, "surge"),
     (BACKEND_ROOT, "tests"),
     (BACKEND_ROOT, "scripts"),
     (BACKEND_ROOT, "config"),

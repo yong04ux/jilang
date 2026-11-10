@@ -1,4 +1,4 @@
-# CrossPilot 依赖（唯一清单）
+# Surge 依赖（唯一清单）
 #
 #   pip install -r requirements.txt
 #
@@ -33,6 +33,6 @@ openai>=1.40
 pytest>=8.0
 httpx>=0.27
 
-# ---- 可选：arq 队列 worker（CROSSPILOT_TASK_QUEUE=arq 时需要 Redis） ------
+# ---- 可选：arq 队列 worker（SURGE_TASK_QUEUE=arq 时需要 Redis） ------
 arq>=0.26,<1.0
 redis>=5.0

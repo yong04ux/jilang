@@ -8,13 +8,13 @@ import pytest
 
 
 def database_url() -> str:
-    url = os.environ.get("CROSSPILOT_TEST_DATABASE_URL") or os.environ.get(
-        "CROSSPILOT_DATABASE_URL"
+    url = os.environ.get("SURGE_TEST_DATABASE_URL") or os.environ.get(
+        "SURGE_DATABASE_URL"
     )
     if not url:
         pytest.exit(
-            "测试需要 PostgreSQL：请设置 CROSSPILOT_TEST_DATABASE_URL"
-            "（或 CROSSPILOT_DATABASE_URL）。",
+            "测试需要 PostgreSQL：请设置 SURGE_TEST_DATABASE_URL"
+            "（或 SURGE_DATABASE_URL）。",
             returncode=2,
         )
     return url
@@ -34,7 +34,7 @@ def reset_schema(url: str | None = None) -> None:
         connection.execute("DROP SCHEMA IF EXISTS public CASCADE")
         connection.execute("CREATE SCHEMA public")
 
-    from crosspilot.agent import checkpoint
+    from surge.agent import checkpoint
 
     checkpoint.reset_checkpointer()
     checkpoint.setup_checkpointer()

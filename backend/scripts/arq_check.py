@@ -28,17 +28,17 @@ from urllib.parse import urlparse, urlunparse
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-tmp = Path(tempfile.mkdtemp(prefix="crosspilot-arq-"))
+tmp = Path(tempfile.mkdtemp(prefix="surge-arq-"))
 (tmp / "empty.env").write_text("", encoding="utf-8")
-os.environ["CROSSPILOT_ENV_FILE"] = str(tmp / "empty.env")
-os.environ["CROSSPILOT_DATA_DIR"] = str(tmp)
-os.environ["CROSSPILOT_SECRET_KEY"] = "arq-check-secret-material"
-os.environ["CROSSPILOT_TASK_QUEUE"] = "arq"
-os.environ["CROSSPILOT_REDIS_URL"] = "redis://127.0.0.1:6379/15"
+os.environ["SURGE_ENV_FILE"] = str(tmp / "empty.env")
+os.environ["SURGE_DATA_DIR"] = str(tmp)
+os.environ["SURGE_SECRET_KEY"] = "arq-check-secret-material"
+os.environ["SURGE_TASK_QUEUE"] = "arq"
+os.environ["SURGE_REDIS_URL"] = "redis://127.0.0.1:6379/15"
 
-base_url = os.environ.get("CROSSPILOT_DATABASE_URL", "")
+base_url = os.environ.get("SURGE_DATABASE_URL", "")
 if not base_url.startswith("postgres"):
-    raise SystemExit("需要 CROSSPILOT_DATABASE_URL（PostgreSQL）才能运行 arq 联调")
+    raise SystemExit("需要 SURGE_DATABASE_URL（PostgreSQL）才能运行 arq 联调")
 
 parsed = urlparse(base_url)
 check_db = f"cp_arq_check_{int(time.time())}"
@@ -49,14 +49,14 @@ import psycopg  # noqa: E402
 
 with psycopg.connect(admin_url, autocommit=True) as admin:
     admin.execute(f'CREATE DATABASE "{check_db}"')
-os.environ["CROSSPILOT_DATABASE_URL"] = temp_url
+os.environ["SURGE_DATABASE_URL"] = temp_url
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from crosspilot.app import create_app  # noqa: E402
-from crosspilot.config import get_settings  # noqa: E402
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST  # noqa: E402
-from crosspilot.worker import run_task  # noqa: E402
+from surge.app import create_app  # noqa: E402
+from surge.config import get_settings  # noqa: E402
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST  # noqa: E402
+from surge.worker import run_task  # noqa: E402
 
 
 def main() -> int:
@@ -98,7 +98,7 @@ def main() -> int:
             worker = Worker(
                 [run_task],
                 redis_settings=RedisSettings.from_dsn(settings.redis_url),
-                queue_name="crosspilot",
+                queue_name="surge",
                 burst=True,
                 poll_delay=0.1,
                 job_timeout=120,

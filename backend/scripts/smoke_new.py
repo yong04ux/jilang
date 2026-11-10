@@ -1,8 +1,8 @@
 """新接口冒烟：M2 数据源 / M4 多厂商 / M5 演示机制。
 
-用法（从 crosspilot/ 目录）：
+用法（从 surge/ 目录）：
     python scripts/smoke_new.py
-需要 CROSSPILOT_TEST_DATABASE_URL（或 CROSSPILOT_DATABASE_URL）指向一个可清空的测试库。
+需要 SURGE_TEST_DATABASE_URL（或 SURGE_DATABASE_URL）指向一个可清空的测试库。
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def main() -> int:
 
     reset_schema(database_url())
 
-    from crosspilot.app import create_app
+    from surge.app import create_app
 
     client = TestClient(create_app())
 
@@ -112,7 +112,7 @@ def main() -> int:
     check("GET overview", resp.status_code == 200)
 
     # 异步竞品分析
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     resp = client.post("/api/analyze?async_run=true", json=DEMO_ANALYSIS_REQUEST, headers=headers)
     check("POST /api/analyze?async_run=true", resp.status_code == 200, resp.text[:200])

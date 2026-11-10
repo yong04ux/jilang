@@ -11,8 +11,8 @@ import time
 
 import pytest
 
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST, DEMO_LISTING_REQUEST
-from crosspilot.skills import SKILL_REGISTRY
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST, DEMO_LISTING_REQUEST
+from surge.skills import SKILL_REGISTRY
 
 
 def register(client, username: str) -> dict:
@@ -41,9 +41,9 @@ def wait_status(client, task_id: str, headers: dict, statuses: set[str], timeout
 @pytest.fixture()
 def byok_client(client, monkeypatch):
     """打开 BYOK 强制的客户端（conftest 默认关掉它，便于确定性流程）。"""
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("SURGE_REQUIRE_API_KEY", "true")
     get_settings.cache_clear()
     try:
         yield client

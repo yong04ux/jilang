@@ -7,13 +7,13 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.demo.demo_data import DEMO_LISTING_REQUEST, DEMO_OWN_PRODUCT, DEMO_OWN_PRODUCT_SPARSE
-from crosspilot.engine.facts import FactKind, build_fact_sheet
-from crosspilot.engine.listing_llm import audit_claim, generate_listing, rule_fallback
-from crosspilot.llm.llm import Usage, normalize_model, parse_json_response
-from crosspilot.market.marketplaces import get_marketplace
-from crosspilot.models import IssueCode, ListingGenerationRequest, OwnProduct, Severity
-from crosspilot.engine.rules import get_rules
+from surge.demo.demo_data import DEMO_LISTING_REQUEST, DEMO_OWN_PRODUCT, DEMO_OWN_PRODUCT_SPARSE
+from surge.engine.facts import FactKind, build_fact_sheet
+from surge.engine.listing_llm import audit_claim, generate_listing, rule_fallback
+from surge.llm.llm import Usage, normalize_model, parse_json_response
+from surge.market.marketplaces import get_marketplace
+from surge.models import IssueCode, ListingGenerationRequest, OwnProduct, Severity
+from surge.engine.rules import get_rules
 
 
 class FakeClient:
@@ -325,7 +325,7 @@ def test_parse_json_strips_code_fence():
 
 
 def test_parse_json_rejects_non_object():
-    from crosspilot.llm.llm import LLMError
+    from surge.llm.llm import LLMError
 
     with pytest.raises(LLMError):
         parse_json_response("[1, 2, 3]")

@@ -11,21 +11,21 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from crosspilot.app import create_app
-from crosspilot.auth import hash_password, verify_password
-from crosspilot.persistence.secrets import SecretBox, SecretError
+from surge.app import create_app
+from surge.auth import hash_password, verify_password
+from surge.persistence.secrets import SecretBox, SecretError
 
 
 @pytest.fixture()
 def fresh_app(tmp_path, monkeypatch):
     """每个测试用独立 schema 与独立加密密钥，互不干扰。"""
-    monkeypatch.setenv("CROSSPILOT_SECRET_KEY", "test-secret-material")
-    from crosspilot.config import get_settings
+    monkeypatch.setenv("SURGE_SECRET_KEY", "test-secret-material")
+    from surge.config import get_settings
     from pg_support import database_url, reset_schema
 
     url = database_url()
     reset_schema(url)
-    monkeypatch.setenv("CROSSPILOT_DATABASE_URL", url)
+    monkeypatch.setenv("SURGE_DATABASE_URL", url)
     get_settings.cache_clear()
     app = create_app()
     with TestClient(app) as client:
@@ -460,7 +460,7 @@ def test_history_is_isolated_between_users(fresh_app):
 def test_legacy_records_are_not_auto_assigned(fresh_app, tmp_path):
     """启用账号前产生的历史数据，不应被自动塞给第一个用户。"""
     # 直接写入一条 user_id 为空的记录，模拟旧数据
-    from crosspilot.persistence.db import Database
+    from surge.persistence.db import Database
     from pg_support import database_url
 
     db = Database(database_url())

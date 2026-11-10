@@ -9,16 +9,16 @@
 
 from __future__ import annotations
 
-from crosspilot.agent.graphs.competitor_analysis import run_competitor_graph
-from crosspilot.agent.state import OUTCOME_PARTIAL, OUTCOME_SUCCEEDED
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
-from crosspilot.llm.providers import RuleProvider
-from crosspilot.market.competitor_provider import (
+from surge.agent.graphs.competitor_analysis import run_competitor_graph
+from surge.agent.state import OUTCOME_PARTIAL, OUTCOME_SUCCEEDED
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.llm.providers import RuleProvider
+from surge.market.competitor_provider import (
     CompetitorData,
     CompetitorProviderError,
     ProviderNotConfigured,
 )
-from crosspilot.services import competitor_facts
+from surge.services import competitor_facts
 
 
 def request_payload(competitors=None, **overrides) -> dict:
@@ -206,7 +206,7 @@ def test_fetch_failure_after_retries_propagates():
 
 
 def test_missing_competitors_is_rejected_as_input_error():
-    from crosspilot.agent.contracts import SkillInputInvalid
+    from surge.agent.contracts import SkillInputInvalid
 
     payload = request_payload()
     payload.pop("competitors")
@@ -220,7 +220,7 @@ def test_missing_competitors_is_rejected_as_input_error():
 
 
 def test_report_can_be_persisted(temp_settings):
-    from crosspilot.persistence.db import Database
+    from surge.persistence.db import Database
 
     db = Database(temp_settings.database_url)
     db.create_user("u-cmp", "cmp_user", "hash")

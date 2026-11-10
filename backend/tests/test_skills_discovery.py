@@ -8,8 +8,8 @@
 
 from __future__ import annotations
 
-from crosspilot.skills.discovery import catalog, discover, load_instructions
-from crosspilot.skills.registry import SKILL_REGISTRY
+from surge.skills.discovery import catalog, discover, load_instructions
+from surge.skills.registry import SKILL_REGISTRY
 
 
 def register(client, username: str) -> dict:

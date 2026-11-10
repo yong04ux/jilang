@@ -7,7 +7,7 @@ import pytest
 
 @pytest.fixture()
 def seeded(client):
-    from crosspilot.demo.seed import seed_demo
+    from surge.demo.seed import seed_demo
 
     db = client.app.state.db
     summary = seed_demo(db, demo_username="demo", demo_password="demo-pass-1234")
@@ -23,7 +23,7 @@ def test_seed_creates_reports_listings_and_tasks(seeded):
 
 
 def test_seed_is_idempotent(seeded):
-    from crosspilot.demo.seed import seed_demo
+    from surge.demo.seed import seed_demo
 
     db, _ = seeded
     again = seed_demo(db, demo_username="demo", demo_password="demo-pass-1234")

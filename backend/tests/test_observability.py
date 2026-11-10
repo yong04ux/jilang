@@ -12,9 +12,9 @@ import json
 
 import pytest
 
-from crosspilot.agent.steps import StepRunner
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
-from crosspilot.llm import telemetry
+from surge.agent.steps import StepRunner
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.llm import telemetry
 
 
 def register(client, username: str) -> dict:
@@ -80,7 +80,7 @@ def test_trace_points_at_failed_node(client, monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError("统计炸了")
 
-    monkeypatch.setattr("crosspilot.engine.analysis.run_analysis", boom)
+    monkeypatch.setattr("surge.engine.analysis.run_analysis", boom)
     headers = register(client, "obs_fail")
     resp = client.post("/api/agent/runs", json=body(), headers=headers)
     assert resp.status_code >= 500
@@ -169,7 +169,7 @@ def test_call_record_has_no_text_fields():
 
 def test_step_runner_persists_llm_calls(client):
     """步骤里发生的模型调用会落到 llm_calls，并能从 trace 读回来。"""
-    from crosspilot.agent.runtime import create_agent_task
+    from surge.agent.runtime import create_agent_task
 
     headers = register(client, "obs_calls")
     ident = client.get("/api/tenants/current", headers=headers).json()
@@ -217,7 +217,7 @@ def test_step_runner_persists_llm_calls(client):
 
 def test_client_chat_records_attempts_without_text(client):
     """底层 ``chat()`` 的埋点：成功一次记 1 次尝试，且不落任何文本。"""
-    from crosspilot.llm.llm import DeepSeekClient
+    from surge.llm.llm import DeepSeekClient
 
     llm = DeepSeekClient(api_key="sk-test", model="deepseek-flash", max_retries=0)
 
@@ -277,7 +277,7 @@ def test_trace_never_exposes_credentials(client):
 
 
 def test_scrub_masks_keys_in_audit_detail():
-    from crosspilot.engine.scrubbing import scrub
+    from surge.engine.scrubbing import scrub
 
     cleaned = scrub(
         {

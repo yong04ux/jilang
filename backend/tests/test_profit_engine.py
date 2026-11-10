@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from crosspilot.engine.profit import ProfitRequest, calculate
+from surge.engine.profit import ProfitRequest, calculate
 
 BASE = dict(
     product_name="折叠收纳箱",

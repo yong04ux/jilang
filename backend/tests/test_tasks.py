@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST, DEMO_LISTING_REQUEST
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST, DEMO_LISTING_REQUEST
 
 
 def test_analyze_creates_task_with_real_steps(auth_client):
@@ -29,8 +29,8 @@ def test_analyze_creates_task_with_real_steps(auth_client):
 
 def test_failed_execution_creates_failed_task(auth_client, monkeypatch):
     """执行期失败必须留下 failed 任务与失败步骤（Pydantic 层 422 进不了端点，另测）。"""
-    import crosspilot.api.analyses as analyses_mod
-    from crosspilot.llm.providers import ProviderError
+    import surge.api.analyses as analyses_mod
+    from surge.llm.providers import ProviderError
 
     def boom(*args, **kwargs):
         raise ProviderError("模型不可用（测试注入）")

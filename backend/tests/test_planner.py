@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 
-from crosspilot.agent.planner import plan_for, resolve_goal, rule_resolve
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.agent.planner import plan_for, resolve_goal, rule_resolve
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
 class FakeClient:

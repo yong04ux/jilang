@@ -10,16 +10,16 @@
 
 from __future__ import annotations
 
-from crosspilot.skills.inputs import ListingGenerationInput
-from crosspilot.agent.graphs.listing_generation import run_listing_graph
-from crosspilot.agent.state import (
+from surge.skills.inputs import ListingGenerationInput
+from surge.agent.graphs.listing_generation import run_listing_graph
+from surge.agent.state import (
     OUTCOME_NEEDS_INPUT,
     OUTCOME_NEEDS_REVIEW,
     OUTCOME_SUCCEEDED,
 )
-from crosspilot.llm.providers import RuleProvider
-from crosspilot.models import QualityCheck
-from crosspilot.services import listing_facts
+from surge.llm.providers import RuleProvider
+from surge.models import QualityCheck
+from surge.services import listing_facts
 
 
 def register(client, username: str) -> dict:
@@ -207,7 +207,7 @@ def test_no_revision_without_a_model():
 
 
 def test_persist_is_idempotent_per_task(temp_settings):
-    from crosspilot.persistence.db import Database
+    from surge.persistence.db import Database
 
     db = Database(temp_settings.database_url)
     db.create_user("u-idem", "idem_user", "hash")
@@ -278,7 +278,7 @@ def test_agent_run_stops_at_waiting_input_when_facts_missing(client):
 
 def test_degraded_listing_still_succeeds(client):
     """回归：没有模型时草稿质检不通过是既有行为，不能把任务改成"待复核"。"""
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     headers = register(client, "graph_degraded")
     resp = client.post(
@@ -303,7 +303,7 @@ def test_degraded_listing_still_succeeds(client):
 
 
 def test_listing_skill_contract_is_runnable():
-    from crosspilot.skills.registry import get_skill_spec
+    from surge.skills.registry import get_skill_spec
 
     spec = get_skill_spec("listing_generation")
     assert spec is not None

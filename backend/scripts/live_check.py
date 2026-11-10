@@ -1,7 +1,7 @@
 """真实 HTTP 验收脚本：对运行中的服务做端到端检查（含文件上传）。
 
 业务接口需要登录（项目后期加入鉴权，脚本已同步）。优先使用环境变量
-``CROSSPILOT_LIVE_USER`` / ``CROSSPILOT_LIVE_PASSWORD``；
+``SURGE_LIVE_USER`` / ``SURGE_LIVE_PASSWORD``；
 未提供时注册一个一次性账号并在结束时提示，方便手动清理。
 """
 
@@ -28,10 +28,10 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         failures.append(name)
 
 
-with httpx.Client(base_url=BASE, timeout=float(os.environ.get("CROSSPILOT_LIVE_TIMEOUT", "180"))) as client:
+with httpx.Client(base_url=BASE, timeout=float(os.environ.get("SURGE_LIVE_TIMEOUT", "180"))) as client:
     # 0) 登录：业务接口全部需要认证
-    user = os.environ.get("CROSSPILOT_LIVE_USER")
-    password = os.environ.get("CROSSPILOT_LIVE_PASSWORD")
+    user = os.environ.get("SURGE_LIVE_USER")
+    password = os.environ.get("SURGE_LIVE_PASSWORD")
     if user and password:
         auth = client.post("/api/auth/login", json={"username": user, "password": password})
     else:

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.eval.live_cases import build_live_suite
-from crosspilot.eval.live_runner import LiveEvalError, assert_not_fallback, build_live_provider, rule_provider
-from crosspilot.eval.live_scoring import PASS_SCORE, score_draft
+from surge.eval.live_cases import build_live_suite
+from surge.eval.live_runner import LiveEvalError, assert_not_fallback, build_live_provider, rule_provider
+from surge.eval.live_scoring import PASS_SCORE, score_draft
 
 
 def _case(case_id: str):

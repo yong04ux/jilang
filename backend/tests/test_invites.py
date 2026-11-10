@@ -13,9 +13,9 @@ def register(client, username: str, **extra) -> dict:
 
 
 def close_registration(monkeypatch):
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_ALLOW_OPEN_REGISTRATION", "false")
+    monkeypatch.setenv("SURGE_ALLOW_OPEN_REGISTRATION", "false")
     get_settings.cache_clear()
 
 

@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-from crosspilot.skills import SKILL_REGISTRY
-from crosspilot.skills.base import RENDERERS, SkillSpec
+from surge.skills import SKILL_REGISTRY
+from surge.skills.base import RENDERERS, SkillSpec
 
 EXPECTED_KEYS = {
     "competitor_analysis",

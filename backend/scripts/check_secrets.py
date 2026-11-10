@@ -44,11 +44,11 @@ SKIP_PARTS = {
     "venv",
     "build",
     "dist",
-    "crosspilot.egg-info",
+    "surge.egg-info",
     "_backup",
 }
 
-SCAN_DIRS = ("crosspilot", "tests", "scripts", "config")
+SCAN_DIRS = ("surge", "tests", "scripts", "config")
 REPO_ROOT_FILES = (
     "README.md",
     "render.yaml",
@@ -85,7 +85,7 @@ ALLOW_MARKERS = (
     "example", "sample", "dummy", "fake", "placeholder", "changeme",
     "redacted", "your-", "your_", "xxx", "***", "...", "<", "{{", "}}",
     # 本地开发默认口令：本来就是公开的，不是秘密
-    "postgres:postgres@", "crosspilot:crosspilot@", "password@localhost",
+    "postgres:postgres@", "surge:surge@", "password@localhost",
 )
 
 

@@ -1,6 +1,6 @@
 """``ThreadTaskQueue`` 的并发上限与排队行为。
 
-背景：``CROSSPILOT_MAX_JOBS`` 曾经只是个摆设 —— ``Settings`` 里没有这个字段，
+背景：``SURGE_MAX_JOBS`` 曾经只是个摆设 —— ``Settings`` 里没有这个字段，
 ``ThreadTaskQueue`` 也没有任何并发控制，每个任务立刻起一个线程。免费实例
 （Render 512MB）上几个用户同时点分析就有 OOM 风险。这组测试锁住修复后的语义：
 
@@ -14,7 +14,7 @@ from __future__ import annotations
 import threading
 import time
 
-from crosspilot.services.queue import ThreadTaskQueue, build_task_queue
+from surge.services.queue import ThreadTaskQueue, build_task_queue
 
 
 def _wait_until(predicate, timeout: float = 3.0) -> bool:
@@ -98,7 +98,7 @@ def test_non_positive_max_jobs_means_unlimited():
 
 def test_build_task_queue_passes_max_jobs_from_settings():
     """工厂必须把 Settings.max_jobs 传下去，否则环境变量仍然无效。"""
-    from crosspilot.config import Settings
+    from surge.config import Settings
 
     settings = Settings(task_queue="thread", max_jobs=2)
     queue = build_task_queue(settings)

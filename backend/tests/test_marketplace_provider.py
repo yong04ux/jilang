@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.market.marketplace_provider import (
+from surge.market.marketplace_provider import (
     LiveMarketplaceProvider,
     MockMarketplaceProvider,
     ProviderNotConfigured,

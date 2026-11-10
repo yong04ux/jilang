@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.agent import checkpoint as checkpoint_mod
-from crosspilot.agent import steps as steps_mod
-from crosspilot.agent import workflows
-from crosspilot.agent.graphs.combined_operations import build_combined_graph
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
-from crosspilot.llm.providers import RuleProvider
+from surge.agent import checkpoint as checkpoint_mod
+from surge.agent import steps as steps_mod
+from surge.agent import workflows
+from surge.agent.graphs.combined_operations import build_combined_graph
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.llm.providers import RuleProvider
 
 
 def register(client, username: str) -> dict:
@@ -207,7 +207,7 @@ def test_retry_does_not_duplicate_artifacts(client):
     listings_before = client.get("/api/listings", headers=headers).json()["items"]
 
     # 直接对同一个任务再落一次产物（等价于"重跑后重新保存"）
-    from crosspilot.services.artifacts import save_run_artifacts
+    from surge.services.artifacts import save_run_artifacts
 
     db = client.app.state.db
     ident = client.get("/api/tenants/current", headers=headers).json()
@@ -237,8 +237,8 @@ def test_retry_does_not_duplicate_artifacts(client):
 
 
 def test_step_timeout_is_enforced_at_node_boundary():
-    from crosspilot.agent.contracts import SkillTimeout
-    from crosspilot.agent.steps import StepRunner
+    from surge.agent.contracts import SkillTimeout
+    from surge.agent.steps import StepRunner
 
     runner = StepRunner()
     token = steps_mod.begin_deadline(0.001)
@@ -253,8 +253,8 @@ def test_step_timeout_is_enforced_at_node_boundary():
 
 
 def test_timeout_maps_to_retryable_504():
-    from crosspilot.agent import errors as agent_errors
-    from crosspilot.agent.contracts import SkillTimeout
+    from surge.agent import errors as agent_errors
+    from surge.agent.contracts import SkillTimeout
 
     info = agent_errors.classify(SkillTimeout("工作流执行超时"))
     assert info.http_status == 504

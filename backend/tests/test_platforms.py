@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.demo.store_data import DEMO_STORES, demo_catalog
-from crosspilot.demo.store_seed import seed_demo_stores
-from crosspilot.market.platforms import (
+from surge.demo.store_data import DEMO_STORES, demo_catalog
+from surge.demo.store_seed import seed_demo_stores
+from surge.market.platforms import (
     ALL_CAPABILITIES,
     PLATFORMS,
     PlatformNotConnected,

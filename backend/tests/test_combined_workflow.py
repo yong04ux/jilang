@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.agent.checkpoint import reset_checkpointer
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.agent.checkpoint import reset_checkpointer
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
 @pytest.fixture(autouse=True)
@@ -214,13 +214,13 @@ def test_missing_product_facts_block_before_confirmation(client):
 
 
 def test_analysis_failure_stops_before_listing(client, monkeypatch):
-    from crosspilot.market.competitor_provider import CompetitorProviderError
+    from surge.market.competitor_provider import CompetitorProviderError
 
     def boom(*args, **kwargs):
         raise CompetitorProviderError("取数服务异常")
 
     monkeypatch.setattr(
-        "crosspilot.agent.graphs.combined_operations.run_competitor_graph", boom
+        "surge.agent.graphs.combined_operations.run_competitor_graph", boom
     )
     headers = register(client, "cw_failed")
     resp = client.post("/api/agent/combined/runs", json=body(), headers=headers)
@@ -294,7 +294,7 @@ def test_paused_task_survives_saver_restart(client):
     assert out["status"] == "waiting_for_review"
 
     reset_checkpointer()  # 模拟进程重启：缓存与连接全丢
-    from crosspilot.agent import checkpoint as checkpoint_mod
+    from surge.agent import checkpoint as checkpoint_mod
 
     checkpoint_mod.setup_checkpointer()
 
@@ -338,7 +338,7 @@ def test_checkpoint_loss_still_allows_cancel(client):
     headers = register(client, "cw_lost_cancel")
     out = run_combined(client, headers, competitors=FEW_COMPETITORS)
 
-    from crosspilot.agent import checkpoint as checkpoint_mod
+    from surge.agent import checkpoint as checkpoint_mod
 
     tenant_id = client.get("/api/tenants/current", headers=headers).json()["tenant_id"]
     checkpoint_mod.cleanup_thread(tenant_id, out["task_id"])
@@ -355,10 +355,10 @@ def test_checkpoint_loss_still_allows_cancel(client):
 
 def test_confirmation_does_not_bypass_quality_check():
     """确认继续 ≠ 免检：Listing 质检一定执行，结论如实保留。"""
-    from crosspilot.agent.checkpoint import thread_config
-    from crosspilot.agent.graphs.combined_operations import build_combined_graph
-    from crosspilot.llm.providers import RuleProvider
-    from crosspilot.market.competitor_provider import CompetitorData
+    from surge.agent.checkpoint import thread_config
+    from surge.agent.graphs.combined_operations import build_combined_graph
+    from surge.llm.providers import RuleProvider
+    from surge.market.competitor_provider import CompetitorData
 
     class Counting:
         mode = "imported"

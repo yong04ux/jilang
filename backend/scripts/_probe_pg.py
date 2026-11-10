@@ -2,13 +2,13 @@
 import os
 import sys
 
-sys.path.insert(0, r"D:\my-project\CrossPilot\backend\.venv\Lib\site-packages")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".venv", "Lib", "site-packages")))
 
 CANDIDATES = [
-    "postgresql://postgres:postgres@127.0.0.1:5432/crosspilot",
+    "postgresql://postgres:postgres@127.0.0.1:5432/surge",
     "postgresql://postgres:postgres@127.0.0.1:5432/postgres",
     "postgresql://postgres@127.0.0.1:5432/postgres",
-    "postgresql://postgres:postgres@127.0.0.1:5432/crosspilot?sslmode=disable",
+    "postgresql://postgres:postgres@127.0.0.1:5432/surge?sslmode=disable",
 ]
 
 try:

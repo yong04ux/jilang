@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 
-from crosspilot.demo.demo_data import DEMO_LISTING_REQUEST, DEMO_OWN_PRODUCT, DEMO_OWN_PRODUCT_SPARSE
-from crosspilot.engine.listing import (
+from surge.demo.demo_data import DEMO_LISTING_REQUEST, DEMO_OWN_PRODUCT, DEMO_OWN_PRODUCT_SPARSE
+from surge.engine.listing import (
     audit_declarations,
     build_search_terms,
     generate_listing,
 )
-from crosspilot.models import (
+from surge.models import (
     IssueCode,
     ListingGenerationRequest,
     Platform,
     Severity,
 )
-from crosspilot.engine.rules import get_rules
+from surge.engine.rules import get_rules
 
 
 def _request(**product_overrides) -> ListingGenerationRequest:
@@ -67,7 +67,7 @@ def test_unsupported_number_is_detected():
     issue = audit_declarations(
         "Holds up to 999 hours of heat and 42oz capacity.",
         "description",
-        __import__("crosspilot.engine.listing", fromlist=["AuditContext"]).AuditContext(
+        __import__("surge.engine.listing", fromlist=["AuditContext"]).AuditContext(
             allowed_numbers={"750", "380"},
             allowed_phrases=set(),
             banned=get_rules().banned_terms(),
@@ -79,7 +79,7 @@ def test_unsupported_number_is_detected():
 
 
 def test_supported_numbers_pass_audit():
-    from crosspilot.engine.listing import AuditContext
+    from surge.engine.listing import AuditContext
 
     context = AuditContext(
         allowed_numbers={"750ml", "750", "380", "380g"},
@@ -92,7 +92,7 @@ def test_supported_numbers_pass_audit():
 
 
 def test_unverified_certification_is_error():
-    from crosspilot.engine.listing import AuditContext
+    from surge.engine.listing import AuditContext
 
     context = AuditContext(
         allowed_numbers=set(),
@@ -115,7 +115,7 @@ def test_banned_terms_are_flagged_and_block_pass():
 
 
 def test_brand_banned_term_forces_error_when_used():
-    from crosspilot.engine.listing import AuditContext
+    from surge.engine.listing import AuditContext
 
     banned = get_rules().banned_terms(["EcoSipMagic"])
     context = AuditContext(
@@ -139,7 +139,7 @@ def test_title_respects_platform_limit():
 
 def test_search_terms_respect_byte_limit():
     rules = get_rules().platform_rules(Platform.AMAZON, "US")
-    from crosspilot.models import KeywordMetric
+    from surge.models import KeywordMetric
 
     keywords = [KeywordMetric(keyword=f"keyword-{i}-" + "x" * 20) for i in range(30)]
     terms = build_search_terms(keywords, rules, facts_text="")
@@ -147,7 +147,7 @@ def test_search_terms_respect_byte_limit():
 
 
 def test_keyword_stuffing_is_detected():
-    from crosspilot.engine.listing import check_keyword_stuffing
+    from surge.engine.listing import check_keyword_stuffing
 
     text = " ".join(["insulated bottle"] * 20)
     issues = check_keyword_stuffing(text, ["insulated bottle"], 4, "title")
@@ -182,10 +182,10 @@ def test_a_plus_outline_contains_required_modules():
 
 
 def test_listing_with_analysis_report_uses_differentiation():
-    from crosspilot.engine.analysis import run_analysis
-    from crosspilot.models import CompetitorAnalysisRequest
+    from surge.engine.analysis import run_analysis
+    from surge.models import CompetitorAnalysisRequest
 
-    report = run_analysis(CompetitorAnalysisRequest(**__import__("crosspilot.demo.demo_data", fromlist=["DEMO_ANALYSIS_REQUEST"]).DEMO_ANALYSIS_REQUEST))
+    report = run_analysis(CompetitorAnalysisRequest(**__import__("surge.demo.demo_data", fromlist=["DEMO_ANALYSIS_REQUEST"]).DEMO_ANALYSIS_REQUEST))
     listing = generate_listing(_request(), analysis_report=report.model_dump(mode="json"))
     assert listing.analysis_report_id == report.report_id
     assert listing.differentiation_used
@@ -227,7 +227,7 @@ def test_keywords_without_metrics_never_enter_title():
 
 
 def test_irrelevant_keyword_not_added_to_title_even_with_metrics():
-    from crosspilot.models import KeywordMetric
+    from surge.models import KeywordMetric
 
     payload = dict(DEMO_LISTING_REQUEST)
     payload["product"] = dict(DEMO_OWN_PRODUCT)
@@ -237,7 +237,7 @@ def test_irrelevant_keyword_not_added_to_title_even_with_metrics():
 
 
 def test_relevant_metric_keyword_can_enter_title():
-    from crosspilot.models import KeywordMetric
+    from surge.models import KeywordMetric
 
     payload = dict(DEMO_LISTING_REQUEST)
     payload["product"] = dict(DEMO_OWN_PRODUCT)

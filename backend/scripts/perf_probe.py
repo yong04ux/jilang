@@ -1,6 +1,6 @@
 """首屏接口性能探针：端到端耗时 + ``X-Perf`` 分段。
 
-用法（服务需以 ``CROSSPILOT_PROFILE=1`` 启动）：
+用法（服务需以 ``SURGE_PROFILE=1`` 启动）：
 
     python -m scripts.perf_probe --base http://127.0.0.1:8011 --rounds 5
 

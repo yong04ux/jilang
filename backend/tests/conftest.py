@@ -18,13 +18,13 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # 测试进程中一律清空，避免误用真实凭据
 _CREDENTIAL_ENV = (
-    "CROSSPILOT_DEEPSEEK_API_KEY",
-    "CROSSPILOT_OPENAI_API_KEY",
-    "CROSSPILOT_DEEPSEEK_BASE_URL",
-    "CROSSPILOT_OPENAI_BASE_URL",
-    "CROSSPILOT_PROVIDER",
-    "CROSSPILOT_DEEPSEEK_MODEL",
-    "CROSSPILOT_OPENAI_MODEL",
+    "SURGE_DEEPSEEK_API_KEY",
+    "SURGE_OPENAI_API_KEY",
+    "SURGE_DEEPSEEK_BASE_URL",
+    "SURGE_OPENAI_BASE_URL",
+    "SURGE_PROVIDER",
+    "SURGE_DEEPSEEK_MODEL",
+    "SURGE_OPENAI_MODEL",
     "DEEPSEEK_API_KEY",
     "OPENAI_API_KEY",
 )
@@ -34,18 +34,18 @@ _CREDENTIAL_ENV = (
 def _isolate_credentials(monkeypatch, tmp_path):
     """每个测试都从「无密钥、默认配置」出发。
 
-    同时把 CROSSPILOT_ENV_FILE 指向一个空文件，确保仓库根的 .env
+    同时把 SURGE_ENV_FILE 指向一个空文件，确保仓库根的 .env
     里的真实 Key 不会渗进测试（否则"缺 Key 应降级"的断言会失败）。
     """
     empty = tmp_path / "empty.env"
     empty.write_text("", encoding="utf-8")
-    monkeypatch.setenv("CROSSPILOT_ENV_FILE", str(empty))
+    monkeypatch.setenv("SURGE_ENV_FILE", str(empty))
     for name in _CREDENTIAL_ENV:
         monkeypatch.delenv(name, raising=False)
     # BYOK 在演示站默认强制；测试默认走"显式关闭"，这样确定性流程仍然可测。
     # 需要验证 428 的测试会自己把它打开（见 tests/test_demo_mode.py）。
-    monkeypatch.setenv("CROSSPILOT_REQUIRE_API_KEY", "false")
-    from crosspilot.config import get_settings
+    monkeypatch.setenv("SURGE_REQUIRE_API_KEY", "false")
+    from surge.config import get_settings
 
     get_settings.cache_clear()
     yield
@@ -54,14 +54,14 @@ def _isolate_credentials(monkeypatch, tmp_path):
 
 @pytest.fixture()
 def sample_analysis_request() -> dict:
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     return DEMO_ANALYSIS_REQUEST
 
 
 @pytest.fixture()
 def sample_listing_request() -> dict:
-    from crosspilot.demo.demo_data import DEMO_LISTING_REQUEST
+    from surge.demo.demo_data import DEMO_LISTING_REQUEST
 
     return DEMO_LISTING_REQUEST
 
@@ -75,12 +75,12 @@ def _pg_url() -> str:
 @pytest.fixture()
 def temp_settings(tmp_path, monkeypatch):
     """隔离数据目录与密钥，并把数据库指向测试用 PostgreSQL。"""
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_DATA_DIR", str(tmp_path))
-    monkeypatch.setenv("CROSSPILOT_DATABASE_URL", _pg_url())
+    monkeypatch.setenv("SURGE_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("SURGE_DATABASE_URL", _pg_url())
     # 固定测试密钥，避免每个测试生成新的密钥文件
-    monkeypatch.setenv("CROSSPILOT_SECRET_KEY", "pytest-fixed-secret-material")
+    monkeypatch.setenv("SURGE_SECRET_KEY", "pytest-fixed-secret-material")
     get_settings.cache_clear()
     settings = get_settings()
     yield settings
@@ -91,7 +91,7 @@ def temp_settings(tmp_path, monkeypatch):
 def client(temp_settings):
     from fastapi.testclient import TestClient
 
-    from crosspilot.app import create_app
+    from surge.app import create_app
     from pg_support import reset_schema
 
     reset_schema(temp_settings.database_url)

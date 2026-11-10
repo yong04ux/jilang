@@ -11,11 +11,11 @@
 
 from __future__ import annotations
 
-from crosspilot.eval import DIMENSIONS, build_suite, check, suite_stats
-from crosspilot.eval.assertions import BANNED_TERMS
-from crosspilot.eval.cases import KIND_COMBINED, KIND_LISTING
-from crosspilot.eval.known_issues import known_reason
-from crosspilot.eval.report import build_result, compare
+from surge.eval import DIMENSIONS, build_suite, check, suite_stats
+from surge.eval.assertions import BANNED_TERMS
+from surge.eval.cases import KIND_COMBINED, KIND_LISTING
+from surge.eval.known_issues import known_reason
+from surge.eval.report import build_result, compare
 
 
 def test_suite_covers_all_dimensions_and_exceeds_200_cases():

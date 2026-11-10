@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 
 
-from crosspilot.engine.rules import RuleSet, get_rules
-from crosspilot.config import load_json_config
+from surge.engine.rules import RuleSet, get_rules
+from surge.config import load_json_config
 
 
 def test_rules_load_platform_limits():

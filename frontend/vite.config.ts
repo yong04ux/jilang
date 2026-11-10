@@ -1,11 +1,11 @@
 /**
  * Vite 配置 —— 产物契约的唯一真源。
  *
- * 后端只认三个挂载点（backend/crosspilot/app.py:248-250）：
+ * 后端只认三个挂载点（backend/surge/app.py:248-250）：
  *   /css   -> web_dir/css
  *   /js    -> web_dir/js
  *   /media -> web_dir/assets      ← 注意：URL 前缀是 /media，磁盘目录名是 assets
- * 以及 web_dir/index.html（backend/crosspilot/api/meta.py:29）。
+ * 以及 web_dir/index.html（backend/surge/api/meta.py:29）。
  *
  * 因此构建产物必须是：dist/index.html + dist/css/* + dist/js/* + dist/assets/*
  * 而不是 Vite 默认的 dist/assets/*。以下四个插件就是为了守住这条契约。
@@ -41,7 +41,7 @@ const CSS_FILES = [
 
 /**
  * index.html 里的样式与旧脚本必须「原样进、原样出」：
- *   - 样式要保留 ?v=0，好让 backend/crosspilot/api/meta.py:119 把占位符换成构建戳；
+ *   - 样式要保留 ?v=0，好让 backend/surge/api/meta.py:119 把占位符换成构建戳；
  *   - 旧脚本不能被 Vite 当模块处理。
  * 做法：transformIndexHtml 的 pre 阶段摘出来，post 阶段放回去。
  */

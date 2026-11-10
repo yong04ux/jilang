@@ -1,6 +1,6 @@
 # 离线评测数据集
 
-这个目录放**评测的产物与基线**，代码在 `backend/crosspilot/eval/`。
+这个目录放**评测的产物与基线**，代码在 `backend/surge/eval/`。
 
 ## 跑法
 
@@ -22,9 +22,9 @@ cd backend
 python -m scripts.eval_llm --dry-run --repeats 1
 
 # 真跑：Key 走参数或环境变量
-export CROSSPILOT_EVAL_PROVIDER=deepseek
-export CROSSPILOT_EVAL_MODEL=deepseek-flash
-export CROSSPILOT_EVAL_API_KEY=sk-...
+export SURGE_EVAL_PROVIDER=deepseek
+export SURGE_EVAL_MODEL=deepseek-flash
+export SURGE_EVAL_API_KEY=sk-...
 python -m scripts.eval_llm --repeats 3 --write-report
 ```
 
@@ -50,7 +50,7 @@ python -m scripts.eval_llm --repeats 3 --write-report
 「商品资料完整度 × 竞品数量 × 是否写文案 × 会不会出错」的笛卡尔积，
 漏掉任何一格，那一格的回归就没人看着。
 
-生成器在 `backend/crosspilot/eval/cases.py`，**用固定清单穷举，不用随机数**。
+生成器在 `backend/surge/eval/cases.py`，**用固定清单穷举，不用随机数**。
 所以同一份代码跑出来的用例 id、输入、期望完全一致——`latest.json` 才能逐条 diff。
 
 四个维度：
@@ -80,6 +80,6 @@ python -m scripts.eval_llm --repeats 3 --write-report
 
 ## 已知问题
 
-确认过、暂不修的行为登记在 `backend/crosspilot/eval/known_issues.py`。
+确认过、暂不修的行为登记在 `backend/surge/eval/known_issues.py`。
 它们**不算通过也不算未通过**，单独计数，`--check` 不会挡住它们，
 但每次报告都会列出来——这样红灯不会因为"看习惯了"而失去意义。

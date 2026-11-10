@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.llm.provider_configs import (
+from surge.llm.provider_configs import (
     ProviderConfigError,
     validate_base_url,
 )
@@ -285,9 +285,9 @@ def test_missing_key_is_rejected(client):
 
 
 def test_demo_account_cannot_save_provider_config(client, monkeypatch):
-    from crosspilot.config import get_settings
+    from surge.config import get_settings
 
-    monkeypatch.setenv("CROSSPILOT_DEMO_PASSWORD", "demo-pass-1234")
+    monkeypatch.setenv("SURGE_DEMO_PASSWORD", "demo-pass-1234")
     get_settings.cache_clear()
     try:
         from pg_support import database_url, reset_schema
@@ -296,7 +296,7 @@ def test_demo_account_cannot_save_provider_config(client, monkeypatch):
         # 重新建 app 才会创建 demo 账号
         from fastapi.testclient import TestClient
 
-        from crosspilot.app import create_app
+        from surge.app import create_app
 
         app = create_app()
         with TestClient(app) as fresh:
@@ -325,8 +325,8 @@ def test_provider_test_failure_shows_chinese_hint_not_vendor_raw():
 
     演示站里访客看到 ``Error code: 401 - {'error': {...}}`` 会一头雾水。
     """
-    from crosspilot.api.settings import _test_failure
-    from crosspilot.llm.llm import LLMError
+    from surge.api.settings import _test_failure
+    from surge.llm.llm import LLMError
 
     hint, raw = _test_failure(
         LLMError(
@@ -350,7 +350,7 @@ def test_provider_test_failure_shows_chinese_hint_not_vendor_raw():
 
 def test_presets_expose_common_models():
     """预置表要带上候选模型名，设置页的下拉才有货。"""
-    from crosspilot.llm.provider_configs import PRESET_BY_KEY, provider_presets
+    from surge.llm.provider_configs import PRESET_BY_KEY, provider_presets
 
     presets = provider_presets()
     deepseek = next(p for p in presets if p["key"] == "deepseek")
@@ -386,7 +386,7 @@ def test_list_models_rejects_rule_provider(client):
 
 def test_list_models_returns_provider_catalog(client, monkeypatch):
     """拿到的是服务端返回的清单，不是本地硬编码那份。"""
-    from crosspilot.llm.providers import DeepSeekProvider
+    from surge.llm.providers import DeepSeekProvider
 
     monkeypatch.setattr(
         DeepSeekProvider,
@@ -408,8 +408,8 @@ def test_list_models_returns_provider_catalog(client, monkeypatch):
 
 def test_list_models_reports_auth_failure_in_chinese(client, monkeypatch):
     """读取失败要给中文原因，不能把 SDK 异常原文甩给访客。"""
-    from crosspilot.llm.llm import LLMError
-    from crosspilot.llm.providers import DeepSeekProvider
+    from surge.llm.llm import LLMError
+    from surge.llm.providers import DeepSeekProvider
 
     def boom(self):
         raise LLMError("Error code: 401 - invalid_api_key", kind="auth")

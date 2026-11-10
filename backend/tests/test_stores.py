@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from crosspilot.services.connectors import (
+from surge.services.connectors import (
     ConnectorError,
     LiveStoreConnector,
     build_connector,

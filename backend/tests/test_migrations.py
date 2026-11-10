@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.persistence.db import Database
-from crosspilot.persistence.migrations import MIGRATIONS, apply_migrations
+from surge.persistence.db import Database
+from surge.persistence.migrations import MIGRATIONS, apply_migrations
 
 
 @pytest.fixture()

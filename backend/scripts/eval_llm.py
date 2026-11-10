@@ -2,12 +2,12 @@
 
     # 真模型（Key 走参数或环境变量）
     python -m scripts.eval_llm --provider deepseek --model deepseek-flash \
-        --api-key $CROSSPILOT_EVAL_API_KEY --repeats 3
+        --api-key $SURGE_EVAL_API_KEY --repeats 3
 
     # 干跑：用规则引擎验证评测链路本身（不代表模型质量）
     python -m scripts.eval_llm --dry-run --repeats 1
 
-环境变量（参数优先）：``CROSSPILOT_EVAL_PROVIDER`` / ``_MODEL`` / ``_API_KEY`` / ``_BASE_URL``
+环境变量（参数优先）：``SURGE_EVAL_PROVIDER`` / ``_MODEL`` / ``_API_KEY`` / ``_BASE_URL``
 
 产物：``examples/eval/llm-latest.json``（含逐用例分数与波动，可入库做趋势）
 """
@@ -68,10 +68,10 @@ def _markdown(result: dict) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="大模型写作质量评测（Listing）")
-    parser.add_argument("--provider", default=os.environ.get("CROSSPILOT_EVAL_PROVIDER", ""))
-    parser.add_argument("--model", default=os.environ.get("CROSSPILOT_EVAL_MODEL", ""))
-    parser.add_argument("--api-key", default=os.environ.get("CROSSPILOT_EVAL_API_KEY", ""))
-    parser.add_argument("--base-url", default=os.environ.get("CROSSPILOT_EVAL_BASE_URL", ""))
+    parser.add_argument("--provider", default=os.environ.get("SURGE_EVAL_PROVIDER", ""))
+    parser.add_argument("--model", default=os.environ.get("SURGE_EVAL_MODEL", ""))
+    parser.add_argument("--api-key", default=os.environ.get("SURGE_EVAL_API_KEY", ""))
+    parser.add_argument("--base-url", default=os.environ.get("SURGE_EVAL_BASE_URL", ""))
     parser.add_argument("--repeats", type=int, default=3, help="每条用例重复次数（默认 3）")
     parser.add_argument("--only", default="", help="只跑某个 case_id 前缀")
     parser.add_argument("--dry-run", action="store_true", help="用规则引擎干跑，验证链路")
@@ -80,8 +80,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args(argv)
 
-    from crosspilot.eval.live_cases import build_live_suite
-    from crosspilot.eval.live_runner import (
+    from surge.eval.live_cases import build_live_suite
+    from surge.eval.live_runner import (
         LiveEvalError,
         assert_not_fallback,
         build_live_provider,
@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         if not (args.provider and args.model and args.api_key):
             print(
                 "缺少模型凭据：需要 --provider / --model / --api-key，"
-                "或设置 CROSSPILOT_EVAL_PROVIDER / _MODEL / _API_KEY。\n"
+                "或设置 SURGE_EVAL_PROVIDER / _MODEL / _API_KEY。\n"
                 "只想验证评测链路可以加 --dry-run。",
                 file=sys.stderr,
             )

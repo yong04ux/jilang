@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from crosspilot.engine.analysis import (
+from surge.engine.analysis import (
     analyze_keywords,
     analyze_prices,
     normalize,
     run_analysis,
     validate_request,
 )
-from crosspilot.models import (
+from surge.models import (
     CompetitorAnalysisRequest,
     CompetitorProduct,
     EvidenceKind,
@@ -146,7 +146,7 @@ def test_keywords_with_metrics_compute_score_without_fabricating_missing_fields(
 
 
 def test_keyword_opportunity_cannot_carry_metrics_without_data():
-    from crosspilot.models import KeywordOpportunity
+    from surge.models import KeywordOpportunity
 
     with pytest.raises(ValueError):
         KeywordOpportunity(keyword="x", has_metrics=False, search_volume=500)
@@ -188,7 +188,7 @@ def test_negated_pain_phrase_not_counted_as_negative():
 
 
 def test_demo_mode_is_flagged_and_disclaimed():
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     report = run_analysis(CompetitorAnalysisRequest(**DEMO_ANALYSIS_REQUEST))
     assert report.data_provenance.is_demo is True
@@ -197,7 +197,7 @@ def test_demo_mode_is_flagged_and_disclaimed():
 
 
 def test_report_can_be_serialized_roundtrip():
-    from crosspilot.models import AnalysisReport
+    from surge.models import AnalysisReport
 
     report = run_analysis(_request())
     dumped = report.model_dump(mode="json")
@@ -208,7 +208,7 @@ def test_report_can_be_serialized_roundtrip():
 
 def test_cross_language_feature_comparison_is_flagged_in_limitations():
     """中文自有卖点 vs 英文竞品卖点的匹配不可靠，必须在限制中说明。"""
-    from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+    from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
     report = run_analysis(CompetitorAnalysisRequest(**DEMO_ANALYSIS_REQUEST))
     joined = " ".join(report.limitations)

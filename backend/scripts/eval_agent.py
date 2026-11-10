@@ -29,8 +29,8 @@ DEFAULT_REPORT = ROOT / "docs" / "eval-report.md"
 
 
 def _run(cases, quiet: bool) -> tuple[list[dict], list[list[str]], list[str]]:
-    from crosspilot.eval import check, observe
-    from crosspilot.eval.known_issues import known_reason
+    from surge.eval import check, observe
+    from surge.eval.known_issues import known_reason
 
     observations: list[dict] = []
     verdicts: list[list[str]] = []
@@ -72,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quiet", action="store_true", help="不逐条打印，只给摘要")
     args = parser.parse_args(argv)
 
-    from crosspilot.eval import (
+    from surge.eval import (
         DIMENSIONS,
         build_result,
         build_suite,

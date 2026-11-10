@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from crosspilot.ingest.importers import (
+from surge.ingest.importers import (
     ImportValidationError,
     import_competitor_data,
     load_csv_rows,

@@ -7,9 +7,9 @@
 from __future__ import annotations
 
 
-from crosspilot.agent import registry, workflows
-from crosspilot.agent.planner import plan_for
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.agent import registry, workflows
+from surge.agent.planner import plan_for
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
 
 
 def register(client, username: str) -> dict:
@@ -74,7 +74,7 @@ def test_unknown_agent_404(client):
 
 def test_seed_is_idempotent(client):
     """重复播种不应产生重复行。"""
-    from crosspilot.app import create_app
+    from surge.app import create_app
 
     app = create_app()
     # 重建 app 会再次 seed；数量应保持不变
@@ -232,7 +232,7 @@ def test_agent_run_failure_marks_task_failed(client, monkeypatch):
 
     # 让图里的竞品分析节点失败（比 provider 构造失败更贴近真实故障）。
     #  起竞品子图直接调 engine.analysis.run_analysis，打桩点随之改变。
-    monkeypatch.setattr("crosspilot.engine.analysis.run_analysis", boom)
+    monkeypatch.setattr("surge.engine.analysis.run_analysis", boom)
     resp = client.post("/api/agent/runs", json=agent_payload(), headers=headers)
     assert resp.status_code == 500
     payload = resp.json()["detail"]

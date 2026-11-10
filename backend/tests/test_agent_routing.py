@@ -8,9 +8,9 @@
 
 from __future__ import annotations
 
-from crosspilot.agent.routing import decide
-from crosspilot.demo.demo_data import DEMO_ANALYSIS_REQUEST
-from crosspilot.skills.discovery import catalog
+from surge.agent.routing import decide
+from surge.demo.demo_data import DEMO_ANALYSIS_REQUEST
+from surge.skills.discovery import catalog
 
 
 class FakeClient:
